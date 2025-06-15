@@ -1,2 +1,2 @@
-# -n-chuy-n-ng-nh---GymForge
+#GymForge
 blad blad
