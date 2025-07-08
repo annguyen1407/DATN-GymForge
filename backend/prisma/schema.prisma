@@ -1,0 +1,385 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === ENUM DEFINITIONS ===
+enum UserRole {
+  ADMIN
+  COACH
+  GYMER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum TrainingRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  MOMO
+  VNPAY
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum PlanType {
+  STRENGTH
+  CARDIO
+  FLEXIBILITY
+  COMBINED
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+// === MODEL DEFINITIONS ===
+model User {
+  id              String             @id @default(uuid()) @db.Uuid
+  name            String?
+  email           String?            @unique
+  username        String?            @unique
+  password        String?
+  profilePicture  String?
+  dateOfBirth     DateTime?          @db.Date
+  address         String?
+  role            UserRole?
+  phoneNumber     String?
+  premiumStatus   Boolean?           @default(false)
+  weight          Float?
+  height          Float?
+  biography       String?
+  goal            String?
+  oneRm           Float?             @map("1RM")
+  expType         String?
+  sex             Gender?
+
+  // relations
+  achievements      Achievement[]
+  payments          Payment[]
+  notifications     Notification[]
+  messages          Message[]
+  logs              Log[]
+  workoutPlans      WorkoutPlan[]
+  exercises         Exercise[]
+  // coach/gymer profiles
+  coachProfile      Coach?             @relation("UserCoach")
+  gymerProfile      Gymer?             @relation("UserGymer")
+
+  @@map("users")
+}
+
+model Coach {
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String             @unique @db.Uuid
+  certification        String?
+  status               String?
+  averageRating        Float?             @default(0)
+  feedbackCount        Int?               @default(0)
+
+  user                 User               @relation("UserCoach", fields: [userId], references: [id])
+  appointments         Appointment[]
+  conversations        Conversation[]
+  feedbacks            Feedback[]
+  trainingRequestsSent TrainingRequest[]  @relation("SentRequests")
+
+  @@map("coaches")
+}
+
+model Gymer {
+  id                     String             @id @default(uuid()) @db.Uuid
+  userId                 String             @unique @db.Uuid
+
+  user                   User               @relation("UserGymer", fields: [userId], references: [id])
+  appointments           Appointment[]
+  conversations          Conversation[]
+  feedbacks              Feedback[]
+  trainingRequestsReceived TrainingRequest[] @relation("ReceivedRequests")
+
+  @@map("gymers")
+}
+
+model TrainingRequest {
+  id           String                  @id @default(uuid()) @db.Uuid
+  gymerId      String                  @db.Uuid
+  coachId      String                  @db.Uuid
+  status       TrainingRequestStatus?  @default(PENDING)
+  requestedAt  DateTime                @default(now())
+
+  coach        Coach                   @relation(fields: [coachId], references: [id], name: "SentRequests")
+  gymer        Gymer                   @relation(fields: [gymerId], references: [id], name: "ReceivedRequests")
+
+  @@map("training_requests")
+}
+
+model Feedback {
+  id         String   @id @default(uuid()) @db.Uuid
+  gymerId    String   @db.Uuid
+  coachId    String   @db.Uuid
+  rating     Float?
+  content    String?
+  createdAt  DateTime @default(now())
+
+  coach      Coach    @relation(fields: [coachId], references: [id])
+  gymer      Gymer    @relation(fields: [gymerId], references: [id])
+
+  @@map("feedbacks")
+}
+
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  coachId   String    @db.Uuid
+  gymerId   String    @db.Uuid
+
+  coach     Coach     @relation(fields: [coachId], references: [id])
+  gymer     Gymer     @relation(fields: [gymerId], references: [id])
+  messages  Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String       @id @default(uuid()) @db.Uuid
+  conversationId  String       @db.Uuid
+  senderId        String       @db.Uuid
+  content         String?
+  createdAt       DateTime     @default(now())
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  sender          User         @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+model Appointment {
+  id                String            @id @default(uuid()) @db.Uuid
+  gymerId           String            @db.Uuid
+  coachId           String            @db.Uuid
+  date              DateTime?
+  workoutExerciseId String?           @db.Uuid
+  note              String?
+  status            AppointmentStatus? @default(PENDING)
+  location          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  gymer             Gymer             @relation(fields: [gymerId], references: [id])
+  coach             Coach             @relation(fields: [coachId], references: [id])
+  workoutExercise   WorkoutExercise?  @relation(fields: [workoutExerciseId], references: [id])
+
+  @@map("appointments")
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  message    String?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model Payment {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @db.Uuid
+  amount       Float?
+  method       PaymentMethod?
+  status       PaymentStatus? @default(PENDING)
+  paymentDate  DateTime       @default(now())
+
+  user         User           @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model Achievement {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  description String?
+  achievedAt  DateTime? @db.Date
+  type        String?
+
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("achievements")
+}
+
+model WorkoutPlan {
+  id          String            @id @default(uuid()) @db.Uuid
+  userId      String            @db.Uuid
+  name        String?
+  description String?
+  picture     String?           @map("workout_plan_picture")
+  planType    PlanType?
+  status      PlanStatus?       @default(ACTIVE)
+  days        Int?
+
+  user        User              @relation(fields: [userId], references: [id])
+  exercises   WorkoutExercise[]
+
+  @@map("workout_plans")
+}
+
+model WorkoutExercise {
+  id              String         @id @default(uuid()) @db.Uuid
+  workoutPlanId   String         @db.Uuid
+  exerciseId      String?        @db.Uuid
+  dayNumber       Int?
+  weight          Float?
+
+  workoutPlan     WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
+  appointments    Appointment[]
+
+  @@map("workout_exercises")
+}
+
+model Exercise {
+  id               String                @id @default(uuid()) @db.Uuid
+  userId           String?               @db.Uuid
+  name             String?
+  equipmentId      String?               @db.Uuid
+  description      String?
+  instruction      String?
+  videoUrl         String?
+  met              Float?
+  defaultWeight    Float?                @map("weight")
+  defaultSets      Int?                  @map("sets")
+  defaultReps      Int?                  @map("reps_per_set")
+  restTime         Int?                  @map("time_rest")
+
+  user             User?                  @relation(fields: [userId], references: [id])
+  muscleGroups     ExerciseMuscleGroup[]
+
+  @@map("exercises")
+}
+
+model MuscleGroup {
+  id          String                @id @default(uuid()) @db.Uuid
+  name        String?
+
+  exercises   ExerciseMuscleGroup[]
+
+  @@map("muscle_groups")
+}
+
+model ExerciseMuscleGroup {
+  id              String         @id @default(uuid()) @db.Uuid
+  exerciseId      String         @db.Uuid
+  muscleGroupId   String         @db.Uuid
+
+  exercise        Exercise       @relation(fields: [exerciseId], references: [id])
+  muscleGroup     MuscleGroup    @relation(fields: [muscleGroupId], references: [id])
+
+  @@map("exercise_muscle_groups")
+}
+
+model Equipment {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String?
+  picture           String?   @map("equipment_picture")
+
+  @@map("equipment")
+}
+
+model Log {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  userId              String                 @db.Uuid
+  dateLogged          DateTime?              @db.Date
+  weight              Float?
+  height              Float?
+  caloriesBurned      Float?                 @map("calo_burned")
+  caloriesIntake      Float?                 @map("calo_input")
+  notes               String?
+  mealId              String?                @db.Uuid
+
+  user                User                   @relation(fields: [userId], references: [id])
+  workoutExerciseLogs WorkoutExerciseLog[]
+
+  @@map("logs")
+}
+
+model Meal {
+  id         String    @id @default(uuid()) @db.Uuid
+  date       DateTime? @db.Date
+  calories   Float?    @map("calo_input")
+  type       MealType? @map("meal_type")
+  name       String?
+
+  @@map("meals")
+}
+
+model WorkoutExerciseLog {
+  id                  String    @id @default(uuid()) @db.Uuid
+  logId               String    @db.Uuid
+  workoutExerciseId   String    @db.Uuid
+  date                DateTime? @db.Date
+  progressPercent     Float?
+  caloriesBurned      Float?    @map("calo_burned")
+  dayNumber           Int?
+
+  log                 Log       @relation(fields: [logId], references: [id])
+
+  @@map("workout_exercise_logs")
+}
+
+model ExerciseLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  workoutLogId  String    @db.Uuid
+
+  setsLog       SetsLog[] @relation("ExerciseLogSets")
+
+  @@map("exercise_logs")
+}
+
+model SetsLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  exerciseLogId  String        @db.Uuid
+  setNumber      Int?
+  reps           Int?
+  times          Int?
+  weight         Float?
+  caloriesBurned Float?        @map("calo_burned")
+
+  exerciseLog    ExerciseLog   @relation(fields: [exerciseLogId], references: [id], name: "ExerciseLogSets")
+
+  @@map("sets_logs")
+}

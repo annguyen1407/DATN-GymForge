@@ -1,0 +1,267 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { WorkoutPlansService } from './workout-plans.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { PlanType, PlanStatus } from '@prisma/client';
+
+describe('WorkoutPlansService', () => {
+  let service: WorkoutPlansService;
+  let prismaService: PrismaService;
+
+  const mockUser = {
+    id: 'user-id',
+    name: 'Test User',
+    email: 'test@example.com',
+    role: 'GYMER',
+  };
+
+  const mockWorkoutPlan = {
+    id: 'workout-plan-id',
+    userId: 'user-id',
+    name: 'Full Body Workout',
+    description: 'A comprehensive workout plan',
+    planType: PlanType.STRENGTH,
+    status: PlanStatus.ACTIVE,
+    days: 30,
+    picture: null,
+    user: mockUser,
+    exercises: [],
+  };
+
+  const mockWorkoutExercise = {
+    id: 'workout-exercise-id',
+    workoutPlanId: 'workout-plan-id',
+    exerciseId: 'exercise-id',
+    dayNumber: 1,
+    weight: 50.0,
+    workoutPlan: mockWorkoutPlan,
+  };
+
+  const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+    },
+    workoutPlan: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    workoutExercise: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WorkoutPlansService,
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<WorkoutPlansService>(WorkoutPlansService);
+    prismaService = module.get<PrismaService>(PrismaService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('create', () => {
+    const createWorkoutPlanDto = {
+      userId: 'user-id',
+      name: 'Full Body Workout',
+      description: 'A comprehensive workout plan',
+      planType: PlanType.STRENGTH,
+      status: PlanStatus.ACTIVE,
+      days: 30,
+    };
+
+    it('should create a workout plan successfully', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.workoutPlan.create.mockResolvedValue(mockWorkoutPlan);
+
+      const result = await service.create(createWorkoutPlanDto);
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: createWorkoutPlanDto.userId },
+      });
+      expect(mockPrismaService.workoutPlan.create).toHaveBeenCalledWith({
+        data: createWorkoutPlanDto,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          exercises: true,
+        },
+      });
+      expect(result).toEqual(mockWorkoutPlan);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(createWorkoutPlanDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return all workout plans', async () => {
+      const workoutPlans = [mockWorkoutPlan];
+      mockPrismaService.workoutPlan.findMany.mockResolvedValue(workoutPlans);
+
+      const result = await service.findAll();
+
+      expect(mockPrismaService.workoutPlan.findMany).toHaveBeenCalledWith({
+        where: {},
+        include: expect.any(Object),
+        orderBy: { name: 'asc' },
+      });
+      expect(result).toEqual(workoutPlans);
+    });
+
+    it('should filter by userId when provided', async () => {
+      const workoutPlans = [mockWorkoutPlan];
+      mockPrismaService.workoutPlan.findMany.mockResolvedValue(workoutPlans);
+
+      const result = await service.findAll('user-id');
+
+      expect(mockPrismaService.workoutPlan.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+        include: expect.any(Object),
+        orderBy: { name: 'asc' },
+      });
+      expect(result).toEqual(workoutPlans);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a workout plan by id', async () => {
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
+
+      const result = await service.findOne('workout-plan-id');
+
+      expect(mockPrismaService.workoutPlan.findUnique).toHaveBeenCalledWith({
+        where: { id: 'workout-plan-id' },
+        include: expect.any(Object),
+      });
+      expect(result).toEqual(mockWorkoutPlan);
+    });
+
+    it('should throw NotFoundException if workout plan not found', async () => {
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne('invalid-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    const updateWorkoutPlanDto = {
+      name: 'Updated Workout Plan',
+      description: 'Updated description',
+    };
+
+    it('should update a workout plan successfully', async () => {
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
+      const updatedWorkoutPlan = { ...mockWorkoutPlan, ...updateWorkoutPlanDto };
+      mockPrismaService.workoutPlan.update.mockResolvedValue(updatedWorkoutPlan);
+
+      const result = await service.update('workout-plan-id', updateWorkoutPlanDto, 'user-id');
+
+      expect(mockPrismaService.workoutPlan.update).toHaveBeenCalledWith({
+        where: { id: 'workout-plan-id' },
+        data: updateWorkoutPlanDto,
+        include: expect.any(Object),
+      });
+      expect(result).toEqual(updatedWorkoutPlan);
+    });
+
+    it('should throw ForbiddenException if user does not own the workout plan', async () => {
+      const otherUserWorkoutPlan = { ...mockWorkoutPlan, userId: 'other-user-id' };
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(otherUserWorkoutPlan);
+      mockPrismaService.user.findUnique.mockResolvedValue({ ...mockUser, role: 'GYMER' });
+
+      await expect(
+        service.update('workout-plan-id', updateWorkoutPlanDto, 'user-id')
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow admin to update any workout plan', async () => {
+      const otherUserWorkoutPlan = { ...mockWorkoutPlan, userId: 'other-user-id' };
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(otherUserWorkoutPlan);
+      mockPrismaService.user.findUnique.mockResolvedValue({ ...mockUser, role: 'ADMIN' });
+      const updatedWorkoutPlan = { ...otherUserWorkoutPlan, ...updateWorkoutPlanDto };
+      mockPrismaService.workoutPlan.update.mockResolvedValue(updatedWorkoutPlan);
+
+      const result = await service.update('workout-plan-id', updateWorkoutPlanDto, 'user-id');
+
+      expect(result).toEqual(updatedWorkoutPlan);
+    });
+  });
+
+  describe('addExercise', () => {
+    const createWorkoutExerciseDto = {
+      workoutPlanId: 'workout-plan-id',
+      exerciseId: 'exercise-id',
+      dayNumber: 1,
+      weight: 50.0,
+    };
+
+    it('should add exercise to workout plan successfully', async () => {
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
+      mockPrismaService.workoutExercise.create.mockResolvedValue(mockWorkoutExercise);
+
+      const result = await service.addExercise(createWorkoutExerciseDto);
+
+      expect(mockPrismaService.workoutPlan.findUnique).toHaveBeenCalledWith({
+        where: { id: createWorkoutExerciseDto.workoutPlanId },
+      });
+      expect(mockPrismaService.workoutExercise.create).toHaveBeenCalledWith({
+        data: createWorkoutExerciseDto,
+        include: { workoutPlan: true },
+      });
+      expect(result).toEqual(mockWorkoutExercise);
+    });
+
+    it('should throw NotFoundException if workout plan does not exist', async () => {
+      mockPrismaService.workoutPlan.findUnique.mockResolvedValue(null);
+
+      await expect(service.addExercise(createWorkoutExerciseDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('removeExercise', () => {
+    it('should remove exercise from workout plan successfully', async () => {
+      mockPrismaService.workoutExercise.findUnique.mockResolvedValue(mockWorkoutExercise);
+      mockPrismaService.workoutExercise.delete.mockResolvedValue(mockWorkoutExercise);
+
+      const result = await service.removeExercise('workout-exercise-id');
+
+      expect(mockPrismaService.workoutExercise.findUnique).toHaveBeenCalledWith({
+        where: { id: 'workout-exercise-id' },
+      });
+      expect(mockPrismaService.workoutExercise.delete).toHaveBeenCalledWith({
+        where: { id: 'workout-exercise-id' },
+      });
+      expect(result).toEqual(mockWorkoutExercise);
+    });
+
+    it('should throw NotFoundException if workout exercise does not exist', async () => {
+      mockPrismaService.workoutExercise.findUnique.mockResolvedValue(null);
+
+      await expect(service.removeExercise('invalid-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+});
