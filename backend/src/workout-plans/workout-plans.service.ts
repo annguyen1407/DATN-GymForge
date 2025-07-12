@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkoutPlan, WorkoutExercise } from '@prisma/client';
 import { CreateWorkoutPlanDto } from './dto/create-workout-plan.dto';
@@ -9,7 +9,7 @@ import { CreateWorkoutExerciseDto } from './dto/create-workout-exercise.dto';
 export class WorkoutPlansService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createWorkoutPlanDto: CreateWorkoutPlanDto): Promise<WorkoutPlan> {
+  async create(createWorkoutPlanDto: CreateWorkoutPlanDto, currentUserId?: string): Promise<WorkoutPlan> {
     // Verify user exists
     const user = await this.prisma.user.findUnique({
       where: { id: createWorkoutPlanDto.userId },
@@ -17,6 +17,28 @@ export class WorkoutPlansService {
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    // Check permissions: users can only create plans for themselves unless they're admin/coach
+    if (currentUserId && currentUserId !== createWorkoutPlanDto.userId) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: currentUserId },
+      });
+
+      if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
+        throw new ForbiddenException('You can only create workout plans for yourself');
+      }
+    }
+
+    // Only ADMIN and COACH can create templates
+    if (createWorkoutPlanDto.isTemplate && currentUserId) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: currentUserId },
+      });
+
+      if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
+        throw new ForbiddenException('Only admins and coaches can create templates');
+      }
     }
 
     return this.prisma.workoutPlan.create({
@@ -35,7 +57,7 @@ export class WorkoutPlansService {
   }
 
   async findAll(userId?: string): Promise<WorkoutPlan[]> {
-    const where = userId ? { userId } : {};
+    const where = userId ? { userId, isTemplate: false } : { isTemplate: false };
 
     return this.prisma.workoutPlan.findMany({
       where,
@@ -45,6 +67,64 @@ export class WorkoutPlansService {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        exercises: true,
+        _count: {
+          select: {
+            exercises: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
+  async findTemplates(planType?: string, currentUserId?: string): Promise<WorkoutPlan[]> {
+    const where: any = { isTemplate: true };
+    if (planType) {
+      where.planType = planType;
+    }
+
+    return this.prisma.workoutPlan.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        exercises: true,
+        _count: {
+          select: {
+            exercises: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
+  async findTemplatesByCreator(creatorId: string): Promise<WorkoutPlan[]> {
+    return this.prisma.workoutPlan.findMany({
+      where: {
+        userId: creatorId,
+        isTemplate: true
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
           },
         },
         exercises: true,
@@ -88,7 +168,7 @@ export class WorkoutPlansService {
 
   async findByUserId(userId: string): Promise<WorkoutPlan[]> {
     return this.prisma.workoutPlan.findMany({
-      where: { userId },
+      where: { userId, isTemplate: false },
       include: {
         exercises: true,
         _count: {
@@ -99,6 +179,129 @@ export class WorkoutPlansService {
       },
       orderBy: {
         name: 'asc',
+      },
+    });
+  }
+
+  async createFromTemplate(
+    templateId: string,
+    createData: { userId: string; name?: string; description?: string },
+    currentUserId?: string
+  ): Promise<WorkoutPlan> {
+    // Find the template
+    const template = await this.prisma.workoutPlan.findUnique({
+      where: { id: templateId },
+      include: {
+        exercises: true,
+      },
+    });
+
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    if (!template.isTemplate) {
+      throw new BadRequestException('The specified workout plan is not a template');
+    }
+
+    // Verify target user exists
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: createData.userId },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Target user not found');
+    }
+
+    // Check permissions: users can only create plans for themselves unless they're admin/coach
+    if (currentUserId && currentUserId !== createData.userId) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: currentUserId },
+      });
+
+      if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
+        throw new ForbiddenException('You can only create workout plans for yourself');
+      }
+    }
+
+    // Create new workout plan from template
+    const newWorkoutPlan = await this.prisma.workoutPlan.create({
+      data: {
+        userId: createData.userId,
+        name: createData.name || `${template.name} (Copy)`,
+        description: createData.description || template.description,
+        picture: template.picture,
+        planType: template.planType,
+        status: template.status,
+        days: template.days,
+        isTemplate: false, // The copy is not a template
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        exercises: true,
+      },
+    });
+
+    // Copy exercises from template
+    if (template.exercises.length > 0) {
+      const exerciseData = template.exercises.map(exercise => ({
+        workoutPlanId: newWorkoutPlan.id,
+        exerciseId: exercise.exerciseId,
+        dayNumber: exercise.dayNumber,
+        weight: exercise.weight,
+      }));
+
+      await this.prisma.workoutExercise.createMany({
+        data: exerciseData,
+      });
+    }
+
+    // Return the complete workout plan with exercises
+    return this.findOne(newWorkoutPlan.id);
+  }
+
+  async toggleTemplateStatus(id: string, isTemplate: boolean, currentUserId: string): Promise<WorkoutPlan> {
+    const workoutPlan = await this.findOne(id);
+
+    // Check if user owns this workout plan or is admin
+    if (workoutPlan.userId !== currentUserId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: currentUserId },
+      });
+      if (!user || user.role !== 'ADMIN') {
+        throw new ForbiddenException('You can only modify your own workout plans');
+      }
+    }
+
+    // Only ADMIN and COACH can create templates
+    if (isTemplate) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: currentUserId },
+      });
+
+      if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
+        throw new ForbiddenException('Only admins and coaches can create templates');
+      }
+    }
+
+    return this.prisma.workoutPlan.update({
+      where: { id },
+      data: { isTemplate },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        exercises: true,
       },
     });
   }

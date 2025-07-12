@@ -252,6 +252,7 @@ model WorkoutPlan {
   planType    PlanType?
   status      PlanStatus?       @default(ACTIVE)
   days        Int?
+  isTemplate  Boolean?          @default(false)
 
   user        User              @relation(fields: [userId], references: [id])
   exercises   WorkoutExercise[]
@@ -260,14 +261,15 @@ model WorkoutPlan {
 }
 
 model WorkoutExercise {
-  id              String         @id @default(uuid()) @db.Uuid
-  workoutPlanId   String         @db.Uuid
-  exerciseId      String?        @db.Uuid
-  dayNumber       Int?
-  weight          Float?
+  id                  String         @id @default(uuid()) @db.Uuid
+  workoutPlanId       String         @db.Uuid
+  exerciseId          String?        @db.Uuid
+  dayNumber           Int?
+  weight              Float?
 
-  workoutPlan     WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
-  appointments    Appointment[]
+  workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
+  appointments        Appointment[]
+  WorkoutExerciseLog  WorkoutExerciseLog[]
 
   @@map("workout_exercises")
 }
@@ -357,6 +359,7 @@ model WorkoutExerciseLog {
   dayNumber           Int?
 
   log                 Log       @relation(fields: [logId], references: [id])
+  workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id])
 
   @@map("workout_exercise_logs")
 }
