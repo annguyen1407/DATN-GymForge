@@ -71,24 +71,40 @@ enum PlanStatus {
 
 // === MODEL DEFINITIONS ===
 model User {
-  id              String             @id @default(uuid()) @db.Uuid
-  name            String?
-  email           String?            @unique
-  username        String?            @unique
-  password        String?
-  profilePicture  String?
-  dateOfBirth     DateTime?          @db.Date
-  address         String?
-  role            UserRole?
-  phoneNumber     String?
-  premiumStatus   Boolean?           @default(false)
-  weight          Float?
-  height          Float?
-  biography       String?
-  goal            String?
-  oneRm           Float?             @map("1RM")
-  expType         String?
-  sex             Gender?
+  id                        String             @id @default(uuid()) @db.Uuid
+  name                      String?
+  email                     String?            @unique
+  username                  String?            @unique
+  password                  String?
+  profilePicture            String?
+  dateOfBirth               DateTime?          @db.Date
+  address                   String?
+  role                      UserRole?
+  phoneNumber               String?
+  premiumStatus             Boolean?           @default(false)
+  weight                    Float?
+  height                    Float?
+  biography                 String?
+  goal                      String?
+  oneRm                     Float?             @map("1RM")
+  expType                   String?
+  sex                       Gender?
+
+  // Email verification fields
+  isEmailVerified           Boolean?           @default(false)
+  emailVerificationToken    String?
+  emailVerificationExpires  DateTime?
+
+  // Password reset fields
+  passwordResetToken        String?
+  passwordResetExpires      DateTime?
+
+  // OAuth fields
+  googleId                  String?
+
+  // Timestamps
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
 
   // relations
   achievements      Achievement[]
