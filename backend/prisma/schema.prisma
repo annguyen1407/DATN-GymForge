@@ -71,24 +71,40 @@ enum PlanStatus {
 
 // === MODEL DEFINITIONS ===
 model User {
-  id              String             @id @default(uuid()) @db.Uuid
-  name            String?
-  email           String?            @unique
-  username        String?            @unique
-  password        String?
-  profilePicture  String?
-  dateOfBirth     DateTime?          @db.Date
-  address         String?
-  role            UserRole?
-  phoneNumber     String?
-  premiumStatus   Boolean?           @default(false)
-  weight          Float?
-  height          Float?
-  biography       String?
-  goal            String?
-  oneRm           Float?             @map("1RM")
-  expType         String?
-  sex             Gender?
+  id                        String             @id @default(uuid()) @db.Uuid
+  name                      String?
+  email                     String?            @unique
+  username                  String?            @unique
+  password                  String?
+  profilePicture            String?
+  dateOfBirth               DateTime?          @db.Date
+  address                   String?
+  role                      UserRole?
+  phoneNumber               String?
+  premiumStatus             Boolean?           @default(false)
+  weight                    Float?
+  height                    Float?
+  biography                 String?
+  goal                      String?
+  oneRm                     Float?             @map("1RM")
+  expType                   String?
+  sex                       Gender?
+
+  // Email verification fields
+  isEmailVerified           Boolean?           @default(false)
+  emailVerificationToken    String?
+  emailVerificationExpires  DateTime?
+
+  // Password reset fields
+  passwordResetToken        String?
+  passwordResetExpires      DateTime?
+
+  // OAuth fields
+  googleId                  String?
+
+  // Timestamps
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
 
   // relations
   achievements      Achievement[]
@@ -252,6 +268,7 @@ model WorkoutPlan {
   planType    PlanType?
   status      PlanStatus?       @default(ACTIVE)
   days        Int?
+  isTemplate  Boolean?          @default(false)
 
   user        User              @relation(fields: [userId], references: [id])
   exercises   WorkoutExercise[]
@@ -260,14 +277,15 @@ model WorkoutPlan {
 }
 
 model WorkoutExercise {
-  id              String         @id @default(uuid()) @db.Uuid
-  workoutPlanId   String         @db.Uuid
-  exerciseId      String?        @db.Uuid
-  dayNumber       Int?
-  weight          Float?
+  id                  String         @id @default(uuid()) @db.Uuid
+  workoutPlanId       String         @db.Uuid
+  exerciseId          String?        @db.Uuid
+  dayNumber           Int?
+  weight              Float?
 
-  workoutPlan     WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
-  appointments    Appointment[]
+  workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
+  appointments        Appointment[]
+  WorkoutExerciseLog  WorkoutExerciseLog[]
 
   @@map("workout_exercises")
 }
@@ -357,6 +375,7 @@ model WorkoutExerciseLog {
   dayNumber           Int?
 
   log                 Log       @relation(fields: [logId], references: [id])
+  workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id])
 
   @@map("workout_exercise_logs")
 }

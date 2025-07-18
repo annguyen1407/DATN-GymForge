@@ -13,6 +13,7 @@ import { TrainingRequestsModule } from './training-requests/training-requests.mo
 import { FeedbacksModule } from './feedbacks/feedbacks.module';
 import { MuscleGroupsModule } from './muscle-groups/muscle-groups.module';
 import { EquipmentModule } from './equipment/equipment.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { EquipmentModule } from './equipment/equipment.module';
     FeedbacksModule,
     MuscleGroupsModule,
     EquipmentModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

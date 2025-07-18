@@ -20,7 +20,8 @@ A comprehensive gym management system backend built with NestJS, Prisma, and Pos
 
 - **Framework**: NestJS (Node.js)
 - **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT with Passport.js
+- **Authentication**: JWT with Passport.js + OAuth (Google)
+- **Email Service**: Nodemailer with Handlebars templates
 - **Validation**: class-validator & class-transformer
 - **API Documentation**: Swagger/OpenAPI
 - **Testing**: Jest
@@ -48,10 +49,33 @@ A comprehensive gym management system backend built with NestJS, Prisma, and Pos
 3. **Environment Setup**
    Create a `.env` file in the root directory:
    ```env
+   # Database
    DATABASE_URL="postgresql://username:password@localhost:5432/gymforge_db"
+
+   # JWT
    JWT_SECRET="your-jwt-secret-key"
-   CORS_ORIGIN="http://localhost:3000"
+   JWT_EXPIRES_IN="24h"
+
+   # Application
    PORT=3000
+   NODE_ENV=development
+   CORS_ORIGIN="http://localhost:3000"
+   FRONTEND_URL="http://localhost:3000"
+
+   # Email Configuration (SMTP)
+   MAIL_HOST="smtp.gmail.com"
+   MAIL_PORT=587
+   MAIL_SECURE=false
+   MAIL_USER="your-email@gmail.com"
+   MAIL_PASS="your-app-password"
+   MAIL_FROM_NAME="GymForge"
+   MAIL_FROM_ADDRESS="noreply@gymforge.com"
+   SUPPORT_EMAIL="support@gymforge.com"
+
+   # Google OAuth
+   GOOGLE_CLIENT_ID="your-google-client-id"
+   GOOGLE_CLIENT_SECRET="your-google-client-secret"
+   GOOGLE_CALLBACK_URL="http://localhost:3000/auth/google/callback"
    ```
 
 4. **Database Setup**

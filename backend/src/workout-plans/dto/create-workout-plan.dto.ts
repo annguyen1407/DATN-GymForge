@@ -1,4 +1,4 @@
-import { IsUUID, IsString, IsOptional, IsEnum, IsNumber, IsUrl } from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsEnum, IsNumber, IsUrl, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PlanType, PlanStatus } from '@prisma/client';
 
@@ -34,4 +34,14 @@ export class CreateWorkoutPlanDto {
   @IsOptional()
   @IsNumber()
   days?: number;
+
+  @ApiProperty({
+    example: false,
+    description: 'Whether this workout plan is a template that can be used by different roles',
+    required: false,
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  isTemplate?: boolean;
 }
