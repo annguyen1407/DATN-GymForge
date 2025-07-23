@@ -8,6 +8,7 @@ import 'screens/auth/signup/signup_screen.dart';
 import 'screens/auth/signin/signin_screen.dart';
 import 'screens/profile_setup/profile_setup_screen.dart';
 import 'screens/profile_setup/welcome_profile_setup_screen.dart';
+import 'screens/main_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -61,9 +62,8 @@ class _MyAppState extends State<MyApp> {
             _loading = false;
           });
         } else {
-          // TODO: Chuyển sang màn hình chính sau khi đã đủ thông tin
           setState(() {
-            _home = const WelcomeScreen();
+            _home = const MainScreen();
             _loading = false;
           });
         }
@@ -99,6 +99,7 @@ class _MyAppState extends State<MyApp> {
         '/signup': (context) => const SignUpScreen(),
         '/signin': (context) => const SignInScreen(),
         '/profile-setup': (context) => const ProfileSetupScreen(),
+        '/main': (context) => const MainScreen(),
         '/welcome-profile-setup': (context) {
           final args =
               ModalRoute.of(context)?.settings.arguments

@@ -652,7 +652,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
         onPressed: () {
-          // TODO: Lưu thông tin và chuyển sang màn hình hoàn thành
+          // TODO: Lưu thông tin user qua API nếu cần
+          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
         },
         child: const Text(
           'Lưu',
