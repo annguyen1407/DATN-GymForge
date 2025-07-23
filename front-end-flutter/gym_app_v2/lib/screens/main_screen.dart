@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'user/user_screen.dart';
+import 'home/home_screen.dart';
+import 'workout/workout_screen.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 import '../services/user_service.dart';
 import '../models/user_model.dart';
@@ -45,8 +47,8 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
     final List<Widget> tabs = [
-      Center(child: Text('Homepage', style: TextStyle(fontSize: 24))),
-      Center(child: Text('Workout', style: TextStyle(fontSize: 24))),
+      HomeScreen(userName: _user?.name ?? ''),
+      WorkoutScreen(),
       Center(child: Text('Exercise', style: TextStyle(fontSize: 24))),
       Center(child: Text('Log', style: TextStyle(fontSize: 24))),
       UserScreen(userName: _user?.name ?? ''),
