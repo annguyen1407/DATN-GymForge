@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// WorkoutScreen: Tab "Workout" hiển thị các nhóm workout, tab, search, category icon
 class WorkoutScreen extends StatelessWidget {
   const WorkoutScreen({super.key});
 
@@ -13,7 +14,7 @@ class WorkoutScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tabs
+              // Tabs điều hướng giữa các nhóm workout
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -25,7 +26,7 @@ class WorkoutScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              // Search
+              // Ô tìm kiếm workout
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -54,7 +55,7 @@ class WorkoutScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              // Category icons
+              // Các category icon đại diện cho nhóm workout
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [

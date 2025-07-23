@@ -1,9 +1,24 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'api_constants.dart';
 
 /// ApiService: Chỉ xử lý logic gọi API, không liên quan UI
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000';
+  /// Lấy profile user từ access token, trả về Map hoặc null nếu lỗi
+  static Future<Map<String, dynamic>?> getProfile(String accessToken) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/auth/profile'),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $accessToken'},
+      );
+      if (res.statusCode == 200) {
+        return json.decode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// Đăng nhập, trả về Map chứa access_token và user nếu thành công, null nếu lỗi
   static Future<Map<String, dynamic>?> login(
@@ -12,7 +27,7 @@ class ApiService {
   ) async {
     try {
       print('[LOGIN] email: $email, password: $password');
-      final url = Uri.parse('$baseUrl/auth/login');
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/login');
       final response = await http.post(
         url,
         headers: {
@@ -38,7 +53,7 @@ class ApiService {
   static Future<Map<String, dynamic>?> signup(Map<String, dynamic> body) async {
     try {
       print('[SIGNUP] body: $body');
-      final url = Uri.parse('$baseUrl/auth/register');
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/register');
       final response = await http.post(
         url,
         headers: {

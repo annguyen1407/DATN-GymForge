@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
 class UserScreen extends StatelessWidget {
   final String userName;
   const UserScreen({super.key, required this.userName});
@@ -13,6 +14,7 @@ class UserScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 24),
+            // Avatar và nút đổi ảnh
             Center(
               child: Stack(
                 alignment: Alignment.center,
@@ -45,6 +47,7 @@ class UserScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            // Tên người dùng
             Text(
               userName,
               style: const TextStyle(
@@ -54,6 +57,7 @@ class UserScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            // Thống kê cá nhân
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: Row(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import 'api_constants.dart';
 
 class UserService {
   static Future<UserModel?> fetchProfile() async {
@@ -9,7 +10,7 @@ class UserService {
     final token = prefs.getString('access_token');
     if (token == null) return null;
     final res = await http.get(
-      Uri.parse('http://localhost:3000/auth/profile'),
+      Uri.parse('${ApiConstants.baseUrl}/auth/profile'),
       headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
     );
     if (res.statusCode == 200) {
