@@ -69,7 +69,9 @@ class _SignInScreenState extends State<SignInScreen> {
           (route) => false,
         );
       } else {
-        // TODO: Chuyển sang màn hình chính sau khi đăng nhập thành công
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/main', (route) => false);
       }
     } else if (data != null && data['status'] == 401) {
       final msg = (data['message'] ?? '').toString().toLowerCase();
