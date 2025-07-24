@@ -1,3 +1,4 @@
+// Dùng ở: main_screen. Thanh điều hướng dưới cùng của app.
 import 'package:flutter/material.dart';
 
 class CustomBottomNavBar extends StatelessWidget {

@@ -1,3 +1,4 @@
+// Dùng ở: workout_screen. Header phân cách các section, có thể có nút "Xem tất cả".
 import 'package:flutter/material.dart';
 
 /// Widget hiển thị tiêu đề section với tuỳ chọn "See all".

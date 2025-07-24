@@ -1,3 +1,4 @@
+// Dùng ở: log_screen. Tab chuyển đổi giữa các loại nhật ký.
 import 'package:flutter/material.dart';
 
 class LogTab extends StatelessWidget {

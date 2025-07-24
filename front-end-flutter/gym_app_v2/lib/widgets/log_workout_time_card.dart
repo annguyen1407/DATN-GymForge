@@ -1,3 +1,4 @@
+// Dùng ở: log_screen. Card hiển thị tổng thời gian tập luyện.
 import 'package:flutter/material.dart';
 import 'log_tab.dart';
 

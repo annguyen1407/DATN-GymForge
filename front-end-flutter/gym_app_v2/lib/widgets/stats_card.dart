@@ -1,3 +1,4 @@
+// Dùng ở: log_screen. Card thống kê tổng quan.
 import 'package:flutter/material.dart';
 
 class StatsCard extends StatelessWidget {

@@ -1,3 +1,4 @@
+// Dùng ở: workout_screen. Card hiển thị thông tin buổi tập.
 import 'package:flutter/material.dart';
 
 class WorkoutCard extends StatelessWidget {

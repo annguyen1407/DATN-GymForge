@@ -1,3 +1,4 @@
+// Dùng ở: home_screen. Nút khám phá nhanh các tính năng.
 import 'package:flutter/material.dart';
 
 /// DiscoverButton: Nút khám phá trên trang Home

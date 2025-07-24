@@ -1,3 +1,4 @@
+// Dùng ở: home_screen. Biểu đồ thời gian tập luyện.
 import 'package:flutter/material.dart';
 
 class WorkoutTimeChart extends StatelessWidget {
