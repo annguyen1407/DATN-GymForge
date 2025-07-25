@@ -1,231 +1,168 @@
-// Dùng ở: workout_screen. Card hiển thị thông tin buổi tập.
+// Dùng ở: workout_screen tab "Kế hoạch" và "Chuyên gia". Card hiển thị workout chung.
 import 'package:flutter/material.dart';
 
+/// WorkoutCard: Card hiển thị workout chung cho tab "Kế hoạch" và "Chuyên gia"
+/// Khác với WorkoutTemplateCard (dùng riêng cho tab "Khám phá")
 class WorkoutCard extends StatelessWidget {
   final String image;
   final String title;
-  final String? author;
-  final double? rating;
-  final String? tag;
-  final int? days;
-  final bool showAccept;
-  final VoidCallback? onAccept;
-  final bool compact;
-  final bool dimmed;
+  final String? description;
+  final String? subtitle;
+  final String? badge;
+  final Color? badgeColor;
+  final List<String>? tags;
+  final VoidCallback? onTap;
 
   const WorkoutCard({
     required this.image,
     required this.title,
-    this.author,
-    this.rating,
-    this.tag,
-    this.days,
-    this.showAccept = false,
-    this.onAccept,
-    this.compact = false,
-    this.dimmed = false,
+    this.description,
+    this.subtitle,
+    this.badge,
+    this.badgeColor,
+    this.tags,
+    this.onTap,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (compact) {
-      // Dạng nhỏ gọn: row, hình nhỏ, thông tin ngắn gọn
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Phần ảnh header
             ClipRRect(
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(14),
-                bottomLeft: Radius.circular(14),
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
-              child: image.isNotEmpty
-                  ? Image.asset(
-                      image,
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 80,
-                        height: 80,
-                        color: Colors.deepPurple[300],
-                      ),
-                    )
-                  : Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.deepPurple[300],
-                    ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    if (days != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          '$days ngày',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            if (showAccept)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: onAccept,
-                  child: const Text(
-                    'Chấp nhận',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-    // Card lớn, bo góc lớn, overlay tối nếu dimmed, giống thiết kế
-    return AspectRatio(
-      aspectRatio: 1.8,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: image.isNotEmpty
-                  ? Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(color: Colors.deepPurple[300]),
-                    )
-                  : Container(color: Colors.deepPurple[300]),
-            ),
-            // Overlay tối nếu dimmed hoặc showAccept
-            if (dimmed || showAccept)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(showAccept ? 0.55 : 0.35),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-              ),
-            // Tag (nếu có)
-            if (tag != null)
-              Positioned(
-                left: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tag == 'Premium' ? Colors.amber : Colors.redAccent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    tag!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-            // Title, days
-            Positioned(
-              left: 16,
-              bottom: 32,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  if (days != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        '$days ngày',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
+                  image.isNotEmpty
+                      ? Image.asset(
+                          image,
+                          width: double.infinity,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: double.infinity,
+                                height: 120,
+                                color: Colors.deepPurple[300],
+                              ),
+                        )
+                      : Container(
+                          width: double.infinity,
+                          height: 120,
+                          color: Colors.deepPurple[300],
+                        ),
+                  // Badge (nếu có)
+                  if (badge != null)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: badgeColor ?? Colors.purple,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                 ],
               ),
             ),
-            // Nút Accept (nếu có)
-            if (showAccept)
-              Positioned(
-                right: 16,
-                bottom: 20,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+            // Phần thông tin workout
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tên workout
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                  onPressed: onAccept,
-                  child: const Text('Accept'),
-                ),
+                  // Subtitle (nếu có)
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  // Description (nếu có)
+                  if (description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      description!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  // Tags (nếu có)
+                  if (tags != null && tags!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: tags!
+                          .map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[800],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                tag,
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ],
               ),
+            ),
           ],
         ),
       ),

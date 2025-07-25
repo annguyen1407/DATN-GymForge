@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets/workout_card.dart';
+import '../../widgets/workout_template_card.dart';
 import '../../widgets/category_icon.dart';
 import '../../widgets/section_header.dart';
 import 'workout_template_screen.dart';
@@ -92,7 +92,7 @@ class ExploreTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const WorkoutCard(
+                  child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Cardio training sets',
                     author: 'Robert Fox',
@@ -114,7 +114,7 @@ class ExploreTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const WorkoutCard(
+                  child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Cardio HIIT',
                     author: 'Jane Cooper',
@@ -147,7 +147,7 @@ class ExploreTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const WorkoutCard(
+                  child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Quick Push up',
                     author: 'Diana Richards',
@@ -169,7 +169,7 @@ class ExploreTab extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const WorkoutCard(
+                  child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Flexibility',
                     author: 'James Lee',
