@@ -1,6 +1,7 @@
 // Dùng ở: exercise_screen. Card nhóm bài tập.
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 /// Widget hiển thị thẻ nhóm bài tập với tên, số lượng và highlight nếu là nhóm đặc biệt.
 ///
 /// [name]: Tên nhóm bài tập.

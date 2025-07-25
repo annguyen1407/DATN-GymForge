@@ -1,6 +1,7 @@
 // (Chưa thấy dùng trực tiếp trong screen nào). Tab tuỳ chỉnh, dùng cho các thanh tab chung.
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 /// Widget tab dùng chung cho các màn hình, có thể chọn hoặc không chọn.
 ///
 /// [label]: Nhãn hiển thị trên tab.

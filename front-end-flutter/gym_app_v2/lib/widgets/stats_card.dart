@@ -1,8 +1,9 @@
 // Dùng ở: log_screen. Card thống kê tổng quan.
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 class StatsCard extends StatelessWidget {
-  const StatsCard({Key? key}) : super(key: key);
+  const StatsCard({super.key});
 
   @override
   Widget build(BuildContext context) {
