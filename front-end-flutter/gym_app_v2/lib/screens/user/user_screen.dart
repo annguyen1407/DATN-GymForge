@@ -1,8 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
 
 /// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
 class UserScreen extends StatelessWidget {
+  /// Nút debug: xem và sửa access_token
+  Widget _debugTokenButton(BuildContext context) {
+    // 2 nút debug đã được comment lại, khi cần test thì bỏ comment ra
+    return const SizedBox.shrink();
+    /*
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () async {
+            final prefs = await SharedPreferences.getInstance();
+            // Xem token hiện tại
+            print('Access token: \\${prefs.getString('access_token')}');
+            // Sửa token để test logout tự động
+            await prefs.setString('access_token', 'token_sai_de_test');
+            print('Đã sửa access_token thành token_sai_de_test');
+          },
+          child: const Text('Debug Token'),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () async {
+            // Gọi fetchProfile và in ra kết quả
+            final user = await UserService.fetchProfile(context);
+            print('fetchProfile result: \\${user?.toString()}');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    user != null
+                        ? 'Fetch thành công!'
+                        : 'Fetch thất bại hoặc đã logout',
+                  ),
+                ),
+              );
+            }
+          },
+          child: const Text('Test fetchProfile'),
+        ),
+      ],
+    );
+    */
+  }
+
   final String userName;
   const UserScreen({super.key, required this.userName});
 
@@ -98,36 +143,35 @@ class UserScreen extends StatelessWidget {
             const Spacer(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white12,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white12,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.logout, color: Color(0xFF8854FF)),
+                      label: const Text(
+                        'Đăng xuất',
+                        style: TextStyle(
+                          color: Color(0xFF8854FF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      onPressed: () async {
+                        await AuthService.logout(context);
+                      },
                     ),
                   ),
-                  icon: const Icon(Icons.logout, color: Color(0xFF8854FF)),
-                  label: const Text(
-                    'Đăng xuất',
-                    style: TextStyle(
-                      color: Color(0xFF8854FF),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  onPressed: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove('access_token');
-                    // ignore: use_build_context_synchronously
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/welcome',
-                      (route) => false,
-                    );
-                  },
-                ),
+                  const SizedBox(height: 8),
+                  _debugTokenButton(context),
+                ],
               ),
             ),
           ],
