@@ -1,8 +1,10 @@
+// Dùng ở: home_screen. Thống kê nhanh hôm nay (calo, thời gian tập...)
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 /// TodayStats: Thống kê hôm nay trên trang Home
 class TodayStats extends StatelessWidget {
-  const TodayStats({Key? key}) : super(key: key);
+  const TodayStats({super.key});
 
   @override
   Widget build(BuildContext context) {

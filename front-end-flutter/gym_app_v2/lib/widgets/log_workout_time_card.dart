@@ -1,8 +1,10 @@
+// Dùng ở: log_screen. Card hiển thị tổng thời gian tập luyện.
 import 'package:flutter/material.dart';
 import 'log_tab.dart';
 
+// File không sử dụng
 class LogWorkoutTimeCard extends StatelessWidget {
-  const LogWorkoutTimeCard({Key? key}) : super(key: key);
+  const LogWorkoutTimeCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +54,11 @@ class BarChartItem extends StatelessWidget {
   final int value;
   final bool highlight;
   const BarChartItem({
-    Key? key,
+    super.key,
     required this.label,
     required this.value,
     this.highlight = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

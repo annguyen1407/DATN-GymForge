@@ -1,7 +1,9 @@
+// Dùng ở: home_screen. Biểu đồ thời gian tập luyện.
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 class WorkoutTimeChart extends StatelessWidget {
-  const WorkoutTimeChart({Key? key}) : super(key: key);
+  const WorkoutTimeChart({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +44,7 @@ class WorkoutTimeChart extends StatelessWidget {
 class TabButton extends StatelessWidget {
   final String label;
   final bool selected;
-  const TabButton({required this.label, required this.selected});
+  const TabButton({super.key, required this.label, required this.selected});
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +70,7 @@ class BarChartItem extends StatelessWidget {
   final int value;
   final bool highlight;
   const BarChartItem({
+    super.key,
     required this.label,
     required this.value,
     this.highlight = false,
