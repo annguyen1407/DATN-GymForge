@@ -49,7 +49,7 @@ class ExerciseCard extends StatelessWidget {
                     )
                   : null,
             ),
-            const SizedBox(width: 12), // Giảm từ 16 xuống 12
+            const SizedBox(width: 12),
             // Thông tin bài tập
             Expanded(
               child: Column(
@@ -59,17 +59,32 @@ class ExerciseCard extends StatelessWidget {
                     exercise.name,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15, // Giảm từ 16 xuống 15
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2), // Giảm từ 4 xuống 2
-                  Text(
-                    exercise.reps,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13, // Giảm từ 14 xuống 13
-                    ),
+                  const SizedBox(height: 6),
+                  // Hiển thị các thông số config
+                  Row(
+                    children: [
+                      _buildSpecChip('${exercise.sets} hiệp', Icons.repeat),
+                      const SizedBox(width: 8),
+                      _buildSpecChip(
+                        '${exercise.repsCount} reps',
+                        Icons.fitness_center,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _buildSpecChip(
+                        '${exercise.weight}kg',
+                        Icons.monitor_weight,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildSpecChip('${exercise.restTime}s', Icons.timer),
+                    ],
                   ),
                 ],
               ),
@@ -80,13 +95,51 @@ class ExerciseCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Widget hiển thị thông số config dạng chip nhỏ
+  Widget _buildSpecChip(String text, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.grey[800]?.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.orange, size: 12),
+          const SizedBox(width: 3),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Model cho một bài tập trong ngày
+/// Model cho một bài tập trong ngày với các thông số config
 class ExerciseItem {
   final String name; // Tên bài tập
-  final String reps; // Số lần/thời gian
+  final String reps; // Số rép (giữ để tương thích với code cũ)
   final String image; // Đường dẫn hình ảnh
+  final int sets; // Số hiệp
+  final int repsCount; // Số reps dạng số
+  final int weight; // Trọng lượng (kg)
+  final int restTime; // Thời gian nghỉ (giây)
 
-  const ExerciseItem({required this.name, required this.reps, this.image = ''});
+  const ExerciseItem({
+    required this.name,
+    required this.reps,
+    this.image = '',
+    this.sets = 3,
+    this.repsCount = 12,
+    this.weight = 40,
+    this.restTime = 120,
+  });
 }
