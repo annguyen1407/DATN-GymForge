@@ -69,6 +69,19 @@ enum PlanStatus {
   COMPLETED
 }
 
+enum FitnessGoal {
+  LOSE_WEIGHT
+  BUILD_MUSCLE
+  BULKING
+  CUTTING
+  STRENGTH_TRAINING
+  ENDURANCE
+  GENERAL_FITNESS
+  FLEXIBILITY
+  WEIGHT_MAINTENANCE
+  ATHLETIC_PERFORMANCE
+}
+
 // === MODEL DEFINITIONS ===
 model User {
   id                        String             @id @default(uuid()) @db.Uuid
@@ -85,19 +98,19 @@ model User {
   weight                    Float?
   height                    Float?
   biography                 String?
-  goal                      String?
+  goal                      FitnessGoal?
   oneRm                     Float?             @map("1RM")
   expType                   String?
   sex                       Gender?
 
   // Email verification fields
   isEmailVerified           Boolean?           @default(false)
-  emailVerificationToken    String?
-  emailVerificationExpires  DateTime?
+  emailVerificationOTP      String?            @db.VarChar(6)
+  emailVerificationOTPExpires DateTime?
 
   // Password reset fields
-  passwordResetToken        String?
-  passwordResetExpires      DateTime?
+  passwordResetOTP          String?            @db.VarChar(6)
+  passwordResetOTPExpires   DateTime?
 
   // OAuth fields
   googleId                  String?

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Request, Query, Req, Res, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
@@ -42,7 +43,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@CurrentUser() user: User) {
+  async getProfile(@CurrentUser() user: User): Promise<User> {
     return user;
   }
 
@@ -51,62 +52,34 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user information' })
   @ApiResponse({ status: 200, description: 'User information retrieved successfully' })
-  async getCurrentUser(@CurrentUser() user: User) {
+  async getCurrentUser(@CurrentUser() user: User): Promise<User> {
     return this.authService.findUserById(user.id);
   }
 
   @Post('verify-email')
-  @ApiOperation({ summary: 'Verify email address (POST)' })
+  @ApiOperation({ summary: 'Verify email address with OTP' })
   @ApiResponse({ status: 200, description: 'Email verified successfully', type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired verification token' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto): Promise<MessageResponseDto> {
-    return this.authService.verifyEmail(verifyEmailDto.token);
-  }
-
-  @Get('verify-email')
-  @ApiOperation({ summary: 'Verify email address (GET)' })
-  @ApiResponse({ status: 200, description: 'Email verified successfully', type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired verification token' })
-  async verifyEmailGet(@Query('token') token: string): Promise<MessageResponseDto> {
-    if (!token) {
-      throw new BadRequestException('Verification token is required');
-    }
-    return this.authService.verifyEmail(token);
+    return this.authService.verifyEmail(verifyEmailDto.email, verifyEmailDto.otp);
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, description: 'Password reset email sent if email exists', type: MessageResponseDto })
+  @ApiOperation({ summary: 'Request password reset OTP' })
+  @ApiResponse({ status: 200, description: 'Password reset OTP sent if email exists', type: MessageResponseDto })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto): Promise<MessageResponseDto> {
     return this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password with token (POST)' })
+  @ApiOperation({ summary: 'Reset password with OTP code' })
   @ApiResponse({ status: 200, description: 'Password reset successfully', type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired reset token' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP code' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<MessageResponseDto> {
-    return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+    return this.authService.resetPassword(resetPasswordDto.otp, resetPasswordDto.email, resetPasswordDto.newPassword);
   }
 
-  @Get('reset-password')
-  @ApiOperation({ summary: 'Validate reset password token (GET)' })
-  @ApiResponse({ status: 200, description: 'Token is valid, redirect to reset form' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired reset token' })
-  async validateResetToken(@Query('token') token: string, @Res() res: any) {
-    if (!token) {
-      throw new BadRequestException('Reset token is required');
-    }
 
-    // Validate the token exists and is not expired
-    const user = await this.authService.validateResetToken(token);
-
-    // Redirect to frontend reset password form with token
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const redirectUrl = `${frontendUrl}/auth/new-password?token=${token}`;
-
-    return res.redirect(redirectUrl);
-  }
 
   @Post('resend-verification')
   @ApiOperation({ summary: 'Resend email verification' })
@@ -134,5 +107,24 @@ export class AuthController {
     const redirectUrl = `${frontendUrl}/auth/oauth-success?token=${authResponse.access_token}`;
 
     return res.redirect(redirectUrl);
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'New tokens generated successfully', type: AuthResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+    return this.authService.refreshTokens(refreshTokenDto.refresh_token);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout(@Body() refreshTokenDto: RefreshTokenDto): Promise<{ message: string }> {
+    await this.authService.logout(refreshTokenDto.refresh_token);
+    return { message: 'Logged out successfully' };
   }
 }
