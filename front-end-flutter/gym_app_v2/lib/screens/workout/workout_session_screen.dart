@@ -314,19 +314,23 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
         isPlaying = true;
         workoutTime = 0;
         _startTimer();
-      } else if (isResting && !isAutoMode) {
-        // Đang nghỉ ở chế độ manual - kết thúc nghỉ và bắt đầu hiệp mới
-        isResting = false;
-        isPlaying = true;
-        workoutTime = 0;
-        _startTimer();
+      } else if (isResting) {
+        if (isAutoMode) {
+          // Đang nghỉ ở chế độ auto - KHÔNG cho phép bấm play
+          // Timer đếm ngược sẽ tự động kết thúc và chuyển hiệp
+          return; // Thoát khỏi function, không làm gì cả
+        } else {
+          // Đang nghỉ ở chế độ manual - kết thúc nghỉ và bắt đầu hiệp mới
+          isResting = false;
+          isPlaying = true;
+          workoutTime = 0;
+          _startTimer();
+        }
       } else {
         // Tạm dừng/tiếp tục khi đang tập
         isPlaying = !isPlaying;
         if (isPlaying) {
-          if (!isResting) {
-            _startTimer();
-          }
+          _startTimer();
         } else {
           _stopTimer();
         }
@@ -494,7 +498,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             Text(
               isResting
                   ? isAutoMode
-                        ? 'Auto - Nghỉ ngơi: Chuẩn bị hiệp ${currentSet}'
+                        ? 'Auto - Nghỉ ngơi: ${_formatTime(timeRemaining)} (Tự động tiếp tục)'
                         : 'Nghỉ ngơi - Bấm Play để tiếp tục'
                   : hasStarted
                   ? 'Hiệp $currentSet/${widget.exercises[currentExerciseIndex].sets}'
@@ -604,12 +608,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
 
                 // Play/Pause button - nhỏ hơn
                 GestureDetector(
-                  onTap: _togglePlayPause,
+                  onTap: (isResting && isAutoMode) ? null : _togglePlayPause,
                   child: Container(
                     width: 50,
                     height: 50,
-                    decoration: const BoxDecoration(
-                      color: Colors.purple,
+                    decoration: BoxDecoration(
+                      color: (isResting && isAutoMode)
+                          ? Colors.grey[600] // Màu xám khi không thể bấm
+                          : Colors.purple,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
