@@ -9,33 +9,30 @@ export class EmailService {
     private readonly configService: ConfigService,
   ) {}
 
-  async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
-    const verificationUrl = `${this.configService.get('FRONTEND_URL')}/auth/verify-email?token=${token}`;
-    
+  async sendVerificationOTP(email: string, name: string, otp: string): Promise<void> {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Verify Your Email - GymForge',
-      template: 'email-verification',
+      template: 'email-verification-otp',
       context: {
         name,
-        verificationUrl,
+        otp,
         appName: 'GymForge',
+        expiresInMinutes: 10, // OTP expires in 10 minutes
       },
     });
   }
 
-  async sendPasswordResetEmail(email: string, name: string, token: string): Promise<void> {
-    // Point to backend endpoint that will validate token and redirect to frontend form
-    const resetUrl = `${this.configService.get('BACKEND_URL') || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
-
+  async sendPasswordResetOTP(email: string, name: string, otp: string): Promise<void> {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Reset Your Password - GymForge',
-      template: 'password-reset',
+      template: 'password-reset-otp',
       context: {
         name,
-        resetUrl,
+        otp,
         appName: 'GymForge',
+        expiresInMinutes: 10, // OTP expires in 10 minutes
       },
     });
   }
