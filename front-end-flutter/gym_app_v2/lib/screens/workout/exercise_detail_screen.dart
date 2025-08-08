@@ -33,7 +33,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
         child: Column(
           children: [
             // Header với video/hình nền và thông tin bài tập
-            Container(
+            SizedBox(
               height: 500, // Cao hơn để chứa nhiều thông tin
               width: double.infinity,
               child: Stack(
@@ -245,9 +245,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   // Danh sách thông số cố định - không scroll
-                  ...widget.specs
-                      .map((spec) => _buildCompactSpecItem(spec))
-                      .toList(),
+                  ...widget.specs.map((spec) => _buildCompactSpecItem(spec)),
                 ],
               ),
             ),

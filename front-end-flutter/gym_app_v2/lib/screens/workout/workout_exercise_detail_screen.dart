@@ -35,7 +35,7 @@ class _WorkoutExerciseDetailScreenState
       body: Column(
         children: [
           // Header với hình nền và thông tin ngày tập
-          Container(
+          SizedBox(
             height: 400,
             width: double.infinity,
             child: Stack(
