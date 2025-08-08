@@ -136,26 +136,12 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    DiscoverButton(
-                      label: 'Huấn luyện viên',
-                      onTap: () {
-                        Navigator.pushNamed(context, '/coaches');
-                      },
-                    ),
-                    DiscoverButton(
-                      label: 'Thành tựu',
-                      onTap: () {
-                        Navigator.pushNamed(context, '/achievements');
-                      },
-                    ),
-                    DiscoverButton(
-                      label: 'My coach',
-                      onTap: () {
-                        Navigator.pushNamed(context, '/my-coach');
-                      },
-                    ),
+                    DiscoverButton(label: 'Coaches'),
+                    const SizedBox(width: 12),
+                    DiscoverButton(label: 'Achievements'),
+                    const SizedBox(width: 12),
+                    DiscoverButton(label: 'My coach'),
                   ],
                 ),
                 const SizedBox(height: 24),

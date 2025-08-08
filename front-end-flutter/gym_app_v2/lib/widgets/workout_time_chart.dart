@@ -401,14 +401,14 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.blue.shade400, Colors.blue.shade600],
+              colors: [Colors.purple.shade400, Colors.purple.shade600],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withOpacity(0.3),
+                color: Colors.purple.withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -553,10 +553,10 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
                             end: Alignment.bottomCenter,
                           )
                         : LinearGradient(
-                            // Màu xanh dương cho ngày bình thường
+                            // Màu tím cho ngày bình thường
                             colors: [
-                              Colors.blue.shade400,
-                              Colors.blue.shade600,
+                              Colors.purple.shade400,
+                              Colors.purple.shade600,
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -564,7 +564,7 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: (isActive ? Colors.orange : Colors.blue)
+                        color: (isActive ? Colors.orange : Colors.purple)
                             .withOpacity(0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -689,7 +689,7 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.blue.shade400, size: 24),
+          Icon(icon, color: Colors.purple.shade400, size: 24),
           const SizedBox(height: 8),
           Text(
             value,
@@ -722,7 +722,7 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
             'Total Hours',
             '${totalHours.toStringAsFixed(1)}h',
             Icons.schedule_rounded,
-            Colors.blue.shade400,
+            Colors.purple.shade400,
           ),
           _buildStatItem(
             'Avg/Day',
