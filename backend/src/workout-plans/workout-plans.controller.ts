@@ -86,7 +86,7 @@ export class WorkoutPlansController {
     return this.workoutPlansService.findByUserId(userId);
   }
 
-  @Post('from-template/:templateId')
+  @Post('clone-template/:templateId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
   @ApiOperation({ summary: 'Create a workout plan from a template' })

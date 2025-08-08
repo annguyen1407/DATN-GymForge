@@ -15,6 +15,7 @@ import { MuscleGroupsModule } from './muscle-groups/muscle-groups.module';
 import { EquipmentModule } from './equipment/equipment.module';
 import { EmailModule } from './email/email.module';
 import { UserProfileModule } from './user-profile/user-profile.module';
+import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { UserProfileModule } from './user-profile/user-profile.module';
     EquipmentModule,
     EmailModule,
     UserProfileModule,
+    ExerciseLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
