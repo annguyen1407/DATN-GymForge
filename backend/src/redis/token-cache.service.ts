@@ -71,7 +71,7 @@ export class TokenCacheService implements OnModuleInit {
     const key = `refresh_token:${refreshToken}`;
     try {
       await this.redisClient.del(key);
-      this.logger.debug(`Removed refresh token: ${key}`);
+      this.logger.debug(`Removed refresh token: ${refreshToken}`);
     } catch (error) {
       this.logger.error(`Failed to remove refresh token: ${error.message}`);
       throw error;
