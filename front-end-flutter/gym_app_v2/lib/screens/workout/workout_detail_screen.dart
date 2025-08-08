@@ -50,7 +50,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       body: Column(
         children: [
           // Header với hình nền - chiều cao cố định
-          Container(
+          SizedBox(
             height: 200,
             width: double.infinity,
             child: Stack(
@@ -286,7 +286,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     ),
                   ),
                   // Bắt đầu luyện tập button
-                  Container(
+                  SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: selectedExerciseIndex != null
