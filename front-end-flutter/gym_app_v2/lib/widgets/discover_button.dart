@@ -1,9 +1,11 @@
+// Dùng ở: home_screen. Nút khám phá nhanh các tính năng.
 import 'package:flutter/material.dart';
 
+// File không sử dụng
 /// DiscoverButton: Nút khám phá trên trang Home
 class DiscoverButton extends StatelessWidget {
   final String label;
-  const DiscoverButton({Key? key, required this.label}) : super(key: key);
+  const DiscoverButton({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) {
