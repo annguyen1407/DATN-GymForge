@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../widgets/workout_template_card.dart';
+import '../chat/chat_screen.dart';
 
 class CoachDetailScreen extends StatelessWidget {
   final String name;
@@ -134,17 +135,30 @@ class CoachDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: Colors.purple.shade400,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.message,
-                                    color: Colors.white,
-                                    size: 24,
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ChatScreen(
+                                          coachName: name,
+                                          coachImage: imagePath,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.shade400,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.message,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
                                   ),
                                 ),
                               ],

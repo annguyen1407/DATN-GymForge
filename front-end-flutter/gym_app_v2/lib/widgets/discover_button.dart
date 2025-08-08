@@ -98,7 +98,7 @@ class _DiscoverButtonState extends State<DiscoverButton>
       case 'coaches':
       case 'huấn luyện viên':
       case 'trainer':
-        return Colors.blue;
+        return const Color.fromARGB(255, 243, 33, 33);
       case 'achievements':
       case 'thành tựu':
         return Colors.amber;
