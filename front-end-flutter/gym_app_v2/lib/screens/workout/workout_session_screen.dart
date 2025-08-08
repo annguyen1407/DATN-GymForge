@@ -228,11 +228,11 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -354,7 +354,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
       'timestamp': DateTime.now(),
     });
 
-    print('Logged set ${currentSet}: ${workoutTime}s, ${currentReps} reps');
+    print('Logged set $currentSet: ${workoutTime}s, $currentReps reps');
 
     if (currentSet < currentExercise.sets) {
       // Chuyển sang hiệp tiếp theo
