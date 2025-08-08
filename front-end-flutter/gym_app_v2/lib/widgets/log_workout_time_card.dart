@@ -18,16 +18,16 @@ class LogWorkoutTimeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
-              LogTab(label: 'Ngày', selected: true),
-              SizedBox(width: 8),
-              LogTab(label: 'Tuần'),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // Row(
+          //   children: const [
+          //     LogTab(label: 'Ngày', selected: true),
+          //     SizedBox(width: 8),
+          //     LogTab(label: 'Tuần'),
+          //   ],
+          // ),
+          // const SizedBox(height: 12),
           const Text(
-            '4 Jan - 10 Jan',
+            '4 Jan - 10 Jan', 
             style: TextStyle(color: Colors.white54, fontSize: 13),
           ),
           const SizedBox(height: 8),
