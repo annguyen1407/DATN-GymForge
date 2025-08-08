@@ -11,7 +11,7 @@ class WelcomeProfileSetupScreen extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            'assets/profile_welcome_bg.jpg', // Đặt tên file ảnh nền đúng với assets của bạn
+            'assets/images/onboarding_1.png', // Đặt tên file ảnh nền đúng với assets của bạn
             fit: BoxFit.cover,
           ),
           Container(color: Colors.black.withOpacity(0.5)),
