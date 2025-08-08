@@ -9,8 +9,8 @@ class LogTab extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.onTap,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

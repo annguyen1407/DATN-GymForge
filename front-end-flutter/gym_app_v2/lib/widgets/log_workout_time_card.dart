@@ -1,6 +1,5 @@
 // Dùng ở: log_screen. Card hiển thị tổng thời gian tập luyện.
 import 'package:flutter/material.dart';
-import 'log_tab.dart';
 
 // File không sử dụng
 class LogWorkoutTimeCard extends StatelessWidget {
@@ -27,7 +26,7 @@ class LogWorkoutTimeCard extends StatelessWidget {
           // ),
           // const SizedBox(height: 12),
           const Text(
-            '4 Jan - 10 Jan', 
+            '4 Jan - 10 Jan',
             style: TextStyle(color: Colors.white54, fontSize: 13),
           ),
           const SizedBox(height: 8),

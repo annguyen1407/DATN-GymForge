@@ -22,7 +22,7 @@ class _LogScreenState extends State<LogScreen> {
   // State variables for body metrics (placeholder values)
   double _weight = 70.0; // kg
   double _height = 175.0; // cm
-  double _bodyFat = 20.0; // percentage
+  final double _bodyFat = 20.0; // percentage
   double _oneRepMax = 100.0; // kg
 
   // Calendar state
@@ -98,7 +98,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: weightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Weight (kg)',
@@ -116,7 +118,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: heightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Height (cm)',
@@ -134,7 +138,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: oneRepMaxController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'One-Rep Max (kg)',
@@ -333,9 +339,17 @@ class _LogScreenState extends State<LogScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildToggleButton('Workout Time', _showWorkoutTimeCard, () => _toggleHistoryView(true)),
+                  _buildToggleButton(
+                    'Workout Time',
+                    _showWorkoutTimeCard,
+                    () => _toggleHistoryView(true),
+                  ),
                   const SizedBox(width: 16),
-                  _buildToggleButton('Calendar', !_showWorkoutTimeCard, () => _toggleHistoryView(false)),
+                  _buildToggleButton(
+                    'Calendar',
+                    !_showWorkoutTimeCard,
+                    () => _toggleHistoryView(false),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -346,7 +360,8 @@ class _LogScreenState extends State<LogScreen> {
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: _focusedDay,
-                      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                      selectedDayPredicate: (day) =>
+                          isSameDay(_selectedDay, day),
                       onDaySelected: (selectedDay, focusedDay) {
                         setState(() {
                           _selectedDay = selectedDay;
@@ -358,14 +373,17 @@ class _LogScreenState extends State<LogScreen> {
                             builder: (context) => WorkoutDetailsPage(
                               selectedDate: selectedDay,
                               workouts: _workouts[selectedDay] ?? [],
-                              onWorkoutAdded: (workout) => _addWorkout(selectedDay, workout),
+                              onWorkoutAdded: (workout) =>
+                                  _addWorkout(selectedDay, workout),
                             ),
                           ),
                         );
                       },
                       calendarStyle: CalendarStyle(
                         defaultTextStyle: const TextStyle(color: Colors.white),
-                        weekendTextStyle: const TextStyle(color: Colors.white70),
+                        weekendTextStyle: const TextStyle(
+                          color: Colors.white70,
+                        ),
                         selectedDecoration: const BoxDecoration(
                           color: Color(0xFF8854FF),
                           shape: BoxShape.circle,
@@ -374,13 +392,24 @@ class _LogScreenState extends State<LogScreen> {
                           color: Colors.white.withOpacity(0.3),
                           shape: BoxShape.circle,
                         ),
-                        outsideTextStyle: const TextStyle(color: Colors.white54),
+                        outsideTextStyle: const TextStyle(
+                          color: Colors.white54,
+                        ),
                       ),
                       headerStyle: const HeaderStyle(
                         formatButtonVisible: false,
-                        titleTextStyle: TextStyle(color: Colors.white, fontSize: 16),
-                        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white),
-                        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white),
+                        titleTextStyle: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        leftChevronIcon: Icon(
+                          Icons.chevron_left,
+                          color: Colors.white,
+                        ),
+                        rightChevronIcon: Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                        ),
                       ),
                       daysOfWeekStyle: const DaysOfWeekStyle(
                         weekdayStyle: TextStyle(color: Colors.white54),
@@ -395,15 +424,19 @@ class _LogScreenState extends State<LogScreen> {
   }
 
   // Helper method to build toggle button
-  Widget _buildToggleButton(String label, bool isSelected, VoidCallback onPressed) {
+  Widget _buildToggleButton(
+    String label,
+    bool isSelected,
+    VoidCallback onPressed,
+  ) {
     return Expanded(
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? const Color(0xFF8854FF) : Colors.grey[800],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          backgroundColor: isSelected
+              ? const Color(0xFF8854FF)
+              : Colors.grey[800],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
         child: Text(
@@ -469,7 +502,10 @@ class _LogScreenState extends State<LogScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   minimumSize: const Size(double.infinity, 0), // Full width
                 ),
                 child: const Text(
@@ -482,11 +518,23 @@ class _LogScreenState extends State<LogScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildMetricItem('Weight', '${_weight.toStringAsFixed(1)} kg'),
-                  _buildMetricItem('Height', '${_height.toStringAsFixed(1)} cm'),
+                  _buildMetricItem(
+                    'Weight',
+                    '${_weight.toStringAsFixed(1)} kg',
+                  ),
+                  _buildMetricItem(
+                    'Height',
+                    '${_height.toStringAsFixed(1)} cm',
+                  ),
                   _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
-                  _buildMetricItem('Body Fat', '${_bodyFat.toStringAsFixed(1)}%'),
-                  _buildMetricItem('1RM', '${_oneRepMax.toStringAsFixed(1)} kg'),
+                  _buildMetricItem(
+                    'Body Fat',
+                    '${_bodyFat.toStringAsFixed(1)}%',
+                  ),
+                  _buildMetricItem(
+                    '1RM',
+                    '${_oneRepMax.toStringAsFixed(1)} kg',
+                  ),
                 ],
               ),
             ],
@@ -516,10 +564,7 @@ class _LogScreenState extends State<LogScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -527,4 +572,3 @@ class _LogScreenState extends State<LogScreen> {
     );
   }
 }
-
