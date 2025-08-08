@@ -17,14 +17,19 @@ import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { ExerciseLogsService } from '../exercise-logs/exercise-logs.service';
 
 @ApiTags('exercises')
 @Controller('exercises')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ExercisesController {
-  constructor(private readonly exercisesService: ExercisesService) {}
+  constructor(
+    private readonly exercisesService: ExercisesService,
+    private readonly exerciseLogsService: ExerciseLogsService,
+  ) {}
 
   @Post()
   @UseGuards(RolesGuard)
@@ -84,5 +89,29 @@ export class ExercisesController {
   @ApiResponse({ status: 404, description: 'Exercise not found' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.exercisesService.remove(id);
+  }
+
+  @Get(':id/performance/:userId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get performance analytics for a specific exercise and user' })
+  @ApiResponse({ status: 200, description: 'Exercise performance analytics' })
+  getExercisePerformance(
+    @Param('id', ParseUUIDPipe) exerciseId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.exerciseLogsService.getExercisePerformance(userId, exerciseId);
+  }
+
+  @Get(':id/performance/my')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Get performance analytics for a specific exercise for current user' })
+  @ApiResponse({ status: 200, description: 'Exercise performance analytics' })
+  getMyExercisePerformance(
+    @Param('id', ParseUUIDPipe) exerciseId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.exerciseLogsService.getExercisePerformance(user.id, exerciseId);
   }
 }

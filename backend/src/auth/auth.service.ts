@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +14,8 @@ import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -286,19 +288,24 @@ export class AuthService {
   async logout(refresh_token: string): Promise<void> {
     try {
       // Verify refresh token
-      const payload = await this.jwtService.verify(refresh_token);
+      const payload = await this.jwtService.verify(refresh_token, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET')
+      });
       // Remove refresh token from Redis
       await this.tokenCache.removeRefreshToken(refresh_token);
     } catch (error) {
       // If token is invalid, do nothing
+      this.logger.debug(`Invalid refresh token provided for logout: ${refresh_token}`);
       return;
     }
   }
 
   async refreshTokens(refresh_token: string): Promise<AuthResponseDto> {
     try {
-      // Verify refresh token
-      const payload = await this.jwtService.verify(refresh_token);
+      // Verify refresh token with the correct secret
+      const payload = await this.jwtService.verify(refresh_token, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET')
+      });
       // Check Redis for token validity
       const storedUserId = await this.tokenCache.getUserIdByRefreshToken(refresh_token);
       if (!storedUserId || storedUserId !== payload.sub) {
