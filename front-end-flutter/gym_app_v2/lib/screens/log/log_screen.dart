@@ -25,7 +25,7 @@ class _LogScreenState extends State<LogScreen>
   // State variables for body metrics (placeholder values)
   double _weight = 70.0; // kg
   double _height = 175.0; // cm
-  double _bodyFat = 20.0; // percentage
+  final double _bodyFat = 20.0; // percentage
   double _oneRepMax = 100.0; // kg
 
   // Calendar state

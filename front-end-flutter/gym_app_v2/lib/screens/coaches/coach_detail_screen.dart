@@ -28,7 +28,7 @@ class CoachDetailScreen extends StatelessWidget {
         body: Column(
           children: [
             // Header với hình nền và thông tin coach
-            Container(
+            SizedBox(
               height:
                   MediaQuery.of(context).size.height * 0.6, // 60% screen height
               width: double.infinity,
