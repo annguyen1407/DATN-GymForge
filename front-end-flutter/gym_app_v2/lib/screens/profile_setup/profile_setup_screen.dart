@@ -25,7 +25,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _oneRmController = TextEditingController();
   int _intensity = 5;
-  List<String> _selectedGoals = [];
+  final List<String> _selectedGoals = [];
   final List<String> _goalOptions = [
     'Kiểm soát cân nặng',
     'Tăng năng lượng hàng ngày',
@@ -380,7 +380,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     surface: Colors.black,
                     onSurface: Colors.white,
                   ),
-                  dialogBackgroundColor: Colors.grey[900],
+                  dialogTheme: DialogThemeData(
+                    backgroundColor: Colors.grey[900],
+                  ),
                 ),
                 child: child!,
               ),

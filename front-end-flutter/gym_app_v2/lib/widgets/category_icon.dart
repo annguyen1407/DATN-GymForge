@@ -1,3 +1,4 @@
+// Dùng ở: log_screen, workout_screen. Hiển thị icon tròn có badge cho category/action nhanh.
 import 'package:flutter/material.dart';
 
 /// A reusable widget that displays a circular icon with an optional count badge and a label below.

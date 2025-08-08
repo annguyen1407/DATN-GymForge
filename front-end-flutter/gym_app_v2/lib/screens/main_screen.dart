@@ -30,7 +30,8 @@ class _MainScreenState extends State<MainScreen> {
 
   /// Gọi API lấy profile user
   Future<void> _fetchUser() async {
-    final user = await UserService.fetchProfile();
+    final user = await UserService.fetchProfile(context);
+    if (!mounted) return;
     setState(() {
       _user = user;
       _loading = false;

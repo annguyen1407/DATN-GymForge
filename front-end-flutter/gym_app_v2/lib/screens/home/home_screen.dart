@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/discover_button.dart';
 import '../../widgets/today_stats.dart';
@@ -9,115 +10,169 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            48,
-          ), // tăng bottom padding để tránh overflow
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
                     children: [
-                      const Text(
-                        'Chào bạn,',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      Text(
-                        userName,
-                        style: const TextStyle(
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.orange.shade400,
+                              Colors.orange.shade600,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.person,
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Chào bạn,',
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[850],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.grey[700]!,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[850],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.grey[700]!,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.notifications_none,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          onPressed: () {},
+                          padding: EdgeInsets.zero,
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {},
+                ),
+                const SizedBox(height: 24),
+                // Khám phá
+                const Text(
+                  'Khám phá',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    letterSpacing: 0.5,
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.chat_bubble_outline,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {},
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    DiscoverButton(label: 'Coaches'),
+                    const SizedBox(width: 12),
+                    DiscoverButton(label: 'Achievements'),
+                    const SizedBox(width: 12),
+                    DiscoverButton(label: 'My coach'),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Thống kê hôm nay
+                const Text(
+                  'Thống kê hôm nay',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    letterSpacing: 0.5,
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Khám phá
-              const Text(
-                'Khám phá',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: DiscoverButton(label: 'Huấn luyện viên')),
-                  const SizedBox(width: 12),
-                  Expanded(child: DiscoverButton(label: 'Thành tựu')),
-                  const SizedBox(width: 12),
-                  Expanded(child: DiscoverButton(label: 'My couch')),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Thống kê hôm nay
-              const Text(
-                'Thống kê hôm nay',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                const SizedBox(height: 16),
+                const TodayStats(),
+                const SizedBox(height: 24),
+                // Thời gian tập luyện
+                const Text(
+                  'Thời gian tập luyện',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              const TodayStats(),
-              const SizedBox(height: 24),
-              // Thời gian tập luyện
-              const Text(
-                'Thời gian tập luyện',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const WorkoutTimeChart(),
-            ],
+                const SizedBox(height: 16),
+                const WorkoutTimeChart(),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
