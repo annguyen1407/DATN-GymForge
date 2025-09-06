@@ -77,4 +77,46 @@ class ApiService {
       return {'status': -1, 'data': null};
     }
   }
+
+  /// Xác thực OTP email
+  static Future<bool> verifyEmailOTP({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/verify-email');
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': email, 'otp': otp}),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Gửi lại mã xác thực email
+  static Future<bool> resendVerificationOTP({required String email}) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/resend-verification');
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 }
