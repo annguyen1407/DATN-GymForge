@@ -53,9 +53,11 @@ class _SignInScreenState extends State<SignInScreen> {
     if (data != null &&
         data['status'] != null &&
         (data['status'] == 200 || data['status'] == 201) &&
-        data['access_token'] != null) {
+        data['access_token'] != null &&
+        data['refresh_token'] != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', data['access_token']);
+      await prefs.setString('refresh_token', data['refresh_token']);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công!')));
@@ -64,8 +66,9 @@ class _SignInScreenState extends State<SignInScreen> {
       if (user != null && user['dateOfBirth'] == null) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                WelcomeProfileSetupScreen(userName: user['fullName'] ?? ''),
+            builder: (_) => WelcomeProfileSetupScreen(
+              userName: user['name'] ?? user['fullName'] ?? '',
+            ),
           ),
           (route) => false,
         );

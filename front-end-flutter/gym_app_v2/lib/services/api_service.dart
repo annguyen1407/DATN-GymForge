@@ -5,6 +5,8 @@ import 'api_constants.dart';
 /// ApiService: Chỉ xử lý logic gọi API, không liên quan UI
 class ApiService {
   /// Lấy profile user từ access token, trả về Map hoặc null nếu lỗi
+  /// NOTE: Hàm này trả về dữ liệu thô (Map), KHÔNG tự động logout nếu token hết hạn (401).
+  /// Nếu muốn lấy UserModel và tự động logout khi token hết hạn, dùng UserService.fetchProfile.
   static Future<Map<String, dynamic>?> getProfile(String accessToken) async {
     try {
       final res = await http.get(
@@ -36,8 +38,8 @@ class ApiService {
         },
         body: jsonEncode({'email': email, 'password': password}),
       );
-      print('[LOGIN] response status: ${response.statusCode}');
-      print('[LOGIN] response body: ${response.body}');
+      //print('[LOGIN] response status: ${response.statusCode}');
+      // print('[LOGIN] response body: ${response.body}');
       final body = jsonDecode(response.body);
       return {
         'status': response.statusCode,
@@ -62,19 +64,24 @@ class ApiService {
         },
         body: jsonEncode(body),
       );
-      print('[SIGNUP] response status: ${response.statusCode}');
-      print('[SIGNUP] response body: ${response.body}');
+      // print('[SIGNUP] response status: ${response.statusCode}');
+      //print('[SIGNUP] response body: ${response.body}');
+      final resBody = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
+        // Trả về cùng cấu trúc như login
         return {
           'status': response.statusCode,
-          'data': jsonDecode(response.body),
+          ...((resBody is Map<String, dynamic>) ? resBody : {}),
         };
       } else {
-        return {'status': response.statusCode, 'data': null};
+        return {
+          'status': response.statusCode,
+          ...((resBody is Map<String, dynamic>) ? resBody : {}),
+        };
       }
     } catch (e) {
       print('[SIGNUP] error: $e');
-      return {'status': -1, 'data': null};
+      return null;
     }
   }
 
