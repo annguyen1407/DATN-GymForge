@@ -5,7 +5,7 @@ import 'verify_success_screen.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
-  const VerifyEmailScreen({Key? key, required this.email}) : super(key: key);
+  const VerifyEmailScreen({super.key, required this.email});
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -46,7 +46,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     if (parts.length != 2) return email;
     final name = parts[0];
     final maskedName = name.length <= 2
-        ? name[0] + '*'
+        ? '${name[0]}*'
         : name.substring(0, 2) + '*' * (name.length - 2);
     return '$maskedName@${parts[1]}';
   }
