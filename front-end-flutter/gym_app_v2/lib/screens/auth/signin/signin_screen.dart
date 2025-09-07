@@ -4,6 +4,7 @@ import '../../../services/api_service.dart';
 import '../../profile_setup/welcome_profile_setup_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'forgot_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
@@ -57,7 +59,10 @@ class _SignInScreenState extends State<SignInScreen> {
         data['refresh_token'] != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', data['access_token']);
-      await prefs.setString('refresh_token', data['refresh_token']);
+      await _secureStorage.write(
+        key: 'refresh_token',
+        value: data['refresh_token'],
+      );
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công!')));

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'services/api_service.dart';
+import 'services/log_out_service.dart';
 // Import các màn hình chính của app
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/welcome/welcome_screen.dart';
@@ -9,6 +12,13 @@ import 'screens/auth/signin/signin_screen.dart';
 import 'screens/profile_setup/profile_setup_screen.dart';
 import 'screens/profile_setup/welcome_profile_setup_screen.dart';
 import 'screens/main_screen.dart';
+
+// ==== App Config ==== //
+const Duration kTokenRefreshInterval = Duration(
+  seconds: 60,
+); // thời gian refresh token
+const String kAccessTokenKey = 'access_token';
+const String kRefreshTokenKey = 'refresh_token';
 
 /// Entry point của ứng dụng
 void main() {
@@ -24,6 +34,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  Timer? _refreshTimer;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   Widget? _home;
   bool _loading = true;
 
@@ -33,59 +45,110 @@ class _MyAppState extends State<MyApp> {
     _initApp();
   }
 
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicTokenRefresh() {
+    _refreshTimer = Timer.periodic(kTokenRefreshInterval, (_) async {
+      print('Đang thực hiện refresh token lúc: ${DateTime.now()}');
+      final prefs = await SharedPreferences.getInstance();
+      String? accessToken = prefs.getString(kAccessTokenKey);
+      final refreshToken = await _secureStorage.read(key: kRefreshTokenKey);
+      if (refreshToken != null) {
+        final refreshResult = await ApiService.refreshToken(refreshToken);
+        if (refreshResult != null &&
+            refreshResult['access_token'] != null &&
+            refreshResult['refresh_token'] != null) {
+          accessToken = refreshResult['access_token'] as String;
+          await prefs.setString(kAccessTokenKey, accessToken);
+          await _secureStorage.write(
+            key: kRefreshTokenKey,
+            value: refreshResult['refresh_token'] as String,
+          );
+        } else {
+          // Nếu refresh thất bại, tự động logout nếu đang ở MainScreen
+          if (_home is MainScreen && mounted) {
+            _refreshTimer?.cancel();
+            await LogoutService.logout(context);
+          }
+        }
+      }
+    });
+  }
+
   /// Hàm khởi tạo app, kiểm tra trạng thái onboarding, token, và profile user
   Future<void> _initApp() async {
     final prefs = await SharedPreferences.getInstance();
-    // Kiểm tra đã xem onboarding chưa
     final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
     if (!seenOnboarding) {
       setState(() {
         _home = const OnboardingScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
       return;
     }
     // Kiểm tra access token
-    final accessToken = prefs.getString('access_token');
+    String? accessToken = prefs.getString(kAccessTokenKey);
     if (accessToken == null) {
       setState(() {
         _home = const WelcomeScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
       return;
     }
-    // Nếu có token, gọi API lấy profile qua ApiService
+    // Nếu có token, thử gọi API lấy profile
     try {
-      final user = await ApiService.getProfile(accessToken);
+      var user = await ApiService.getProfile(accessToken);
+      // Nếu token hết hạn hoặc lỗi, thử refresh token
+      if (user == null) {
+        final refreshToken = await _secureStorage.read(key: kRefreshTokenKey);
+        if (refreshToken != null) {
+          final refreshResult = await ApiService.refreshToken(refreshToken);
+          if (refreshResult != null && refreshResult['access_token'] != null) {
+            accessToken = refreshResult['access_token'] as String;
+            await prefs.setString(kAccessTokenKey, accessToken);
+            user = await ApiService.getProfile(accessToken);
+          }
+        }
+      }
       if (user != null) {
-        // Nếu chưa setup profile (chưa có ngày sinh), chuyển tới màn hình setup
         if (user['dateOfBirth'] == null) {
+          final userName = user['name'] != null ? user['name'] as String : '';
           setState(() {
-            _home = WelcomeProfileSetupScreen(userName: user['name'] ?? '');
+            _home = WelcomeProfileSetupScreen(userName: userName);
             _loading = false;
           });
+          _refreshTimer?.cancel();
         } else {
-          // Nếu đã có profile, vào màn hình chính
           setState(() {
             _home = const MainScreen();
             _loading = false;
           });
+          _startPeriodicTokenRefresh();
         }
       } else {
-        // Token hết hạn hoặc lỗi, xóa token và về màn hình welcome
-        await prefs.remove('access_token');
+        // Token hết hạn hoặc refresh thất bại, xóa token và về màn hình welcome
+        await prefs.remove(kAccessTokenKey);
+        await _secureStorage.delete(key: kRefreshTokenKey);
         setState(() {
           _home = const WelcomeScreen();
           _loading = false;
         });
+        _refreshTimer?.cancel();
       }
     } catch (e) {
-      // Lỗi mạng hoặc lỗi khác, xóa token và về màn hình welcome
-      await prefs.remove('access_token');
+      await prefs.remove(kAccessTokenKey);
+      await _secureStorage.delete(key: kRefreshTokenKey);
       setState(() {
         _home = const WelcomeScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
     }
   }
 
