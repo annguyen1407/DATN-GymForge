@@ -172,7 +172,7 @@ class UserScreen extends StatelessWidget {
                           ),
                         ),
                         onPressed: () async {
-                          await AuthService.logout(context);
+                          await LogoutService.logout(context);
                         },
                       ),
                     ),

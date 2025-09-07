@@ -15,7 +15,7 @@ class UserService {
   }) async {
     final res = await http.get(url, headers: headers);
     if (res.statusCode == 401 && context.mounted) {
-      await AuthService.logout(context);
+      await LogoutService.logout(context);
       return null;
     }
     return res;
