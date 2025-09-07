@@ -4,6 +4,7 @@ import '../../../services/api_service.dart';
 import '../../profile_setup/welcome_profile_setup_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'forgot_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -185,7 +186,6 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                           ),
                         ),
-                        // ...existing code...
                         if (_error != null) ...[
                           Text(
                             _error!,
@@ -194,7 +194,6 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 8),
                         ],
                         const SizedBox(height: 24),
-                        // ...existing code...
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -218,9 +217,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // ...existing code...
-                        // ...existing code...
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -247,7 +244,12 @@ class _SignInScreenState extends State<SignInScreen> {
                         Center(
                           child: GestureDetector(
                             onTap: () {
-                              // TODO: Thêm chức năng quên tài khoản
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ForgotPasswordScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'Quên tài khoản ?',
