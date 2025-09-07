@@ -39,7 +39,7 @@ class VerifySuccessScreen extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.purpleAccent,
+                          color: Color(0xFF8854FF),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 4),
                         ),
@@ -64,18 +64,18 @@ class VerifySuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
                 const Text(
-                  'You have successfully ....',
+                  'You have successfully verified your email. You can now log in to your account and start using the app.',
                   style: TextStyle(color: Colors.white54, fontSize: 18),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
                 SizedBox(
-                  width: double.infinity,
+                  width: 220,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent,
+                      backgroundColor: Color(0xFF8854FF),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -85,7 +85,7 @@ class VerifySuccessScreen extends StatelessWidget {
                     },
                     child: const Text(
                       'Login Now',
-                      style: TextStyle(fontSize: 20),
+                      style: TextStyle(fontSize: 16),
                     ),
                   ),
                 ),

@@ -17,16 +17,16 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     6,
     (_) => TextEditingController(),
   );
-  int _seconds = 600; // 10 phút
   late final String _maskedEmail;
-  String _timerText = '';
   bool _isResending = false;
   String? _error;
+  int _resendCooldown = 0;
+  String _cooldownText = '';
+  int _resendCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _startTimer();
     _maskedEmail = _maskEmail(widget.email);
   }
 
@@ -41,47 +41,45 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     super.dispose();
   }
 
-  void _startTimer() {
-    _seconds = 600;
-    _timerText = _formatTime(_seconds);
-    Future.doWhile(() async {
-      if (_seconds == 0) return false;
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
-      setState(() {
-        _seconds--;
-        _timerText = _formatTime(_seconds);
-      });
-      return _seconds > 0;
-    });
+  String _maskEmail(String email) {
+    final parts = email.split('@');
+    if (parts.length != 2) return email;
+    final name = parts[0];
+    final maskedName = name.length <= 2
+        ? name[0] + '*'
+        : name.substring(0, 2) + '*' * (name.length - 2);
+    return '$maskedName@${parts[1]}';
   }
 
   String _formatTime(int seconds) {
-    final m = (seconds ~/ 60).toString().padLeft(2, '0');
-    final s = (seconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final secs = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$secs';
   }
 
-  String _maskEmail(String email) {
-    final parts = email.split('@');
-    if (parts[0].length <= 2) return email;
-    final visible = parts[0].substring(0, 2);
-    final masked = '*' * (parts[0].length - 2);
-    return '$visible$masked@${parts[1]}';
-  }
-
-  void _onOtpChanged(int idx, String value) async {
-    if (value.length == 1 && idx < 5) {
-      _focusNodes[idx + 1].requestFocus();
-    }
-    if (value.isEmpty && idx > 0) {
-      _focusNodes[idx - 1].requestFocus();
-    }
-    // Tự động submit khi nhập đủ 6 số
-    final otp = _controllers.map((c) => c.text).join();
-    if (otp.length == 6 && otp.runes.every((r) => r >= 48 && r <= 57)) {
-      await _onSubmit();
-    }
+  void _startResendCooldown() {
+    setState(() {
+      _resendCooldown = 5; // đổi thành 5s để debug nhanh
+      _cooldownText = _formatTime(_resendCooldown);
+    });
+    Future.doWhile(() async {
+      if (_resendCooldown == 0) return false;
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() {
+        _resendCooldown--;
+        _cooldownText = _formatTime(_resendCooldown);
+      });
+      return _resendCooldown > 0;
+    }).then((_) {
+      if (mounted) {
+        setState(() {
+          _resendCooldown = 0;
+          _cooldownText = '';
+          // _resendCount = 0; // Không reset nữa, mọi lần gửi tiếp theo đều phải chờ 5s
+        });
+      }
+    });
   }
 
   Future<void> _onSubmit() async {
@@ -108,21 +106,54 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  void _onOtpChanged(int idx, String value) async {
+    if (value.length == 1 && idx < 5) {
+      _focusNodes[idx + 1].requestFocus();
+    }
+    if (value.isEmpty && idx > 0) {
+      _focusNodes[idx - 1].requestFocus();
+    }
+    final otp = _controllers.map((c) => c.text).join();
+    if (otp.length == 6 && otp.runes.every((r) => r >= 48 && r <= 57)) {
+      await _onSubmit();
+    }
+  }
+
   void _onResend() async {
-    setState(() => _isResending = true);
-    final ok = await ApiService.resendVerificationOTP(email: widget.email);
-    setState(() => _isResending = false);
-    if (ok) {
-      _startTimer();
-      setState(() => _error = null);
+    if (_resendCooldown > 0) return;
+    if (_resendCount < 3) {
+      setState(() => _isResending = true);
+      final ok = await ApiService.resendVerificationOTP(email: widget.email);
+      setState(() => _isResending = false);
+      if (ok) {
+        setState(() {
+          _error = null;
+          _resendCount++;
+        });
+        if (_resendCount == 3) {
+          _startResendCooldown();
+        }
+      } else {
+        setState(() => _error = 'Gửi lại mã thất bại, thử lại sau!');
+      }
     } else {
-      setState(() => _error = 'Gửi lại mã thất bại, thử lại sau!');
+      // Đã bị tính spam, mỗi lần bấm đều phải chờ cooldown và đều call API
+      setState(() => _isResending = true);
+      final ok = await ApiService.resendVerificationOTP(email: widget.email);
+      setState(() => _isResending = false);
+      if (ok) {
+        setState(() {
+          _error = null;
+        });
+        _startResendCooldown();
+      } else {
+        setState(() => _error = 'Gửi lại mã thất bại, thử lại sau!');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -199,23 +230,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        RichText(
-                          text: TextSpan(
-                            text: 'Mã này sẽ có hiệu lực trong ',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 15,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: _formatTime(_seconds),
-                                style: TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                        const Text(
+                          'Mã có hiệu lực trong 10 phút',
+                          style: TextStyle(color: Colors.white54, fontSize: 15),
                         ),
                         const SizedBox(height: 28),
                         Row(
@@ -268,7 +285,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             );
                           }),
                         ),
-                        // Hiển thị lỗi nếu có
                         if (_error != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -293,25 +309,38 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             ),
                             const SizedBox(width: 8),
                             GestureDetector(
-                              onTap: (_seconds == 0 && !_isResending)
-                                  ? _onResend
-                                  : null,
+                              onTap: (_isResending || _resendCooldown > 0)
+                                  ? null
+                                  : _onResend,
                               child: Text(
                                 _isResending ? 'Đang gửi lại...' : 'Gửi lại mã',
                                 style: TextStyle(
-                                  color: (_seconds == 0 && !_isResending)
-                                      ? Colors.purpleAccent
-                                      : Colors.grey,
+                                  color: (_isResending || _resendCooldown > 0)
+                                      ? Colors.grey
+                                      : Colors.purpleAccent,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
-                                  decoration: (_seconds == 0 && !_isResending)
-                                      ? TextDecoration.underline
-                                      : null,
+                                  decoration:
+                                      (_isResending || _resendCooldown > 0)
+                                      ? null
+                                      : TextDecoration.underline,
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        if (_resendCooldown > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Bạn có thể gửi lại mã sau $_cooldownText',
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

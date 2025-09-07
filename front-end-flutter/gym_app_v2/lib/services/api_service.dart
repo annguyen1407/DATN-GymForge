@@ -114,7 +114,7 @@ class ApiService {
         },
         body: jsonEncode({'email': email}),
       );
-      return response.statusCode == 200;
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
     }
