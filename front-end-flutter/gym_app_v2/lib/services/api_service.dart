@@ -119,4 +119,48 @@ class ApiService {
       return false;
     }
   }
+
+  /// Quên mật khẩu: gửi OTP về email
+  static Future<bool> forgotPassword({required String email}) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/forgot-password');
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Đặt lại mật khẩu bằng OTP
+  static Future<bool> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/auth/reset-password');
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
 }

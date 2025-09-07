@@ -11,6 +11,13 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  bool _validatePassword(String password) {
+    final regex = RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$&*~_\-\^%\.,:;\?\(\)\[\]\{\}<>]).{8,}$',
+    );
+    return regex.hasMatch(password);
+  }
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -48,9 +55,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       });
       return;
     }
-    if (password.length < 6) {
+    if (!_validatePassword(password)) {
       setState(() {
-        _error = 'Mật khẩu phải từ 6 ký tự.';
+        _error =
+            'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.';
       });
       return;
     }
