@@ -1,3 +1,9 @@
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/api_service.dart';
+import '../../services/log_out_service.dart';
+import '../../main.dart' show kTokenRefreshInterval;
 import 'package:flutter/material.dart';
 import 'user/user_screen.dart';
 import 'home/home_screen.dart';
@@ -18,6 +24,8 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  Timer? _refreshTimer;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   int _selectedIndex = 0; // Tab hiện tại
   UserModel? _user; // Thông tin user lấy từ API
   bool _loading = true; // Trạng thái loading khi fetch user
@@ -26,6 +34,40 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _fetchUser();
+    _startPeriodicTokenRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicTokenRefresh() {
+    print('Khởi động timer refresh token (MainScreen)');
+    _refreshTimer = Timer.periodic(kTokenRefreshInterval, (_) async {
+      print('Đang thực hiện refresh token (MainScreen) lúc: ${DateTime.now()}');
+      final prefs = await SharedPreferences.getInstance();
+      String? accessToken = prefs.getString('access_token');
+      final refreshToken = await _secureStorage.read(key: 'refresh_token');
+      if (refreshToken != null) {
+        final refreshResult = await ApiService.refreshToken(refreshToken);
+        if (refreshResult != null &&
+            refreshResult['access_token'] != null &&
+            refreshResult['refresh_token'] != null) {
+          accessToken = refreshResult['access_token'] as String;
+          await prefs.setString('access_token', accessToken);
+          await _secureStorage.write(
+            key: 'refresh_token',
+            value: refreshResult['refresh_token'] as String,
+          );
+        } else {
+          // Nếu refresh thất bại, tự động logout
+          _refreshTimer?.cancel();
+          if (mounted) await LogoutService.logout(context);
+        }
+      }
+    });
   }
 
   /// Gọi API lấy profile user
