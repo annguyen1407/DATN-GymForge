@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'services/api_service.dart';
-import 'services/log_out_service.dart';
 // Import các màn hình chính của app
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/welcome/welcome_screen.dart';
@@ -15,14 +14,15 @@ import 'screens/main_screen.dart';
 
 // ==== App Config ==== //
 const Duration kTokenRefreshInterval = Duration(
-  seconds: 60,
+  seconds: 600,
 ); // thời gian refresh token
 const String kAccessTokenKey = 'access_token';
 const String kRefreshTokenKey = 'refresh_token';
 
 /// Entry point của ứng dụng
+final GlobalKey<_MyAppState> myAppKey = GlobalKey<_MyAppState>();
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp(key: myAppKey));
 }
 
 /// Widget gốc của app, quản lý trạng thái khởi động và điều hướng màn hình đầu tiên
@@ -34,6 +34,12 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  // Cho phép gọi từ nơi khác để hủy timer refresh token
+  void cancelRefreshTimer() {
+    _refreshTimer?.cancel();
+    print('Đã hủy timer refresh token');
+  }
+
   Timer? _refreshTimer;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   Widget? _home;
@@ -49,34 +55,6 @@ class _MyAppState extends State<MyApp> {
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
-  }
-
-  void _startPeriodicTokenRefresh() {
-    _refreshTimer = Timer.periodic(kTokenRefreshInterval, (_) async {
-      print('Đang thực hiện refresh token lúc: ${DateTime.now()}');
-      final prefs = await SharedPreferences.getInstance();
-      String? accessToken = prefs.getString(kAccessTokenKey);
-      final refreshToken = await _secureStorage.read(key: kRefreshTokenKey);
-      if (refreshToken != null) {
-        final refreshResult = await ApiService.refreshToken(refreshToken);
-        if (refreshResult != null &&
-            refreshResult['access_token'] != null &&
-            refreshResult['refresh_token'] != null) {
-          accessToken = refreshResult['access_token'] as String;
-          await prefs.setString(kAccessTokenKey, accessToken);
-          await _secureStorage.write(
-            key: kRefreshTokenKey,
-            value: refreshResult['refresh_token'] as String,
-          );
-        } else {
-          // Nếu refresh thất bại, tự động logout nếu đang ở MainScreen
-          if (_home is MainScreen && mounted) {
-            _refreshTimer?.cancel();
-            await LogoutService.logout(context);
-          }
-        }
-      }
-    });
   }
 
   /// Hàm khởi tạo app, kiểm tra trạng thái onboarding, token, và profile user
@@ -125,11 +103,11 @@ class _MyAppState extends State<MyApp> {
           });
           _refreshTimer?.cancel();
         } else {
+          print('Vào MainScreen, bắt đầu refresh token');
           setState(() {
             _home = const MainScreen();
             _loading = false;
           });
-          _startPeriodicTokenRefresh();
         }
       } else {
         // Token hết hạn hoặc refresh thất bại, xóa token và về màn hình welcome
@@ -184,5 +162,3 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
-// ...existing code...

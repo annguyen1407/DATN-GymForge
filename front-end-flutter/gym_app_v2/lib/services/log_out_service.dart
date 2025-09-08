@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/material.dart';
 import '../screens/welcome/welcome_screen.dart';
 import 'api_service.dart';
+import '../main.dart' show myAppKey;
 
 /// LogoutService: Chỉ xử lý chức năng đăng xuất, xóa cache, điều hướng về màn hình welcome
 class LogoutService {
@@ -38,6 +39,8 @@ class LogoutService {
         ),
         (route) => false,
       );
+      // Hủy timer refresh token toàn cục
+      myAppKey.currentState?.cancelRefreshTimer();
     }
   }
 }
