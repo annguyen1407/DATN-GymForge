@@ -4,6 +4,8 @@ import '../../../services/api_service.dart';
 import '../../profile_setup/welcome_profile_setup_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'forgot_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -13,6 +15,7 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
@@ -52,9 +55,14 @@ class _SignInScreenState extends State<SignInScreen> {
     if (data != null &&
         data['status'] != null &&
         (data['status'] == 200 || data['status'] == 201) &&
-        data['access_token'] != null) {
+        data['access_token'] != null &&
+        data['refresh_token'] != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', data['access_token']);
+      await _secureStorage.write(
+        key: 'refresh_token',
+        value: data['refresh_token'],
+      );
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công!')));
@@ -63,8 +71,9 @@ class _SignInScreenState extends State<SignInScreen> {
       if (user != null && user['dateOfBirth'] == null) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                WelcomeProfileSetupScreen(userName: user['fullName'] ?? ''),
+            builder: (_) => WelcomeProfileSetupScreen(
+              userName: user['name'] ?? user['fullName'] ?? '',
+            ),
           ),
           (route) => false,
         );
@@ -185,7 +194,6 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                           ),
                         ),
-                        // ...existing code...
                         if (_error != null) ...[
                           Text(
                             _error!,
@@ -194,7 +202,6 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 8),
                         ],
                         const SizedBox(height: 24),
-                        // ...existing code...
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -218,9 +225,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // ...existing code...
-                        // ...existing code...
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -247,7 +252,12 @@ class _SignInScreenState extends State<SignInScreen> {
                         Center(
                           child: GestureDetector(
                             onTap: () {
-                              // TODO: Thêm chức năng quên tài khoản
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ForgotPasswordScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'Quên tài khoản ?',

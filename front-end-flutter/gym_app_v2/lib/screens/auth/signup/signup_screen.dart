@@ -1,6 +1,7 @@
 // ...existing code...
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
+import 'verify_email_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -10,11 +11,17 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  bool _validatePassword(String password) {
+    final regex = RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$&*~_\-\^%\.,:;\?\(\)\[\]\{\}<>]).{8,}$',
+    );
+    return regex.hasMatch(password);
+  }
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   bool _loading = false;
   String? _error;
   bool _obscurePassword = true;
@@ -27,14 +34,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final password = _passwordController.text.trim();
     final username = _usernameController.text.trim();
     final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
 
     // Validate fields
-    if (name.isEmpty ||
-        email.isEmpty ||
-        username.isEmpty ||
-        password.isEmpty ||
-        phone.isEmpty) {
+    if (name.isEmpty || email.isEmpty || username.isEmpty || password.isEmpty) {
       setState(() {
         _error = 'Vui lòng nhập đầy đủ thông tin.';
       });
@@ -53,15 +55,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       });
       return;
     }
-    if (password.length < 6) {
+    if (!_validatePassword(password)) {
       setState(() {
-        _error = 'Mật khẩu phải từ 6 ký tự.';
-      });
-      return;
-    }
-    if (phone.length < 8 || int.tryParse(phone) == null) {
-      setState(() {
-        _error = 'Số điện thoại không hợp lệ.';
+        _error =
+            'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.';
       });
       return;
     }
@@ -74,16 +71,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "password": password,
       "username": username,
       "name": name,
-      "phoneNumber": phone,
       "role": "GYMER",
-      "dateOfBirth": null,
-      "sex": "MALE",
-      "address": null,
-      "weight": null,
-      "height": null,
-      "goal": null,
-      "expType": null,
-      "biography": null,
     };
     final result = await ApiService.signup(body);
     print('Signup response:');
@@ -92,68 +80,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
       setState(() {
         _loading = false;
       });
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 32,
-            horizontal: 24,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.check_circle_rounded,
-                color: Color(0xFF8854FF),
-                size: 64,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Đăng ký thành công',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Hãy kiểm tra hộp thư email để xác nhận đăng ký!',
-                style: TextStyle(fontSize: 16, color: Colors.black87),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF8854FF),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
-                    'OK',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => VerifyEmailScreen(email: email),
         ),
       );
-      Navigator.pushReplacementNamed(context, '/signin');
+      return;
     } else if (result != null && result['status'] == 409) {
       setState(() {
         _error = 'Email hoặc tên đăng nhập đã tồn tại!';
@@ -259,25 +191,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _phoneController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(
-                            Icons.phone,
-                            color: Colors.white54,
-                          ),
-                          hintText: 'Số điện thoại',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          filled: true,
-                          fillColor: Colors.grey[850],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+
                       TextField(
                         controller: _passwordController,
                         style: const TextStyle(color: Colors.white),

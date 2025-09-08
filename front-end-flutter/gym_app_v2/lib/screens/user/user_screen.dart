@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/auth_service.dart';
+import '../../services/log_out_service.dart';
 
 /// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
 class UserScreen extends StatelessWidget {
@@ -172,7 +172,7 @@ class UserScreen extends StatelessWidget {
                           ),
                         ),
                         onPressed: () async {
-                          await AuthService.logout(context);
+                          await LogoutService.logout(context);
                         },
                       ),
                     ),

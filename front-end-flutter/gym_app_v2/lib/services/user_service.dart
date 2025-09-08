@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import 'api_constants.dart';
-import 'auth_service.dart';
+import 'log_out_service.dart';
 
 class UserService {
   /// Wrapper cho http.get: tự động kiểm tra 401 và logout nếu cần
@@ -15,12 +15,15 @@ class UserService {
   }) async {
     final res = await http.get(url, headers: headers);
     if (res.statusCode == 401 && context.mounted) {
-      await AuthService.logout(context);
+      await LogoutService.logout(context);
       return null;
     }
     return res;
   }
 
+  /// Lấy profile user, trả về UserModel hoặc null nếu lỗi.
+  /// NOTE: Hàm này sẽ tự động logout nếu token hết hạn (401).
+  /// Nếu chỉ muốn lấy dữ liệu thô (Map) và không logout, dùng ApiService.getProfile.
   static Future<UserModel?> fetchProfile(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token');

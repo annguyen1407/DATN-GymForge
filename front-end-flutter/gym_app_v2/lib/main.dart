@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'services/api_service.dart';
 // Import các màn hình chính của app
 import 'screens/onboarding/onboarding_screen.dart';
@@ -10,9 +12,17 @@ import 'screens/profile_setup/profile_setup_screen.dart';
 import 'screens/profile_setup/welcome_profile_setup_screen.dart';
 import 'screens/main_screen.dart';
 
+// ==== App Config ==== //
+const Duration kTokenRefreshInterval = Duration(
+  seconds: 600,
+); // thời gian refresh token
+const String kAccessTokenKey = 'access_token';
+const String kRefreshTokenKey = 'refresh_token';
+
 /// Entry point của ứng dụng
+final GlobalKey<_MyAppState> myAppKey = GlobalKey<_MyAppState>();
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp(key: myAppKey));
 }
 
 /// Widget gốc của app, quản lý trạng thái khởi động và điều hướng màn hình đầu tiên
@@ -24,6 +34,14 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  // Cho phép gọi từ nơi khác để hủy timer refresh token
+  void cancelRefreshTimer() {
+    _refreshTimer?.cancel();
+    print('Đã hủy timer refresh token');
+  }
+
+  Timer? _refreshTimer;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   Widget? _home;
   bool _loading = true;
 
@@ -33,59 +51,82 @@ class _MyAppState extends State<MyApp> {
     _initApp();
   }
 
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
   /// Hàm khởi tạo app, kiểm tra trạng thái onboarding, token, và profile user
   Future<void> _initApp() async {
     final prefs = await SharedPreferences.getInstance();
-    // Kiểm tra đã xem onboarding chưa
     final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
     if (!seenOnboarding) {
       setState(() {
         _home = const OnboardingScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
       return;
     }
     // Kiểm tra access token
-    final accessToken = prefs.getString('access_token');
+    String? accessToken = prefs.getString(kAccessTokenKey);
     if (accessToken == null) {
       setState(() {
         _home = const WelcomeScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
       return;
     }
-    // Nếu có token, gọi API lấy profile qua ApiService
+    // Nếu có token, thử gọi API lấy profile
     try {
-      final user = await ApiService.getProfile(accessToken);
+      var user = await ApiService.getProfile(accessToken);
+      // Nếu token hết hạn hoặc lỗi, thử refresh token
+      if (user == null) {
+        final refreshToken = await _secureStorage.read(key: kRefreshTokenKey);
+        if (refreshToken != null) {
+          final refreshResult = await ApiService.refreshToken(refreshToken);
+          if (refreshResult != null && refreshResult['access_token'] != null) {
+            accessToken = refreshResult['access_token'] as String;
+            await prefs.setString(kAccessTokenKey, accessToken);
+            user = await ApiService.getProfile(accessToken);
+          }
+        }
+      }
       if (user != null) {
-        // Nếu chưa setup profile (chưa có ngày sinh), chuyển tới màn hình setup
         if (user['dateOfBirth'] == null) {
+          final userName = user['name'] != null ? user['name'] as String : '';
           setState(() {
-            _home = WelcomeProfileSetupScreen(userName: user['name'] ?? '');
+            _home = WelcomeProfileSetupScreen(userName: userName);
             _loading = false;
           });
+          _refreshTimer?.cancel();
         } else {
-          // Nếu đã có profile, vào màn hình chính
+          print('Vào MainScreen, bắt đầu refresh token');
           setState(() {
             _home = const MainScreen();
             _loading = false;
           });
         }
       } else {
-        // Token hết hạn hoặc lỗi, xóa token và về màn hình welcome
-        await prefs.remove('access_token');
+        // Token hết hạn hoặc refresh thất bại, xóa token và về màn hình welcome
+        await prefs.remove(kAccessTokenKey);
+        await _secureStorage.delete(key: kRefreshTokenKey);
         setState(() {
           _home = const WelcomeScreen();
           _loading = false;
         });
+        _refreshTimer?.cancel();
       }
     } catch (e) {
-      // Lỗi mạng hoặc lỗi khác, xóa token và về màn hình welcome
-      await prefs.remove('access_token');
+      await prefs.remove(kAccessTokenKey);
+      await _secureStorage.delete(key: kRefreshTokenKey);
       setState(() {
         _home = const WelcomeScreen();
         _loading = false;
       });
+      _refreshTimer?.cancel();
     }
   }
 
@@ -121,5 +162,3 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
-// ...existing code...
