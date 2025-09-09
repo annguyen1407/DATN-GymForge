@@ -10,7 +10,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { WorkoutPlansService } from './workout-plans.service';
 import { CreateWorkoutPlanDto } from './dto/create-workout-plan.dto';
 import { UpdateWorkoutPlanDto } from './dto/update-workout-plan.dto';
@@ -21,6 +21,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { CreateWorkoutDayDto } from './dto/create-workout-day.dto';
+import { UpdateWorkoutDayDto } from './dto/update-workout-day.dto';
 
 @ApiTags('workout-plans')
 @Controller('workout-plans')
@@ -133,12 +135,45 @@ export class WorkoutPlansController {
     return this.workoutPlansService.remove(id, user.id);
   }
 
+  // Workout Day endpoints
+  @Post(':planId/days')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
+  @ApiOperation({ summary: 'Create a day for a workout plan' })
+  @ApiResponse({ status: 201, description: 'Day created successfully' })
+  @ApiQuery({ name: 'planId', required: true, description: 'Workout plan ID (UUID)' })
+  createDay(@Param('planId', ParseUUIDPipe) planId: string, @Body() dto: Omit<CreateWorkoutDayDto, 'workoutPlanId'>) {
+    return this.workoutPlansService.createDay({ ...dto, workoutPlanId: planId });
+  }
+
+  @Get(':planId/days')
+  @ApiOperation({ summary: 'List days of a workout plan' })
+  listDays(@Param('planId', ParseUUIDPipe) planId: string) {
+    return this.workoutPlansService.listDays(planId);
+  }
+
+  @Patch('days/:dayId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
+  @ApiOperation({ summary: 'Update a workout day' })
+  updateDay(@Param('dayId', ParseUUIDPipe) dayId: string, @Body() dto: UpdateWorkoutDayDto) {
+    return this.workoutPlansService.updateDay(dayId, dto);
+  }
+
+  @Delete('days/:dayId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
+  @ApiOperation({ summary: 'Delete a workout day' })
+  removeDay(@Param('dayId', ParseUUIDPipe) dayId: string) {
+    return this.workoutPlansService.removeDay(dayId);
+  }
+
   // Workout Exercise endpoints
   @Post('exercises')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
-  @ApiOperation({ summary: 'Add exercise to workout plan' })
-  @ApiResponse({ status: 201, description: 'Exercise added to workout plan successfully' })
+  @ApiOperation({ summary: 'Add exercise to workout plan/day' })
+  @ApiResponse({ status: 201, description: 'Exercise added successfully' })
   addExercise(@Body() createWorkoutExerciseDto: CreateWorkoutExerciseDto) {
     return this.workoutPlansService.addExercise(createWorkoutExerciseDto);
   }
@@ -146,8 +181,8 @@ export class WorkoutPlansController {
   @Delete('exercises/:exerciseId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
-  @ApiOperation({ summary: 'Remove exercise from workout plan' })
-  @ApiResponse({ status: 200, description: 'Exercise removed from workout plan successfully' })
+  @ApiOperation({ summary: 'Remove exercise from workout plan/day' })
+  @ApiResponse({ status: 200, description: 'Exercise removed successfully' })
   removeExercise(@Param('exerciseId', ParseUUIDPipe) exerciseId: string) {
     return this.workoutPlansService.removeExercise(exerciseId);
   }
@@ -155,7 +190,7 @@ export class WorkoutPlansController {
   @Patch('exercises/:exerciseId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
-  @ApiOperation({ summary: 'Update exercise in workout plan' })
+  @ApiOperation({ summary: 'Update exercise in workout plan/day' })
   @ApiResponse({ status: 200, description: 'Exercise updated successfully' })
   updateExercise(
     @Param('exerciseId', ParseUUIDPipe) exerciseId: string,

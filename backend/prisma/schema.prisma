@@ -285,18 +285,33 @@ model WorkoutPlan {
 
   user        User              @relation(fields: [userId], references: [id])
   exercises   WorkoutExercise[]
+  workoutDays WorkoutDay[]
 
   @@map("workout_plans")
+}
+
+model WorkoutDay {
+  id            String        @id @default(uuid()) @db.Uuid
+  workoutPlanId String        @db.Uuid
+  dayNumber     Int?
+  date          DateTime?     @db.Date
+
+  workoutPlan   WorkoutPlan   @relation(fields: [workoutPlanId], references: [id])
+  exercises     WorkoutExercise[]
+
+  @@map("workout_days")
 }
 
 model WorkoutExercise {
   id                  String         @id @default(uuid()) @db.Uuid
   workoutPlanId       String         @db.Uuid
+  workoutDayId        String?        @db.Uuid
   exerciseId          String?        @db.Uuid
   dayNumber           Int?
   weight              Float?
 
   workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
+  workoutDay          WorkoutDay?    @relation(fields: [workoutDayId], references: [id])
   appointments        Appointment[]
   WorkoutExerciseLog  WorkoutExerciseLog[]
 
