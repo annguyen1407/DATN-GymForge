@@ -1,54 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:health/health.dart';
 import '../../services/log_out_service.dart';
+import '../../services/user_service.dart';
+import '../../models/user_model.dart';
 
 /// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
-class UserScreen extends StatelessWidget {
-  /// Nút debug: xem và sửa access_token
-  Widget _debugTokenButton(BuildContext context) {
-    // 2 nút debug đã được comment lại, khi cần test thì bỏ comment ra
-    return const SizedBox.shrink();
-    /*
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: () async {
-            final prefs = await SharedPreferences.getInstance();
-            // Xem token hiện tại
-            print('Access token: \\${prefs.getString('access_token')}');
-            // Sửa token để test logout tự động
-            await prefs.setString('access_token', 'token_sai_de_test');
-            print('Đã sửa access_token thành token_sai_de_test');
-          },
-          child: const Text('Debug Token'),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () async {
-            // Gọi fetchProfile và in ra kết quả
-            final user = await UserService.fetchProfile(context);
-            print('fetchProfile result: \\${user?.toString()}');
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    user != null
-                        ? 'Fetch thành công!'
-                        : 'Fetch thất bại hoặc đã logout',
-                  ),
-                ),
-              );
-            }
-          },
-          child: const Text('Test fetchProfile'),
-        ),
-      ],
-    );
-    */
+class UserScreen extends StatefulWidget {
+  const UserScreen({super.key});
+
+  @override
+  State<UserScreen> createState() => _UserScreenState();
+}
+
+class _UserScreenState extends State<UserScreen> {
+  UserModel? _user;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
   }
 
-  final String userName;
-  const UserScreen({super.key, required this.userName});
+  Future<void> _fetchProfile() async {
+    final user = await UserService.fetchProfile(context);
+    if (!mounted) return;
+    if (user != null) {
+      // In ra terminal khi fetchProfile thành công
+      // ignore: avoid_print
+      print(
+        '[UserScreen] fetchProfile thành công: ${user.name} (${user.email})',
+      );
+    }
+    setState(() {
+      _user = user;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,132 +46,187 @@ class UserScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              // Avatar và nút đổi ảnh
-              Center(
-                child: Stack(
-                  alignment: Alignment.center,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
                   children: [
-                    const CircleAvatar(
-                      radius: 48,
-                      backgroundColor: Colors.white24,
-                      backgroundImage: AssetImage(
-                        'assets/images/avatar_placeholder.png',
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Tên người dùng
-              Text(
-                userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Thống kê cá nhân
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _UserStat(
-                      icon: Icons.timer,
-                      value: '10',
-                      label: 'Total Time (h)',
-                      color: Colors.blue,
-                    ),
-                    _UserStat(
-                      icon: Icons.star,
-                      value: '3/28',
-                      label: 'Goals Achieved',
-                      color: Colors.amber,
-                    ),
-                    _UserStat(
-                      icon: Icons.emoji_events,
-                      value: '5/15',
-                      label: 'Badge Collected',
-                      color: Colors.red,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              _SectionTitle(title: 'Tài khoản'),
-              _UserMenuItem(icon: Icons.person, text: 'Chỉnh sửa tài khoản'),
-              _UserMenuItem(
-                icon: Icons.badge,
-                text: 'Chỉnh sửa thông tin người dùng',
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(title: 'General'),
-              _UserMenuItem(icon: Icons.settings, text: 'Cài đặt ứng dụng'),
-              _UserMenuItem(icon: Icons.subscriptions, text: 'Subscription'),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white12,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 24),
+                    // Avatar và nút đổi ảnh
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 48,
+                            backgroundColor: Colors.white24,
+                            backgroundImage:
+                                _user?.profilePicture != null &&
+                                    _user!.profilePicture!.isNotEmpty
+                                ? NetworkImage(_user!.profilePicture!)
+                                : null,
                           ),
-                        ),
-                        icon: const Icon(
-                          Icons.logout,
-                          color: Color(0xFF8854FF),
-                        ),
-                        label: const Text(
-                          'Đăng xuất',
-                          style: TextStyle(
-                            color: Color(0xFF8854FF),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
                           ),
-                        ),
-                        onPressed: () async {
-                          await LogoutService.logout(context);
-                        },
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _debugTokenButton(context),
+                    const SizedBox(height: 12),
+                    // Tên người dùng
+                    Text(
+                      _user?.name ?? '',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Thống kê cá nhân
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _UserStat(
+                            icon: Icons.timer,
+                            value: '10',
+                            label: 'Total Time (h)',
+                            color: Colors.blue,
+                          ),
+                          _UserStat(
+                            icon: Icons.star,
+                            value: '3/28',
+                            label: 'Goals Achieved',
+                            color: Colors.amber,
+                          ),
+                          _UserStat(
+                            icon: Icons.emoji_events,
+                            value: '5/15',
+                            label: 'Badge Collected',
+                            color: Colors.red,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    _SectionTitle(title: 'Tài khoản'),
+                    _UserMenuItem(
+                      icon: Icons.person,
+                      text: 'Chỉnh sửa tài khoản',
+                    ),
+                    _UserMenuItem(
+                      icon: Icons.badge,
+                      text: 'Chỉnh sửa thông tin người dùng',
+                    ),
+                    const SizedBox(height: 16),
+                    _SectionTitle(title: 'General'),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.settings,
+                        color: Color(0xFF8854FF),
+                      ),
+                      title: const Text(
+                        'Liên kết Apple Watch',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white54,
+                      ),
+                      onTap: () async {
+                        // Xin quyền truy cập HealthKit
+                        final types = [
+                          HealthDataType.ACTIVE_ENERGY_BURNED,
+                          HealthDataType.STEPS,
+                        ]; // Thêm các loại dữ liệu cần thiết
+                        final permissions = [
+                          HealthDataAccess.READ,
+                          HealthDataAccess.READ,
+                        ];
+                        final health = Health();
+                        bool granted = await health.requestAuthorization(
+                          types,
+                          permissions: permissions,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                granted
+                                    ? 'Đã kết nối với Apple HealthKit thành công!'
+                                    : 'Không thể kết nối với Apple HealthKit.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    _UserMenuItem(
+                      icon: Icons.subscriptions,
+                      text: 'Subscription',
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white12,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Color(0xFF8854FF),
+                              ),
+                              label: const Text(
+                                'Đăng xuất',
+                                style: TextStyle(
+                                  color: Color(0xFF8854FF),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              onPressed: () async {
+                                await LogoutService.logout(context);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // _debugTokenButton(context),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
