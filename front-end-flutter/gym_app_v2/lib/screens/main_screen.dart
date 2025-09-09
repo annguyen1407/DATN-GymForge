@@ -102,7 +102,7 @@ class _MainScreenState extends State<MainScreen> {
       WorkoutScreen(),
       ExerciseScreen(),
       LogScreen(),
-      UserScreen(userName: _user?.name ?? ''),
+      UserScreen(),
     ];
     return Scaffold(
       body: tabs[_selectedIndex],
