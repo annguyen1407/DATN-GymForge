@@ -4,6 +4,8 @@ import { WorkoutPlan, WorkoutExercise } from '@prisma/client';
 import { CreateWorkoutPlanDto } from './dto/create-workout-plan.dto';
 import { UpdateWorkoutPlanDto } from './dto/update-workout-plan.dto';
 import { CreateWorkoutExerciseDto } from './dto/create-workout-exercise.dto';
+import { CreateWorkoutDayDto } from './dto/create-workout-day.dto';
+import { UpdateWorkoutDayDto } from './dto/update-workout-day.dto';
 
 @Injectable()
 export class WorkoutPlansService {
@@ -156,6 +158,12 @@ export class WorkoutPlansService {
             appointments: true,
           },
         },
+        workoutDays: {
+          include: {
+            exercises: true,
+          },
+          orderBy: { dayNumber: 'asc' },
+        },
       },
     });
 
@@ -248,21 +256,47 @@ export class WorkoutPlansService {
       },
     });
 
-    // Copy exercises from template
+    // Copy exercises from template: create days and attach exercises to those days
     if (template.exercises.length > 0) {
-      const exerciseData = template.exercises.map(exercise => ({
-        workoutPlanId: newWorkoutPlan.id,
-        exerciseId: exercise.exerciseId,
-        dayNumber: exercise.dayNumber,
-        weight: exercise.weight,
-      }));
+      const uniqueDayNumbers = Array.from(
+        new Set(template.exercises.map(e => e.dayNumber).filter((n): n is number => n !== null && n !== undefined))
+      );
 
-      await this.prisma.workoutExercise.createMany({
-        data: exerciseData,
+      const dayIdByNumber = new Map<number, string>();
+      for (const n of uniqueDayNumbers) {
+        const day = await this.prisma.workoutDay.create({
+          data: { workoutPlanId: newWorkoutPlan.id, dayNumber: n },
+        });
+        dayIdByNumber.set(n, day.id);
+      }
+
+      // If there were exercises without a dayNumber, create a generic day once
+      const hasNoDay = template.exercises.some(e => e.dayNumber === null || e.dayNumber === undefined);
+      let genericDayId: string | undefined = undefined;
+      if (hasNoDay) {
+        const day = await this.prisma.workoutDay.create({
+          data: { workoutPlanId: newWorkoutPlan.id, dayNumber: null },
+        });
+        genericDayId = day.id;
+      }
+
+      const exerciseCreates = template.exercises.map(exercise => {
+        const n = exercise.dayNumber as number | null | undefined;
+        return this.prisma.workoutExercise.create({
+          data: {
+            workoutPlanId: newWorkoutPlan.id,
+            workoutDayId: n != null ? dayIdByNumber.get(n)! : genericDayId!,
+            exerciseId: exercise.exerciseId,
+            dayNumber: exercise.dayNumber ?? undefined,
+            weight: exercise.weight ?? undefined,
+          },
+        });
       });
+
+      await this.prisma.$transaction(exerciseCreates);
     }
 
-    // Return the complete workout plan with exercises
+    // Return the complete workout plan with exercises and days
     return this.findOne(newWorkoutPlan.id);
   }
 
@@ -353,19 +387,95 @@ export class WorkoutPlansService {
     });
   }
 
+  // Workout Day methods
+  async createDay(dto: CreateWorkoutDayDto) {
+    const plan = await this.prisma.workoutPlan.findUnique({ where: { id: dto.workoutPlanId } });
+    if (!plan) throw new NotFoundException('Workout plan not found');
+
+    return this.prisma.workoutDay.create({
+      data: {
+        workoutPlanId: dto.workoutPlanId,
+        dayNumber: dto.dayNumber,
+        date: dto.date ? new Date(dto.date) : undefined,
+      },
+    });
+  }
+
+  async listDays(workoutPlanId: string) {
+    const plan = await this.prisma.workoutPlan.findUnique({ where: { id: workoutPlanId } });
+    if (!plan) throw new NotFoundException('Workout plan not found');
+
+    return this.prisma.workoutDay.findMany({
+      where: { workoutPlanId },
+      orderBy: { dayNumber: 'asc' },
+      include: { exercises: true },
+    });
+  }
+
+  async updateDay(dayId: string, dto: UpdateWorkoutDayDto) {
+    const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
+    if (!day) throw new NotFoundException('Workout day not found');
+
+    return this.prisma.workoutDay.update({
+      where: { id: dayId },
+      data: {
+        dayNumber: dto.dayNumber,
+        date: dto.date ? new Date(dto.date) : undefined,
+      },
+    });
+  }
+
+  async removeDay(dayId: string) {
+    const day = await this.prisma.workoutDay.findUnique({
+      where: { id: dayId },
+      include: { exercises: true },
+    });
+    if (!day) throw new NotFoundException('Workout day not found');
+    if (day.exercises.length > 0) {
+      throw new BadRequestException('Cannot delete a day that has exercises. Remove exercises first.');
+    }
+    return this.prisma.workoutDay.delete({ where: { id: dayId } });
+  }
+
   // Workout Exercise methods
   async addExercise(createWorkoutExerciseDto: CreateWorkoutExerciseDto): Promise<WorkoutExercise> {
-    // Verify workout plan exists
-    const workoutPlan = await this.prisma.workoutPlan.findUnique({
-      where: { id: createWorkoutExerciseDto.workoutPlanId },
-    });
+    const { workoutDayId, workoutPlanId, dayNumber, exerciseId, weight } = createWorkoutExerciseDto;
 
-    if (!workoutPlan) {
-      throw new NotFoundException('Workout plan not found');
+    let dayId = workoutDayId;
+    let planId = workoutPlanId;
+
+    if (!exerciseId) {
+      throw new BadRequestException('exerciseId is required');
+    }
+
+    if (!dayId) {
+      // Resolve or create day from planId + dayNumber
+      if (!planId) {
+        throw new BadRequestException('Provide workoutDayId or workoutPlanId');
+      }
+      const plan = await this.prisma.workoutPlan.findUnique({ where: { id: planId } });
+      if (!plan) throw new NotFoundException('Workout plan not found');
+
+      let day = await this.prisma.workoutDay.findFirst({ where: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
+      if (!day) {
+        day = await this.prisma.workoutDay.create({ data: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
+      }
+      dayId = day.id;
+    } else {
+      // Validate day and set planId from it if missing
+      const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
+      if (!day) throw new NotFoundException('Workout day not found');
+      planId = planId ?? day.workoutPlanId;
     }
 
     return this.prisma.workoutExercise.create({
-      data: createWorkoutExerciseDto,
+      data: {
+        workoutPlanId: planId!,
+        workoutDayId: dayId!,
+        exerciseId,
+        dayNumber: dayNumber,
+        weight: weight,
+      },
       include: {
         workoutPlan: true,
       },
@@ -395,9 +505,16 @@ export class WorkoutPlansService {
       throw new NotFoundException('Workout exercise not found');
     }
 
+    // Map allowable fields
+    const data: any = {};
+    if (updateData.exerciseId !== undefined) data.exerciseId = updateData.exerciseId;
+    if (updateData.weight !== undefined) data.weight = updateData.weight;
+    if (updateData.dayNumber !== undefined) data.dayNumber = updateData.dayNumber;
+    if (updateData.workoutDayId) data.workoutDayId = updateData.workoutDayId;
+
     return this.prisma.workoutExercise.update({
       where: { id: workoutExerciseId },
-      data: updateData,
+      data,
       include: {
         workoutPlan: true,
       },
