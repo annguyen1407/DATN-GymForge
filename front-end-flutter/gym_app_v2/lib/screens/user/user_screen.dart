@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:health/health.dart';
+// import 'package:health/health.dart';
 import '../../services/log_out_service.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
@@ -138,47 +138,7 @@ class _UserScreenState extends State<UserScreen> {
                     ),
                     const SizedBox(height: 16),
                     _SectionTitle(title: 'General'),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.settings,
-                        color: Color(0xFF8854FF),
-                      ),
-                      title: const Text(
-                        'Liên kết Apple Watch',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                      onTap: () async {
-                        // Xin quyền truy cập HealthKit
-                        final types = [
-                          HealthDataType.ACTIVE_ENERGY_BURNED,
-                          HealthDataType.STEPS,
-                        ]; // Thêm các loại dữ liệu cần thiết
-                        final permissions = [
-                          HealthDataAccess.READ,
-                          HealthDataAccess.READ,
-                        ];
-                        final health = Health();
-                        bool granted = await health.requestAuthorization(
-                          types,
-                          permissions: permissions,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                granted
-                                    ? 'Đã kết nối với Apple HealthKit thành công!'
-                                    : 'Không thể kết nối với Apple HealthKit.',
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                    // Đã bỏ mục liên kết Apple Watch/HealthKit
                     _UserMenuItem(
                       icon: Icons.subscriptions,
                       text: 'Subscription',
