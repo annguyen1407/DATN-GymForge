@@ -142,6 +142,7 @@ export class WorkoutPlansController {
   @ApiOperation({ summary: 'Create a day for a workout plan' })
   @ApiResponse({ status: 201, description: 'Day created successfully' })
   @ApiQuery({ name: 'planId', required: true, description: 'Workout plan ID (UUID)' })
+  @ApiBody({ type: CreateWorkoutDayDto })
   createDay(@Param('planId', ParseUUIDPipe) planId: string, @Body() dto: Omit<CreateWorkoutDayDto, 'workoutPlanId'>) {
     return this.workoutPlansService.createDay({ ...dto, workoutPlanId: planId });
   }
@@ -156,6 +157,7 @@ export class WorkoutPlansController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
   @ApiOperation({ summary: 'Update a workout day' })
+  @ApiBody({ type: UpdateWorkoutDayDto })
   updateDay(@Param('dayId', ParseUUIDPipe) dayId: string, @Body() dto: UpdateWorkoutDayDto) {
     return this.workoutPlansService.updateDay(dayId, dto);
   }
@@ -168,12 +170,20 @@ export class WorkoutPlansController {
     return this.workoutPlansService.removeDay(dayId);
   }
 
+  @Get('days/:dayId/stats')
+  @ApiOperation({ summary: 'Get stats for a workout day (aggregate logs per assignment)' })
+  @ApiResponse({ status: 200, description: 'Aggregated stats by workout exercise' })
+  getDayStats(@Param('dayId', ParseUUIDPipe) dayId: string) {
+    return this.workoutPlansService.getDayStats(dayId);
+  }
+
   // Workout Exercise endpoints
   @Post('exercises')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
   @ApiOperation({ summary: 'Add exercise to workout plan/day' })
   @ApiResponse({ status: 201, description: 'Exercise added successfully' })
+  @ApiBody({ type: CreateWorkoutExerciseDto })
   addExercise(@Body() createWorkoutExerciseDto: CreateWorkoutExerciseDto) {
     return this.workoutPlansService.addExercise(createWorkoutExerciseDto);
   }
@@ -188,14 +198,26 @@ export class WorkoutPlansController {
   }
 
   @Patch('exercises/:exerciseId')
+
+
+
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
   @ApiOperation({ summary: 'Update exercise in workout plan/day' })
   @ApiResponse({ status: 200, description: 'Exercise updated successfully' })
+  @ApiBody({ type: CreateWorkoutExerciseDto, description: 'Provide any subset of fields to update' })
   updateExercise(
     @Param('exerciseId', ParseUUIDPipe) exerciseId: string,
     @Body() updateData: Partial<CreateWorkoutExerciseDto>,
   ) {
     return this.workoutPlansService.updateExercise(exerciseId, updateData);
   }
+
+  @Get('exercises/:workoutExerciseId/logs')
+  @ApiOperation({ summary: 'List logs for a workout exercise' })
+  @ApiResponse({ status: 200, description: 'List of logs for the workout exercise' })
+  listExerciseLogs(@Param('workoutExerciseId', ParseUUIDPipe) workoutExerciseId: string) {
+    return this.workoutPlansService.listExerciseLogs(workoutExerciseId);
+  }
+
 }

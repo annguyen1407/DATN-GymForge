@@ -282,13 +282,21 @@ export class WorkoutPlansService {
 
       const exerciseCreates = template.exercises.map(exercise => {
         const n = exercise.dayNumber as number | null | undefined;
+        const copyTargetWeight = (exercise as any).targetWeight ?? undefined;
         return this.prisma.workoutExercise.create({
           data: {
             workoutPlanId: newWorkoutPlan.id,
             workoutDayId: n != null ? dayIdByNumber.get(n)! : genericDayId!,
             exerciseId: exercise.exerciseId,
             dayNumber: exercise.dayNumber ?? undefined,
-            weight: exercise.weight ?? undefined,
+            // planned fields copied if present
+            targetSets: (exercise as any).targetSets ?? undefined,
+            targetReps: (exercise as any).targetReps ?? undefined,
+            targetWeight: copyTargetWeight,
+            restTimeSec: (exercise as any).restTimeSec ?? undefined,
+            timePerSetSec: (exercise as any).timePerSetSec ?? undefined,
+            order: (exercise as any).order ?? undefined,
+            notes: (exercise as any).notes ?? undefined,
           },
         });
       });
@@ -439,7 +447,19 @@ export class WorkoutPlansService {
 
   // Workout Exercise methods
   async addExercise(createWorkoutExerciseDto: CreateWorkoutExerciseDto): Promise<WorkoutExercise> {
-    const { workoutDayId, workoutPlanId, dayNumber, exerciseId, weight } = createWorkoutExerciseDto;
+    const {
+      workoutDayId,
+      workoutPlanId,
+      dayNumber,
+      exerciseId,
+      targetSets,
+      targetReps,
+      targetWeight,
+      restTimeSec,
+      timePerSetSec,
+      order,
+      notes,
+    } = createWorkoutExerciseDto;
 
     let dayId = workoutDayId;
     let planId = workoutPlanId;
@@ -468,13 +488,30 @@ export class WorkoutPlansService {
       planId = planId ?? day.workoutPlanId;
     }
 
+    // Load exercise defaults for planned values
+    const exercise = await this.prisma.exercise.findUnique({ where: { id: exerciseId } });
+    if (!exercise) throw new NotFoundException('Exercise not found');
+
+    const finalTargetSets = targetSets ?? exercise.defaultSets ?? undefined;
+    const finalTargetReps = targetReps ?? exercise.defaultReps ?? undefined;
+    const finalTargetWeight = (targetWeight ?? exercise.defaultWeight) ?? undefined;
+    const finalRestTimeSec = restTimeSec ?? exercise.restTime ?? undefined;
+    const finalTimePerSetSec = timePerSetSec ?? (exercise as any).defaultTimePerSetSec ?? undefined;
+
     return this.prisma.workoutExercise.create({
       data: {
         workoutPlanId: planId!,
         workoutDayId: dayId!,
         exerciseId,
         dayNumber: dayNumber,
-        weight: weight,
+        // planned values
+        targetSets: finalTargetSets,
+        targetReps: finalTargetReps,
+        targetWeight: finalTargetWeight,
+        restTimeSec: finalRestTimeSec,
+        timePerSetSec: finalTimePerSetSec,
+        order: order ?? undefined,
+        notes: notes ?? undefined,
       },
       include: {
         workoutPlan: true,
@@ -508,9 +545,19 @@ export class WorkoutPlansService {
     // Map allowable fields
     const data: any = {};
     if (updateData.exerciseId !== undefined) data.exerciseId = updateData.exerciseId;
-    if (updateData.weight !== undefined) data.weight = updateData.weight;
     if (updateData.dayNumber !== undefined) data.dayNumber = updateData.dayNumber;
     if (updateData.workoutDayId) data.workoutDayId = updateData.workoutDayId;
+
+    // Planned/target fields
+    if (updateData.targetSets !== undefined) data.targetSets = updateData.targetSets;
+    if (updateData.targetReps !== undefined) data.targetReps = updateData.targetReps;
+    if (updateData.targetWeight !== undefined) {
+      data.targetWeight = updateData.targetWeight;
+    }
+    if (updateData.restTimeSec !== undefined) data.restTimeSec = updateData.restTimeSec;
+    if (updateData.timePerSetSec !== undefined) data.timePerSetSec = updateData.timePerSetSec;
+    if (updateData.order !== undefined) data.order = updateData.order;
+    if (updateData.notes !== undefined) data.notes = updateData.notes;
 
     return this.prisma.workoutExercise.update({
       where: { id: workoutExerciseId },
@@ -520,4 +567,64 @@ export class WorkoutPlansService {
       },
     });
   }
+
+  async getDayStats(dayId: string) {
+    const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
+    if (!day) throw new NotFoundException('Workout day not found');
+
+    const exercises = await this.prisma.workoutExercise.findMany({
+      where: { workoutDayId: dayId },
+      select: {
+        id: true,
+        exerciseId: true,
+        targetSets: true,
+        targetReps: true,
+        targetWeight: true,
+        restTimeSec: true,
+        timePerSetSec: true,
+      },
+    });
+
+    const ids = exercises.map((e) => e.id);
+    if (ids.length === 0) return [];
+
+    const agg = await this.prisma.workoutExerciseLog.groupBy({
+      by: ['workoutExerciseId'],
+      where: { workoutExerciseId: { in: ids } },
+      _count: { _all: true },
+      _avg: { progressPercent: true },
+      _sum: { caloriesBurned: true },
+    });
+
+    const aggMap = new Map(agg.map((a) => [a.workoutExerciseId, a]));
+
+    return exercises.map((e) => {
+      const a = aggMap.get(e.id) as any;
+      return {
+        workoutExerciseId: e.id,
+        exerciseId: e.exerciseId,
+        planned: {
+          targetSets: e.targetSets,
+          targetReps: e.targetReps,
+          targetWeight: e.targetWeight,
+          restTimeSec: e.restTimeSec,
+          timePerSetSec: e.timePerSetSec,
+        },
+        logsCount: a?._count?._all ?? 0,
+        avgProgressPercent: a?._avg?.progressPercent ?? null,
+        totalCaloriesBurned: a?._sum?.caloriesBurned ?? 0,
+      };
+    });
+  }
+
+  async listExerciseLogs(workoutExerciseId: string) {
+    const exists = await this.prisma.workoutExercise.findUnique({ where: { id: workoutExerciseId } });
+    if (!exists) throw new NotFoundException('Workout exercise not found');
+
+    return this.prisma.workoutExerciseLog.findMany({
+      where: { workoutExerciseId },
+      orderBy: { date: 'desc' },
+    });
+  }
+
 }
