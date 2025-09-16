@@ -49,6 +49,24 @@ class WorkoutPlansRepository {
     return res.asModelList(WorkoutPlanModel.fromJson);
   }
 
+  /// New endpoint variant: GET /workout-plans/user/{userId}
+  Future<List<WorkoutPlanModel>> getPlansByUser(String userId) async {
+    final path = '/workout-plans/user/$userId';
+    _logReq('GET', path);
+    final res = await _api.requestJson('GET', path);
+    _logRes(
+      'GET',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok) return [];
+    return res.asModelList(WorkoutPlanModel.fromJson);
+  }
+
   Future<WorkoutPlanModel?> createPlan({
     required String userId,
     required String name,
@@ -146,7 +164,7 @@ class WorkoutPlansRepository {
     if (kDebugMode) {
       debugPrint(
         '[API][REQ] $method $path'
-        '${body != null ? ' body=' + _compactJson(body) : ''}',
+        '${body != null ? ' body=${_compactJson(body)}' : ''}',
       );
     }
   }
@@ -194,5 +212,5 @@ class WorkoutPlansRepository {
 
   String _compactJson(Object obj) => jsonEncode(obj);
   String _truncate(String s, {int max = 160}) =>
-      s.length <= max ? s : s.substring(0, max) + '…';
+      s.length <= max ? s : '${s.substring(0, max)}…';
 }

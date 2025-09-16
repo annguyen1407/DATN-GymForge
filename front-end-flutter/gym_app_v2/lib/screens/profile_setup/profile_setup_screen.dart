@@ -595,9 +595,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             "expType": expType,
             "profilePicture": null, // luôn truyền null cho avatar
           };
-          print('PATCH profile body: ' + body.toString());
+          print('PATCH profile body: $body');
           final success = await UserService.updateProfile(context, body);
-          print('PATCH profile result: ' + success.toString());
+          print('PATCH profile result: $success');
           if (success) {
             Navigator.pushNamedAndRemoveUntil(
               context,

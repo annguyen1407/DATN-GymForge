@@ -4,6 +4,8 @@ import '../models/exercise_model.dart';
 
 class ExercisesRepository {
   final _api = ApiClient.instance;
+  // Simple in-memory cache for exercise details by id
+  final Map<String, ExerciseModel> _cache = {};
 
   Future<List<ExerciseModel>> getAll() async {
     const path = '/exercises';
@@ -23,6 +25,32 @@ class ExercisesRepository {
         .whereType<Map>()
         .map((e) => ExerciseModel.fromJson(e.cast<String, dynamic>()))
         .toList();
+  }
+
+  Future<ExerciseModel?> getById(String id) async {
+    if (_cache.containsKey(id)) return _cache[id];
+    final path = '/exercises/$id';
+    _logReq('GET', path);
+    final res = await _api.requestJson('GET', path);
+    _logRes(
+      'GET',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      final model = ExerciseModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+      _cache[id] = model;
+      return model;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<ExerciseModel>> getByMuscleGroup(String muscleGroupId) async {
@@ -70,5 +98,5 @@ class ExercisesRepository {
   }
 
   String _truncate(String s, {int max = 160}) =>
-      s.length <= max ? s : s.substring(0, max) + '…';
+      s.length <= max ? s : '${s.substring(0, max)}…';
 }

@@ -42,7 +42,7 @@ class _PlanTabState extends State<PlanTab> {
   void _triggerFetch({bool force = false}) {
     if (_initialLoaded && !force) return;
     setState(() {
-      _future = _repo.getPlans(userId: _placeholderUserId);
+      _future = _repo.getPlansByUser(_placeholderUserId);
       _initialLoaded = true;
     });
   }
