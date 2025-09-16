@@ -308,7 +308,15 @@ model WorkoutExercise {
   workoutDayId        String?        @db.Uuid
   exerciseId          String?        @db.Uuid
   dayNumber           Int?
-  weight              Float?
+
+  // Planned/target overrides
+  targetSets          Int?
+  targetReps          Int?
+  targetWeight        Float?
+  restTimeSec         Int?
+  timePerSetSec       Int?
+  order               Int?
+  notes               String?
 
   workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
   workoutDay          WorkoutDay?    @relation(fields: [workoutDayId], references: [id])
@@ -331,6 +339,7 @@ model Exercise {
   defaultSets      Int?                  @map("sets")
   defaultReps      Int?                  @map("reps_per_set")
   restTime         Int?                  @map("time_rest")
+  defaultTimePerSetSec Int?
 
   user             User?                  @relation(fields: [userId], references: [id])
   muscleGroups     ExerciseMuscleGroup[]
