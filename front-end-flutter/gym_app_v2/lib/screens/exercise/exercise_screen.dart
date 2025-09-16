@@ -1,34 +1,83 @@
 import 'package:flutter/material.dart';
 import '../../widgets/exercise_group_card.dart';
+import '../../repositories/muscle_groups_repository.dart';
+import '../../models/muscle_group_model.dart';
+import 'exercise_list_screen.dart';
 
-/// ExerciseScreen: Tab "Exercise" hiển thị danh sách nhóm bài tập, tìm kiếm, grid các nhóm
-class ExerciseScreen extends StatelessWidget {
+/// ExerciseScreen: Gọi API /muscle-groups và hiển thị danh sách nhóm cơ.
+class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
 
   @override
+  State<ExerciseScreen> createState() => _ExerciseScreenState();
+}
+
+class _ExerciseScreenState extends State<ExerciseScreen> {
+  final _repo = MuscleGroupsRepository();
+  final _searchCtrl = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  List<MuscleGroupModel> _groups = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+    _searchCtrl.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetch() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await _repo.getMuscleGroups();
+      data.sort((a, b) => a.name.compareTo(b.name));
+      setState(() {
+        _groups = data;
+      });
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _query = '';
+  List<MuscleGroupModel> get _filtered {
+    if (_query.isEmpty) return _groups;
+    final q = _query.toLowerCase();
+    return _groups.where((g) => g.name.toLowerCase().contains(q)).toList();
+  }
+
+  void _applyFilter() {
+    setState(() {
+      _query = _searchCtrl.text.trim();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Danh sách các nhóm bài tập mẫu
-    final List<Map<String, dynamic>> groups = [
-      {'name': 'Triceps', 'count': 4},
-      {'name': 'Forearms', 'count': 10},
-      {'name': 'Chest', 'count': 5},
-      {'name': 'Upper Legs', 'count': 12},
-      {'name': 'Shoulders', 'count': 6},
-      {'name': 'Glutes', 'count': 8},
-      {'name': 'Biceps', 'count': 7},
-      {'name': 'Cardio', 'count': 14},
-      {'name': 'Core', 'count': 9},
-      {'name': 'Lower Legs', 'count': 11},
-      {'name': 'Back', 'count': 6},
-      {'name': 'Tất cả', 'count': 86, 'highlight': true},
-    ];
+    final filtered = _filtered;
+    // Tính tổng 'Tất cả'
+    final total = _groups.fold<int>(0, (p, e) => p + e.exercisesCount);
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 16),
-            // Tiêu đề trang
             const Text(
               'Bài tập',
               style: TextStyle(
@@ -38,7 +87,6 @@ class ExerciseScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            // Ô tìm kiếm bài tập
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -54,41 +102,108 @@ class ExerciseScreen extends StatelessWidget {
                     ),
                     Expanded(
                       child: TextField(
+                        controller: _searchCtrl,
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
-                          hintText: 'Search',
+                          hintText: 'Tìm nhóm cơ...',
                           hintStyle: TextStyle(color: Colors.white54),
                           border: InputBorder.none,
                           isDense: true,
                         ),
                       ),
                     ),
+                    if (_query.isNotEmpty)
+                      IconButton(
+                        onPressed: () {
+                          _searchCtrl.clear();
+                        },
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white54,
+                          size: 20,
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            // Grid các nhóm bài tập
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.builder(
-                  itemCount: groups.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 2.8,
-                  ),
-                  itemBuilder: (context, i) {
-                    final g = groups[i];
-                    return ExerciseGroupCard(
-                      name: g['name'],
-                      count: g['count'],
-                      highlight: g['highlight'] == true,
-                    );
-                  },
-                ),
+              child: RefreshIndicator(
+                onRefresh: _fetch,
+                color: Colors.pinkAccent,
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.pinkAccent,
+                        ),
+                      )
+                    : _error != null
+                    ? ListView(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Center(
+                              child: Text(
+                                'Lỗi tải dữ liệu:\n$_error',
+                                style: const TextStyle(color: Colors.redAccent),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _fetch,
+                            child: const Text('Thử lại'),
+                          ),
+                        ],
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: GridView.builder(
+                          itemCount: filtered.length + 1, // +1 cho "Tất cả"
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 2.8,
+                              ),
+                          itemBuilder: (context, i) {
+                            if (i == 0) {
+                              return ExerciseGroupCard(
+                                name: 'Tất cả',
+                                count: total,
+                                highlight: true,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const ExerciseListScreen(
+                                        muscleGroupId: '_ALL_',
+                                        muscleGroupName: 'Tất cả bài tập',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+                            final g = filtered[i - 1];
+                            return ExerciseGroupCard(
+                              name: g.name,
+                              count: g.exercisesCount,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ExerciseListScreen(
+                                      muscleGroupId: g.id,
+                                      muscleGroupName: g.name,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
               ),
             ),
             Padding(
