@@ -357,7 +357,7 @@ export class AuthService {
       access_token,
       refresh_token,
       user: userWithoutPassword,
-      expires_in: this.configService.get<string>('JWT_EXPIRES_IN') || '15m',
+      expires_in: this.configService.get<string>('JWT_EXPIRES_IN'),
     };
   }
 }
