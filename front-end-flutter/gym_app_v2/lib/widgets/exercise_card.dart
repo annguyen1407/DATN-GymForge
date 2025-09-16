@@ -64,6 +64,33 @@ class ExerciseCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
+                  if (exercise.muscleGroupNames.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: -4,
+                      children: exercise.muscleGroupNames.take(3).map((mg) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple[600]?.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            mg,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
                   // Hiển thị các thông số config
                   Row(
                     children: [
@@ -132,6 +159,7 @@ class ExerciseItem {
   final int repsCount; // Số reps dạng số
   final int weight; // Trọng lượng (kg)
   final int restTime; // Thời gian nghỉ (giây)
+  final List<String> muscleGroupNames; // Nhóm cơ liên quan
 
   const ExerciseItem({
     required this.name,
@@ -141,5 +169,6 @@ class ExerciseItem {
     this.repsCount = 12,
     this.weight = 40,
     this.restTime = 120,
+    this.muscleGroupNames = const [],
   });
 }

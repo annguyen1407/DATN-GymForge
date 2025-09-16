@@ -372,12 +372,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => WorkoutExerciseDetailScreen(
+                                    workoutDayId: _days[idx].id,
+                                    workoutPlanId: widget.planId ?? 'local',
+                                    dayNumber: _days[idx].dayNumber ?? idx + 1,
                                     dayTitle:
                                         'Ngày ${_days[idx].dayNumber ?? idx + 1}',
                                     date: _getWorkoutDate(idx),
                                     calories: '200 calories',
                                     backgroundImage: widget.image,
-                                    exercises: _generateSampleExercises(),
+                                    presetExercises: _generateSampleExercises(),
                                   ),
                                 ),
                               );
