@@ -56,6 +56,11 @@ export class CreateExerciseDto {
   @IsNumber()
   restTime?: number;
 
+  @ApiProperty({ example: 45, description: 'Default time per set in seconds', required: false })
+  @IsOptional()
+  @IsNumber()
+  defaultTimePerSetSec?: number;
+
   @ApiProperty({ example: ['muscle-group-uuid-1', 'muscle-group-uuid-2'], required: false })
   @IsOptional()
   @IsArray()
