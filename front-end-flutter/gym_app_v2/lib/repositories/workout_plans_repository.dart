@@ -164,7 +164,7 @@ class WorkoutPlansRepository {
     if (kDebugMode) {
       debugPrint(
         '[API][REQ] $method $path'
-        '${body != null ? ' body=' + _compactJson(body) : ''}',
+        '${body != null ? ' body=${_compactJson(body)}' : ''}',
       );
     }
   }
@@ -212,5 +212,5 @@ class WorkoutPlansRepository {
 
   String _compactJson(Object obj) => jsonEncode(obj);
   String _truncate(String s, {int max = 160}) =>
-      s.length <= max ? s : s.substring(0, max) + '…';
+      s.length <= max ? s : '${s.substring(0, max)}…';
 }

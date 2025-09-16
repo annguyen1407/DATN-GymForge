@@ -29,7 +29,7 @@ class MuscleGroupsRepository {
   void _logReq(String method, String path, {Map<String, dynamic>? body}) {
     if (kDebugMode) {
       debugPrint(
-        '[API][REQ] $method $path${body != null ? ' body=' + jsonEncode(body) : ''}',
+        '[API][REQ] $method $path${body != null ? ' body=${jsonEncode(body)}' : ''}',
       );
     }
   }
@@ -73,5 +73,5 @@ class MuscleGroupsRepository {
   }
 
   String _truncate(String s, {int max = 160}) =>
-      s.length <= max ? s : s.substring(0, max) + '…';
+      s.length <= max ? s : '${s.substring(0, max)}…';
 }

@@ -51,10 +51,11 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
     } catch (e) {
       _error = e.toString();
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
         });
+      }
     }
   }
 

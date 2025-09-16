@@ -103,13 +103,7 @@ export class WorkoutPlansController {
     return this.workoutPlansService.createFromTemplate(templateId, createFromTemplateDto, user.id);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a workout plan by ID' })
-  @ApiResponse({ status: 200, description: 'Workout plan details' })
-  @ApiResponse({ status: 404, description: 'Workout plan not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.workoutPlansService.findOne(id);
-  }
+
 
   @Patch(':id')
   @UseGuards(RolesGuard)
@@ -238,6 +232,14 @@ export class WorkoutPlansController {
       dayNumber: dayNumber ? parseInt(dayNumber) : undefined,
       exerciseId,
     });
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a workout plan by ID' })
+  @ApiResponse({ status: 200, description: 'Workout plan details' })
+  @ApiResponse({ status: 404, description: 'Workout plan not found' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.workoutPlansService.findOne(id);
   }
 
 }

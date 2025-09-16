@@ -71,7 +71,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final inputDecoration = (String hint, {Widget? prefixIcon}) =>
+    InputDecoration inputDecoration(String hint, {Widget? prefixIcon}) =>
         InputDecoration(
           hintText: hint,
           filled: true,
@@ -170,7 +170,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _selectedPlanType,
+                        initialValue: _selectedPlanType,
                         dropdownColor: const Color(0xFF1E1E1E),
                         items: _planTypes
                             .map(
