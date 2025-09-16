@@ -468,6 +468,9 @@ class _LogScreenState extends State<LogScreen>
                         weekendTextStyle: const TextStyle(
                           color: Colors.white70,
                         ),
+                        weekendTextStyle: const TextStyle(
+                          color: Colors.white70,
+                        ),
                         selectedDecoration: const BoxDecoration(
                           color: Color(0xFF8854FF),
                           shape: BoxShape.circle,
