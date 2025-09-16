@@ -496,7 +496,7 @@ export class WorkoutPlansService {
     const finalTargetReps = targetReps ?? exercise.defaultReps ?? undefined;
     const finalTargetWeight = (targetWeight ?? exercise.defaultWeight) ?? undefined;
     const finalRestTimeSec = restTimeSec ?? exercise.restTime ?? undefined;
-    const finalTimePerSetSec = timePerSetSec ?? (exercise as any).defaultTimePerSetSec ?? undefined;
+    const finalTimePerSetSec = timePerSetSec ?? exercise.defaultTimePerSetSec ?? undefined;
 
     return this.prisma.workoutExercise.create({
       data: {
