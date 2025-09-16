@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import '../../widgets/workout_exercise_card.dart';
 import '../../widgets/exercise_card.dart';
 import 'workout_exercise_detail_screen.dart';
+import '../../repositories/workout_plans_repository.dart';
 
 /// WorkoutDetailScreen: Màn hình chi tiết kế hoạch tập luyện khi click vào WorkoutCard
 /// Hiển thị danh sách các ngày tập của một kế hoạch tập luyện
 class WorkoutDetailScreen extends StatefulWidget {
+  final String? planId; // optional: if null -> local/demo mode
   final String image;
   final String title;
   final String? subtitle;
   final String? description;
-  final List<WorkoutExercise>? exercises; // Danh sách các ngày tập
+  final List<WorkoutExercise>? exercises; // Optional initial placeholder list
 
   const WorkoutDetailScreen({
+    this.planId,
     required this.image,
     required this.title,
     this.subtitle,
@@ -27,19 +30,81 @@ class WorkoutDetailScreen extends StatefulWidget {
 
 class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   int? selectedExerciseIndex; // Index của ngày tập được chọn
+  final _repo = WorkoutPlansRepository();
+  Future<List<WorkoutDayModel>>? _futureDays;
+  List<WorkoutDayModel> _days = [];
+  bool _creating = false;
 
   @override
   void initState() {
     super.initState();
     // Tự động chọn ngày tập đầu tiên chưa hoàn thành
-    if (widget.exercises != null && widget.exercises!.isNotEmpty) {
-      selectedExerciseIndex = widget.exercises!.indexWhere(
-        (e) => !e.isCompleted,
+    if (widget.planId != null) {
+      _futureDays = _fetchDays();
+    } else if (widget.exercises != null) {
+      // Map legacy placeholder exercises to pseudo days (no API)
+      _days = List.generate(
+        widget.exercises!.length,
+        (i) => WorkoutDayModel(
+          id: 'local-$i',
+          workoutPlanId: 'local',
+          dayNumber: i + 1,
+          date: DateTime.now().add(Duration(days: i)),
+        ),
       );
-      // Nếu tất cả đã hoàn thành, chọn ngày cuối cùng
-      if (selectedExerciseIndex == -1) {
-        selectedExerciseIndex = widget.exercises!.length - 1;
+      if (_days.isNotEmpty) selectedExerciseIndex = 0;
+    }
+  }
+
+  Future<List<WorkoutDayModel>> _fetchDays() async {
+    if (widget.planId == null) return [];
+    final days = await _repo.getPlanDays(widget.planId!);
+    _days = days;
+    if (_days.isNotEmpty) {
+      // auto-select first incomplete (no completion flag yet, select first)
+      selectedExerciseIndex = 0;
+    }
+    setState(() {}); // refresh selection state
+    return days;
+  }
+
+  Future<void> _addDay() async {
+    if (widget.planId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể tạo ngày: thiếu planId')),
+      );
+      return;
+    }
+    if (_creating) return;
+    setState(() => _creating = true);
+    try {
+      final nextNumber = _days.isEmpty
+          ? 1
+          : (_days.where((d) => d.dayNumber != null).isEmpty
+                ? _days.length + 1
+                : (_days
+                          .where((d) => d.dayNumber != null)
+                          .map((d) => d.dayNumber!)
+                          .fold<int>(0, (p, c) => c > p ? c : p) +
+                      1));
+      final created = await _repo.createDay(
+        widget.planId!,
+        dayNumber: nextNumber,
+        date: DateTime.now().add(Duration(days: nextNumber - 1)),
+      );
+      if (created != null) {
+        _days.add(created);
+        _days.sort((a, b) => (a.dayNumber ?? 0).compareTo(b.dayNumber ?? 0));
+        selectedExerciseIndex = _days.length - 1;
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tạo ngày: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
   }
 
@@ -141,29 +206,38 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   ],
                   const SizedBox(height: 8),
                   // Thông tin thời lượng và buổi tập
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.schedule,
-                        color: Colors.orange,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${widget.exercises?.length ?? 0} ngày',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.people, color: Colors.blue, size: 16),
-                      const SizedBox(width: 4),
-                      const Text(
-                        '2 tuần',
-                        style: TextStyle(color: Colors.blue, fontSize: 14),
-                      ),
-                    ],
+                  FutureBuilder<List<WorkoutDayModel>>(
+                    future: _futureDays,
+                    builder: (context, snapshot) {
+                      final len = _days.length;
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+                      return Row(
+                        children: [
+                          const Icon(
+                            Icons.schedule,
+                            color: Colors.orange,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$len ngày',
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   if (widget.description != null) ...[
                     const SizedBox(height: 20),
@@ -178,8 +252,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   ],
                   const SizedBox(height: 32),
                   // Danh sách ngày tập trong khung cố định
-                  if (widget.exercises != null &&
-                      widget.exercises!.isNotEmpty) ...[
+                  if (_days.isNotEmpty) ...[
                     const Text(
                       'Lịch trình tập luyện',
                       style: TextStyle(
@@ -214,7 +287,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${widget.exercises!.length} ngày tập',
+                                  '${_days.length} ngày tập',
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 14,
@@ -223,7 +296,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  '${widget.exercises!.where((e) => e.isCompleted).length}/${widget.exercises!.length} hoàn thành',
+                                  '${_days.length} ngày (chưa có trạng thái)',
                                   style: const TextStyle(
                                     color: Colors.green,
                                     fontSize: 12,
@@ -238,18 +311,19 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                           Expanded(
                             child: ListView.builder(
                               padding: const EdgeInsets.all(12),
-                              itemCount: widget.exercises!.length,
+                              itemCount: _days.length,
                               itemBuilder: (context, index) {
-                                final exercise = widget.exercises![index];
-
+                                final day = _days[index];
                                 return WorkoutExerciseCard(
                                   exerciseNumber: index + 1,
-                                  title: exercise.title,
-                                  description: exercise.description,
+                                  title: 'Ngày ${day.dayNumber ?? index + 1}',
+                                  description: day.date != null
+                                      ? 'Ngày ${day.date!.day}/${day.date!.month}'
+                                      : 'Không có ngày',
                                   isActive:
                                       selectedExerciseIndex ==
                                       index, // Sử dụng selectedIndex
-                                  isCompleted: exercise.isCompleted,
+                                  isCompleted: false,
                                   onTap: () {
                                     // Chỉ select ngày tập, không navigate
                                     setState(() {
@@ -270,11 +344,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 16),
                     child: OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: _creating ? null : _addDay,
                       icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text(
-                        'Thêm ngày tập luyện',
-                        style: TextStyle(color: Colors.white),
+                      label: Text(
+                        _creating ? 'Đang tạo...' : 'Thêm ngày tập luyện',
+                        style: const TextStyle(color: Colors.white),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.white54),
@@ -289,28 +363,26 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: selectedExerciseIndex != null
+                      onPressed:
+                          selectedExerciseIndex != null &&
+                              selectedExerciseIndex! < _days.length
                           ? () {
-                              // Navigate tới WorkoutExerciseDetailScreen của ngày được chọn
-                              final selectedExercise =
-                                  widget.exercises![selectedExerciseIndex!];
+                              final idx = selectedExerciseIndex!;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      WorkoutExerciseDetailScreen(
-                                        dayTitle: selectedExercise.title,
-                                        date: _getWorkoutDate(
-                                          selectedExerciseIndex!,
-                                        ), // Ngày tháng năm động
-                                        calories: '200 calories',
-                                        backgroundImage: widget.image,
-                                        exercises: _generateSampleExercises(),
-                                      ),
+                                  builder: (context) => WorkoutExerciseDetailScreen(
+                                    dayTitle:
+                                        'Ngày ${_days[idx].dayNumber ?? idx + 1}',
+                                    date: _getWorkoutDate(idx),
+                                    calories: '200 calories',
+                                    backgroundImage: widget.image,
+                                    exercises: _generateSampleExercises(),
+                                  ),
                                 ),
                               );
                             }
-                          : null, // Disable nếu chưa chọn ngày nào
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: selectedExerciseIndex != null
                             ? Colors.purple
@@ -322,8 +394,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                         ),
                       ),
                       child: Text(
-                        selectedExerciseIndex != null
-                            ? 'Bắt đầu ${widget.exercises![selectedExerciseIndex!].title}'
+                        selectedExerciseIndex != null &&
+                                selectedExerciseIndex! < _days.length
+                            ? 'Bắt đầu Ngày ${_days[selectedExerciseIndex!].dayNumber ?? selectedExerciseIndex! + 1}'
                             : 'Chọn ngày tập để bắt đầu',
                         style: const TextStyle(
                           fontSize: 16,

@@ -115,11 +115,11 @@ class _PlanTabState extends State<PlanTab> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => WorkoutDetailScreen(
+                            planId: plan.id,
                             image: plan.picture ?? '',
                             title: plan.name,
                             subtitle: plan.userName ?? 'Coach',
                             description: plan.description ?? 'Không có mô tả',
-                            exercises: const [],
                           ),
                         ),
                       );

@@ -4,6 +4,30 @@ import '../core/api/api_client.dart';
 import '../core/api/api_mapper.dart';
 import '../models/workout_plan_model.dart';
 
+// Simple model for a workout plan day (minimal fields for now)
+class WorkoutDayModel {
+  final String id;
+  final String workoutPlanId;
+  final int? dayNumber; // may be null if backend allows
+  final DateTime? date;
+
+  WorkoutDayModel({
+    required this.id,
+    required this.workoutPlanId,
+    this.dayNumber,
+    this.date,
+  });
+
+  factory WorkoutDayModel.fromJson(Map<String, dynamic> json) {
+    return WorkoutDayModel(
+      id: json['id'] as String,
+      workoutPlanId: json['workoutPlanId'] as String,
+      dayNumber: json['dayNumber'] as int?,
+      date: json['date'] != null ? DateTime.tryParse(json['date']) : null,
+    );
+  }
+}
+
 class WorkoutPlansRepository {
   final _api = ApiClient.instance;
 
@@ -62,6 +86,59 @@ class WorkoutPlansRepository {
     );
     if (!res.ok || res.data == null) return null;
     return WorkoutPlanModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // ----------------------------------------------------------------------
+  // Plan Days APIs
+  // ----------------------------------------------------------------------
+  Future<List<WorkoutDayModel>> getPlanDays(String planId) async {
+    final path = '/workout-plans/$planId/days';
+    _logReq('GET', path);
+    final res = await _api.requestJson('GET', path);
+    _logRes(
+      'GET',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! List) return [];
+    final list = (res.raw as List)
+        .whereType<Map>()
+        .map((e) => WorkoutDayModel.fromJson(e.cast<String, dynamic>()))
+        .toList();
+    return list;
+  }
+
+  Future<WorkoutDayModel?> createDay(
+    String planId, {
+    int? dayNumber,
+    DateTime? date,
+  }) async {
+    final body = <String, dynamic>{
+      if (dayNumber != null) 'dayNumber': dayNumber,
+      if (date != null) 'date': date.toIso8601String().split('T').first,
+    };
+    final path = '/workout-plans/$planId/days';
+    _logReq('POST', path, body: body);
+    final res = await _api.requestJson(
+      'POST',
+      path,
+      body: body.isEmpty ? {} : body,
+    );
+    _logRes(
+      'POST',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    return WorkoutDayModel.fromJson((res.raw as Map).cast<String, dynamic>());
   }
 
   // --- Logging Helpers --------------------------------------------------
