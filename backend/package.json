@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "db:backfill:workout-days": "ts-node ./scripts/backfill-workout-days.ts"
+    "db:backfill:workout-days": "ts-node ./scripts/backfill-workout-days.ts",
+    "db:backfill:workout-exercise-targets": "ts-node ./scripts/backfill-workout-exercise-targets.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
