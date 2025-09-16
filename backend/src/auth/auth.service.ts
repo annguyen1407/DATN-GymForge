@@ -323,8 +323,9 @@ export class AuthService {
   }
 
   private generateAccessToken(payload: JwtPayload): string {
+    const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '15m';
     return this.jwtService.sign(payload, {
-      expiresIn: '15m' // Short-lived access token
+      expiresIn // Short-lived access token, now configurable
     });
   }
 

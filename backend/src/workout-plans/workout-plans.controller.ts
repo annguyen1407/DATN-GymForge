@@ -219,6 +219,7 @@ export class WorkoutPlansController {
   listExerciseLogs(@Param('workoutExerciseId', ParseUUIDPipe) workoutExerciseId: string) {
     return this.workoutPlansService.listExerciseLogs(workoutExerciseId);
   }
+
   @Get('exercises')
   @ApiOperation({ summary: 'Get workout exercises with optional filtering' })
   @ApiResponse({ status: 200, description: 'List of workout exercises' })
