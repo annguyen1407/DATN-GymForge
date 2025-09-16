@@ -219,5 +219,25 @@ export class WorkoutPlansController {
   listExerciseLogs(@Param('workoutExerciseId', ParseUUIDPipe) workoutExerciseId: string) {
     return this.workoutPlansService.listExerciseLogs(workoutExerciseId);
   }
+  @Get('exercises')
+  @ApiOperation({ summary: 'Get workout exercises with optional filtering' })
+  @ApiResponse({ status: 200, description: 'List of workout exercises' })
+  @ApiQuery({ name: 'workoutPlanId', required: false, description: 'Filter by workout plan ID' })
+  @ApiQuery({ name: 'workoutDayId', required: false, description: 'Filter by workout day ID' })
+  @ApiQuery({ name: 'dayNumber', required: false, description: 'Filter by day number (legacy)' })
+  @ApiQuery({ name: 'exerciseId', required: false, description: 'Filter by exercise ID' })
+  getWorkoutExercises(
+    @Query('workoutPlanId') workoutPlanId?: string,
+    @Query('workoutDayId') workoutDayId?: string,
+    @Query('dayNumber') dayNumber?: string,
+    @Query('exerciseId') exerciseId?: string,
+  ) {
+    return this.workoutPlansService.getWorkoutExercises({
+      workoutPlanId,
+      workoutDayId,
+      dayNumber: dayNumber ? parseInt(dayNumber) : undefined,
+      exerciseId,
+    });
+  }
 
 }

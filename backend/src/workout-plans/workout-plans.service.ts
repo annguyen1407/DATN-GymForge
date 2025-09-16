@@ -568,6 +568,34 @@ export class WorkoutPlansService {
     });
   }
 
+  async getWorkoutExercises(filter: {
+    workoutPlanId?: string;
+    workoutDayId?: string;
+    dayNumber?: number;
+    exerciseId?: string;
+  }) {
+    const { workoutPlanId, workoutDayId, dayNumber, exerciseId } = filter;
+
+    const where: any = {};
+    if (workoutPlanId) where.workoutPlanId = workoutPlanId;
+    if (workoutDayId) where.workoutDayId = workoutDayId;
+    if (dayNumber !== undefined) where.dayNumber = dayNumber;
+    if (exerciseId) where.exerciseId = exerciseId;
+
+    return this.prisma.workoutExercise.findMany({
+      where,
+      orderBy: [
+        { workoutDayId: 'asc' },
+        { dayNumber: 'asc' },
+        { order: 'asc' },
+      ],
+      include: {
+        workoutPlan: true,
+        workoutDay: true,
+      },
+    });
+  }
+
   async getDayStats(dayId: string) {
     const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
     if (!day) throw new NotFoundException('Workout day not found');
