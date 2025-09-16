@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
+import '../../widgets/search_box.dart';
 
 class ExerciseListScreen extends StatefulWidget {
   final String muscleGroupId;
@@ -27,9 +28,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
   void initState() {
     super.initState();
     _fetch();
-    _searchCtrl.addListener(() {
-      setState(() => _query = _searchCtrl.text.trim());
-    });
   }
 
   @override
@@ -82,43 +80,13 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
       ),
       body: Column(
         children: [
-          Padding(
+          SearchBox(
+            controller: _searchCtrl,
+            hint: 'Tìm bài tập...',
+            variant: SearchBoxVariant.elevated,
+            onChanged: (v) => setState(() => _query = v.trim()),
+            onClear: () => setState(() => _query = ''),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(Icons.search, color: Colors.white54),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm bài tập...',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  if (_query.isNotEmpty)
-                    IconButton(
-                      onPressed: () => _searchCtrl.clear(),
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white54,
-                        size: 20,
-                      ),
-                    ),
-                ],
-              ),
-            ),
           ),
           Expanded(
             child: RefreshIndicator(

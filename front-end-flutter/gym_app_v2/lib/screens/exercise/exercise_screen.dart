@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/exercise_group_card.dart';
+import '../../widgets/search_box.dart';
 import '../../repositories/muscle_groups_repository.dart';
 import '../../models/muscle_group_model.dart';
 import 'exercise_list_screen.dart';
@@ -87,45 +88,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Icon(Icons.search, color: Colors.white54),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm nhóm cơ...',
-                          hintStyle: TextStyle(color: Colors.white54),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    if (_query.isNotEmpty)
-                      IconButton(
-                        onPressed: () {
-                          _searchCtrl.clear();
-                        },
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white54,
-                          size: 20,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            SearchBox(
+              controller: _searchCtrl,
+              hint: 'Tìm nhóm cơ...',
+              variant: SearchBoxVariant.elevated,
+              onChanged: (_) => _applyFilter(),
+              onClear: () => _applyFilter(),
             ),
             const SizedBox(height: 20),
             Expanded(
