@@ -32,7 +32,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               Expanded(
                 child: IndexedStack(
                   index: selectedTab,
-                  children: const [ExploreTab(), PlanTab(), ExpertTab()],
+                  children: [
+                    const ExploreTab(),
+                    PlanTab(
+                      key: ValueKey('PlanTab-$selectedTab'),
+                      isActive: selectedTab == 1,
+                    ),
+                    const ExpertTab(),
+                  ],
                 ),
               ),
             ],
