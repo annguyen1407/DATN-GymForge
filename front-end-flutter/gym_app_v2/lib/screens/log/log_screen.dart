@@ -4,8 +4,7 @@ import '../../widgets/log_tab.dart';
 import '../../widgets/stats_card.dart';
 import '../../widgets/category_icon.dart';
 import '../../widgets/log_workout_time_card.dart';
-import '../../widgets/workout_time_chart.dart';
-import '../../widgets/workout_details_page.dart';
+import 'workout_details_page.dart';
 
 /// LogScreen: Tab "Log" hiển thị lịch sử tập luyện, thống kê, các nhóm workout đã hoàn thành
 class LogScreen extends StatefulWidget {
@@ -15,9 +14,13 @@ class LogScreen extends StatefulWidget {
   _LogScreenState createState() => _LogScreenState();
 }
 
-class _LogScreenState extends State<LogScreen> {
+class _LogScreenState extends State<LogScreen>
+    with SingleTickerProviderStateMixin {
   // State variable to track the selected tab
   String _selectedTab = 'Lịch sử';
+
+  // TabController for TabBar
+  late TabController _tabController;
 
   // State variables for body metrics (placeholder values)
   double _weight = 70.0; // kg
@@ -44,10 +47,32 @@ class _LogScreenState extends State<LogScreen> {
     ],
   };
 
+  @override
+  void initState() {
+    super.initState();
+    // Initialize TabController
+    _tabController = TabController(length: 2, vsync: this);
+    // Sync TabController with _selectedTab
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _selectedTab = _tabController.index == 0 ? 'Lịch sử' : 'Chuyên sâu';
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   // Function to handle tab selection
   void _onTabSelected(String tab) {
     setState(() {
       _selectedTab = tab;
+      _tabController.index = tab == 'Lịch sử' ? 0 : 1;
     });
   }
 
@@ -98,7 +123,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: weightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Weight (kg)',
@@ -116,7 +143,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: heightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Height (cm)',
@@ -134,7 +163,9 @@ class _LogScreenState extends State<LogScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: oneRepMaxController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'One-Rep Max (kg)',
@@ -218,35 +249,43 @@ class _LogScreenState extends State<LogScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tabs chuyển giữa lịch sử và chuyên sâu
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  LogTab(
-                    label: 'Lịch sử',
-                    selected: _selectedTab == 'Lịch sử',
-                    onTap: () => _onTabSelected('Lịch sử'),
-                  ),
-                  const SizedBox(width: 32),
-                  LogTab(
-                    label: 'Chuyên sâu',
-                    selected: _selectedTab == 'Chuyên sâu',
-                    onTap: () => _onTabSelected('Chuyên sâu'),
-                  ),
-                ],
+        child: Column(
+          children: [
+            // TabBar for Lịch sử and Chuyên sâu
+            TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Lịch sử'),
+                Tab(text: 'Chuyên sâu'),
+              ],
+              indicatorColor: Color(0xFF8854FF),
+              indicatorSize: TabBarIndicatorSize.label,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white54,
+              dividerColor: Colors.transparent,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
-              const SizedBox(height: 20),
-              // Conditional content based on selected tab
-              _selectedTab == 'Lịch sử'
-                  ? _buildHistoryContent()
-                  : _buildInDepthContent(),
-            ],
-          ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+              labelPadding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 8,
+              ),
+            ),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: _selectedTab == 'Lịch sử'
+                    ? _buildHistoryContent()
+                    : _buildInDepthContent(),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -316,7 +355,7 @@ class _LogScreenState extends State<LogScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Workout History',
+                'Workout time',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -325,18 +364,77 @@ class _LogScreenState extends State<LogScreen> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'View your workout time or select a date for details',
+                'Your daily workout progress',
                 style: TextStyle(color: Colors.white54, fontSize: 13),
               ),
               const SizedBox(height: 16),
               // Toggle Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildToggleButton('Workout Time', _showWorkoutTimeCard, () => _toggleHistoryView(true)),
-                  const SizedBox(width: 16),
-                  _buildToggleButton('Calendar', !_showWorkoutTimeCard, () => _toggleHistoryView(false)),
-                ],
+              Center(
+                child: Container(
+                  height: 32,
+                  width: 160,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _toggleHistoryView(true),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _showWorkoutTimeCard
+                                  ? const Color(0xFF8854FF)
+                                  : Colors.grey[800],
+                              borderRadius: const BorderRadius.horizontal(
+                                left: Radius.circular(8),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Ngày',
+                              style: TextStyle(
+                                color: _showWorkoutTimeCard
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(width: 1, color: Colors.grey[700]),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _toggleHistoryView(false),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: !_showWorkoutTimeCard
+                                  ? const Color(0xFF8854FF)
+                                  : Colors.grey[800],
+                              borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(8),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Tuần',
+                              style: TextStyle(
+                                color: !_showWorkoutTimeCard
+                                    ? Colors.white
+                                    : Colors.white54,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               // Conditionally show LogWorkoutTimeCard or TableCalendar
@@ -346,7 +444,8 @@ class _LogScreenState extends State<LogScreen> {
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: _focusedDay,
-                      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                      selectedDayPredicate: (day) =>
+                          isSameDay(_selectedDay, day),
                       onDaySelected: (selectedDay, focusedDay) {
                         setState(() {
                           _selectedDay = selectedDay;
@@ -358,14 +457,17 @@ class _LogScreenState extends State<LogScreen> {
                             builder: (context) => WorkoutDetailsPage(
                               selectedDate: selectedDay,
                               workouts: _workouts[selectedDay] ?? [],
-                              onWorkoutAdded: (workout) => _addWorkout(selectedDay, workout),
+                              onWorkoutAdded: (workout) =>
+                                  _addWorkout(selectedDay, workout),
                             ),
                           ),
                         );
                       },
                       calendarStyle: CalendarStyle(
                         defaultTextStyle: const TextStyle(color: Colors.white),
-                        weekendTextStyle: const TextStyle(color: Colors.white70),
+                        weekendTextStyle: const TextStyle(
+                          color: Colors.white70,
+                        ),
                         selectedDecoration: const BoxDecoration(
                           color: Color(0xFF8854FF),
                           shape: BoxShape.circle,
@@ -374,13 +476,24 @@ class _LogScreenState extends State<LogScreen> {
                           color: Colors.white.withOpacity(0.3),
                           shape: BoxShape.circle,
                         ),
-                        outsideTextStyle: const TextStyle(color: Colors.white54),
+                        outsideTextStyle: const TextStyle(
+                          color: Colors.white54,
+                        ),
                       ),
                       headerStyle: const HeaderStyle(
                         formatButtonVisible: false,
-                        titleTextStyle: TextStyle(color: Colors.white, fontSize: 16),
-                        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white),
-                        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white),
+                        titleTextStyle: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        leftChevronIcon: Icon(
+                          Icons.chevron_left,
+                          color: Colors.white,
+                        ),
+                        rightChevronIcon: Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                        ),
                       ),
                       daysOfWeekStyle: const DaysOfWeekStyle(
                         weekdayStyle: TextStyle(color: Colors.white54),
@@ -395,15 +508,19 @@ class _LogScreenState extends State<LogScreen> {
   }
 
   // Helper method to build toggle button
-  Widget _buildToggleButton(String label, bool isSelected, VoidCallback onPressed) {
+  Widget _buildToggleButton(
+    String label,
+    bool isSelected,
+    VoidCallback onPressed,
+  ) {
     return Expanded(
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? const Color(0xFF8854FF) : Colors.grey[800],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          backgroundColor: isSelected
+              ? const Color(0xFF8854FF)
+              : Colors.grey[800],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
         child: Text(
@@ -469,7 +586,10 @@ class _LogScreenState extends State<LogScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   minimumSize: const Size(double.infinity, 0), // Full width
                 ),
                 child: const Text(
@@ -482,19 +602,29 @@ class _LogScreenState extends State<LogScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildMetricItem('Weight', '${_weight.toStringAsFixed(1)} kg'),
-                  _buildMetricItem('Height', '${_height.toStringAsFixed(1)} cm'),
+                  _buildMetricItem(
+                    'Weight',
+                    '${_weight.toStringAsFixed(1)} kg',
+                  ),
+                  _buildMetricItem(
+                    'Height',
+                    '${_height.toStringAsFixed(1)} cm',
+                  ),
                   _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
-                  _buildMetricItem('Body Fat', '${_bodyFat.toStringAsFixed(1)}%'),
-                  _buildMetricItem('1RM', '${_oneRepMax.toStringAsFixed(1)} kg'),
+                  _buildMetricItem(
+                    'Body Fat',
+                    '${_bodyFat.toStringAsFixed(1)}%',
+                  ),
+                  _buildMetricItem(
+                    '1RM',
+                    '${_oneRepMax.toStringAsFixed(1)} kg',
+                  ),
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        // Workout Time Chart
-        const WorkoutTimeChart(),
       ],
     );
   }
@@ -516,10 +646,7 @@ class _LogScreenState extends State<LogScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -527,4 +654,3 @@ class _LogScreenState extends State<LogScreen> {
     );
   }
 }
-
