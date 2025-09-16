@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_constants.dart';
+import '../core/api/api_client.dart';
 
 /// ApiService: Chỉ xử lý logic gọi API, không liên quan UI
 class ApiService {
@@ -54,18 +55,15 @@ class ApiService {
   /// NOTE: Hàm này trả về dữ liệu thô (Map), KHÔNG tự động logout nếu token hết hạn (401).
   /// Nếu muốn lấy UserModel và tự động logout khi token hết hạn, dùng UserService.fetchProfile.
   static Future<Map<String, dynamic>?> getProfile(String accessToken) async {
+    // Deprecated direct usage; keep backward compatibility by still honoring provided accessToken
+    // Prefer: ApiClient.instance.get('/auth/profile')
     try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/auth/profile'),
-        headers: {'accept': '*/*', 'Authorization': 'Bearer $accessToken'},
-      );
-      if (res.statusCode == 200) {
+      final res = await ApiClient.instance.get('/auth/profile');
+      if (res != null && res.statusCode == 200) {
         return json.decode(res.body) as Map<String, dynamic>;
       }
-      return null;
-    } catch (e) {
-      return null;
-    }
+    } catch (_) {}
+    return null;
   }
 
   /// Đăng nhập, trả về Map chứa access_token và user nếu thành công, null nếu lỗi

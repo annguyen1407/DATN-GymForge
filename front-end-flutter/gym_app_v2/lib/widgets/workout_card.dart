@@ -1,17 +1,34 @@
 // Dùng ở: workout_screen tab "Kế hoạch" và "Chuyên gia". Card hiển thị workout chung.
 import 'package:flutter/material.dart';
 
+/// Màu theo planType để hiển thị badge & gradient khi thiếu ảnh
+Color _planTypeColor(String? planType) {
+  switch (planType) {
+    case 'STRENGTH':
+      return Colors.redAccent;
+    case 'CARDIO':
+      return Colors.orangeAccent;
+    case 'FLEXIBILITY':
+      return Colors.tealAccent.shade400;
+    case 'COMBINED':
+      return Colors.purpleAccent;
+    default:
+      return Colors.blueGrey.shade400;
+  }
+}
+
 /// WorkoutCard: Card hiển thị workout chung cho tab "Kế hoạch" và "Chuyên gia"
 /// Khác với WorkoutTemplateCard (dùng riêng cho tab "Khám phá")
 class WorkoutCard extends StatelessWidget {
-  final String image;
+  final String image; // asset path (có thể rỗng)
   final String title;
   final String? description;
-  final String? subtitle;
-  final String? badge;
+  final String? subtitle; // ví dụ số ngày / tác giả
+  final String? badge; // planType hoặc trạng thái
   final Color? badgeColor;
   final List<String>? tags;
   final VoidCallback? onTap;
+  final String? planType; // thêm để map màu & placeholder
 
   const WorkoutCard({
     required this.image,
@@ -22,18 +39,39 @@ class WorkoutCard extends StatelessWidget {
     this.badgeColor,
     this.tags,
     this.onTap,
+    this.planType,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    final accent = badgeColor ?? _planTypeColor(planType ?? badge);
+    // Danh sách asset hiện có để tránh load asset không tồn tại (giảm spam error log)
+    const knownAssets = {
+      'assets/images/onboarding_1.png',
+      'assets/images/onboarding_2.png',
+      'assets/images/onboarding_3.png',
+      'assets/images/welcome_bg.png',
+    };
+    final effectiveImage = (image.isNotEmpty && knownAssets.contains(image))
+        ? image
+        : ''; // nếu không thuộc danh sách -> dùng placeholder gradient
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.grey[900],
+          color: const Color(0xFF141414),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10, width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,24 +84,57 @@ class WorkoutCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  image.isNotEmpty
-                      ? Image.asset(
-                          image,
-                          width: double.infinity,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                width: double.infinity,
-                                height: 120,
-                                color: Colors.deepPurple[300],
-                              ),
-                        )
-                      : Container(
-                          width: double.infinity,
-                          height: 120,
-                          color: Colors.deepPurple[300],
+                  // Ảnh hoặc placeholder gradient
+                  if (effectiveImage.isNotEmpty)
+                    Image.asset(
+                      effectiveImage,
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: double.infinity,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [accent.withOpacity(.6), Colors.black87],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                         ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [accent.withOpacity(.6), Colors.black87],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.fitness_center,
+                        color: Colors.white.withOpacity(.4),
+                        size: 48,
+                      ),
+                    ),
+                  // Overlay mờ để chữ nổi bật
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.05),
+                            Colors.black.withOpacity(0.55),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ),
                   // Badge (nếu có)
                   if (badge != null)
                     Positioned(
@@ -75,8 +146,15 @@ class WorkoutCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: badgeColor ?? Colors.purple,
+                          color: accent.withOpacity(.9),
                           borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withOpacity(.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Text(
                           badge!,
@@ -93,7 +171,7 @@ class WorkoutCard extends StatelessWidget {
             ),
             // Phần thông tin workout
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -102,8 +180,9 @@ class WorkoutCard extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      letterSpacing: .2,
                     ),
                   ),
                   // Subtitle (nếu có)
@@ -112,9 +191,9 @@ class WorkoutCard extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -145,14 +224,18 @@ class WorkoutCard extends StatelessWidget {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.grey[800],
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withOpacity(.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white12,
+                                  width: 1,
+                                ),
                               ),
                               child: Text(
                                 tag,
                                 style: const TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 10,
+                                  color: Colors.white70,
+                                  fontSize: 11,
                                 ),
                               ),
                             ),

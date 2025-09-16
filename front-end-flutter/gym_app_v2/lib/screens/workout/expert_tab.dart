@@ -11,7 +11,7 @@ class ExpertTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         WorkoutCard(
-          image: 'assets/images/cardio1.jpg',
+          image: '', // removed missing asset
           title: 'Cardio training sets',
           subtitle: 'HLV Nguyễn Văn A',
           badge: '3 ngày',
@@ -20,7 +20,7 @@ class ExpertTab extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => WorkoutDetailScreen(
-                  image: 'assets/images/cardio1.jpg',
+                  image: '',
                   title: 'Cardio training sets',
                   subtitle: 'HLV Nguyễn Văn A - Chuyên gia Cardio',
                   description:
@@ -46,7 +46,7 @@ class ExpertTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         WorkoutCard(
-          image: 'assets/images/pushup.jpg',
+          image: '',
           title: 'Quick Push up',
           subtitle: 'HLV Trần Thị B',
           badge: '4 ngày',
@@ -55,7 +55,7 @@ class ExpertTab extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => WorkoutDetailScreen(
-                  image: 'assets/images/pushup.jpg',
+                  image: '',
                   title: 'Quick Push up',
                   subtitle: 'HLV Trần Thị B - Chuyên gia Cơ tay',
                   description:
@@ -85,7 +85,7 @@ class ExpertTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         WorkoutCard(
-          image: 'assets/images/flexibility1.jpg',
+          image: '',
           title: 'Flexibility training sets',
           subtitle: 'HLV Lê Văn C',
           badge: 'Premium',
@@ -95,7 +95,7 @@ class ExpertTab extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => WorkoutDetailScreen(
-                  image: 'assets/images/flexibility1.jpg',
+                  image: '',
                   title: 'Flexibility training sets',
                   subtitle: 'HLV Lê Văn C - Master Trainer Yoga',
                   description:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/user_service.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -10,11 +11,10 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
-  static const int _totalSteps = 8;
+  static const int _totalSteps = 7;
 
   // Các controller và biến lưu trữ dữ liệu từng bước
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _firstNameController = TextEditingController();
+  // Đã bỏ bước nhập tên
   final TextEditingController _provinceController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _districtController = TextEditingController();
@@ -23,17 +23,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   String? _selectedGender; // 'MALE' or 'FEMALE'
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
-  final TextEditingController _oneRmController = TextEditingController();
   int _intensity = 5;
-  final List<String> _selectedGoals = [];
-  final List<String> _goalOptions = [
-    'Kiểm soát cân nặng',
-    'Tăng năng lượng hàng ngày',
-    'Tăng khối lượng và kích thước cơ',
-    'Thử các bài tập mới',
-    'Tập luyện riêng tư',
-    'Giữ gìn sức khỏe hàng ngày',
-  ];
+  String? _selectedGoal;
+  // Map tiếng Việt <-> enum backend
+  final Map<String, String> _goalMap = {
+    'Giảm cân': 'LOSE_WEIGHT',
+    'Tăng cơ': 'BUILD_MUSCLE',
+    'Tăng cân ': 'BULKING',
+    'Giảm mỡ giữ cơ': 'CUTTING',
+    'Tăng sức mạnh': 'STRENGTH_TRAINING',
+    'Tăng sức bền': 'ENDURANCE',
+    'Khoẻ mạnh cân đối': 'GENERAL_FITNESS',
+    'Tăng độ dẻo dai': 'FLEXIBILITY',
+    'Duy trì cân nặng': 'WEIGHT_MAINTENANCE',
+    'Thành tích thể thao': 'ATHLETIC_PERFORMANCE',
+  };
+  List<String> get _goalOptions => _goalMap.keys.toList();
   int? _selectedAvatarIndex;
 
   void _showError(String message) {
@@ -48,13 +53,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         // Cho phép bỏ qua chọn avatar ở bước 1
         break;
       case 1:
-        if (_lastNameController.text.trim().isEmpty ||
-            _firstNameController.text.trim().isEmpty) {
-          _showError('Vui lòng nhập đầy đủ họ và tên.');
-          return false;
-        }
-        break;
-      case 2:
         if (_provinceController.text.trim().isEmpty ||
             _cityController.text.trim().isEmpty ||
             _districtController.text.trim().isEmpty ||
@@ -77,8 +75,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         break;
       case 5:
         if (_weightController.text.trim().isEmpty ||
-            _heightController.text.trim().isEmpty ||
-            _oneRmController.text.trim().isEmpty) {
+            _heightController.text.trim().isEmpty) {
           _showError('Vui lòng nhập đầy đủ chỉ số cơ thể.');
           return false;
         }
@@ -90,8 +87,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         }
         break;
       case 7:
-        if (_selectedGoals.isEmpty) {
-          _showError('Vui lòng chọn ít nhất 1 mục tiêu.');
+        if (_selectedGoal == null) {
+          _showError('Vui lòng chọn mục tiêu.');
           return false;
         }
         break;
@@ -128,18 +125,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       case 0:
         return _buildAvatarStep();
       case 1:
-        return _buildNameStep();
-      case 2:
         return _buildAddressStep();
-      case 3:
+      case 2:
         return _buildDobStep();
-      case 4:
+      case 3:
         return _buildGenderStep();
-      case 5:
+      case 4:
         return _buildBodyIndexStep();
-      case 6:
+      case 5:
         return _buildIntensityStep();
-      case 7:
+      case 6:
         return _buildGoalStep();
       default:
         return const SizedBox();
@@ -209,67 +204,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
-  Widget _buildNameStep() {
-    return Column(
-      children: [
-        const Text(
-          'Bạn tên là gì?',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _lastNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Họ',
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.grey[850],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _firstNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Tên',
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.grey[850],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Đừng lo lắng, dữ liệu cá nhân của bạn sẽ được giữ riêng tư và sẽ không được chia sẻ cho bên thứ 3',
-          style: TextStyle(color: Colors.white38, fontSize: 13),
-          textAlign: TextAlign.center,
-        ),
-        const Spacer(),
-        _buildNextButton(),
-      ],
-    );
-  }
-
   Widget _buildAddressStep() {
     return Column(
       children: [
@@ -286,22 +220,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           controller: _provinceController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Tỉnh',
-            hintStyle: const TextStyle(color: Colors.white54),
-            filled: true,
-            fillColor: Colors.grey[850],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _cityController,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Thành phố',
+            hintText: 'Tỉnh/Thành phố',
             hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.grey[850],
@@ -316,7 +235,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           controller: _districtController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Quận / Huyện',
+            hintText: 'Quận/Huyện',
+            hintStyle: const TextStyle(color: Colors.white54),
+            filled: true,
+            fillColor: Colors.grey[850],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _cityController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Phường/Xã/Thị trấn',
             hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.grey[850],
@@ -331,7 +265,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           controller: _addressController,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Địa chỉ',
+            hintText: 'Số nhà, tên đường',
             hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.grey[850],
@@ -519,22 +453,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _oneRmController,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Mức tạ tối đa, 1RM (kg)',
-            hintStyle: const TextStyle(color: Colors.white54),
-            filled: true,
-            fillColor: Colors.grey[850],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
         const Text(
           'Đừng lo lắng, dữ liệu cá nhân của bạn sẽ được giữ riêng tư và sẽ không được chia sẻ cho bên thứ 3',
           style: TextStyle(color: Colors.white38, fontSize: 13),
@@ -594,22 +512,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           runSpacing: 8,
           children: _goalOptions
               .map(
-                (goal) => FilterChip(
+                (goal) => ChoiceChip(
                   label: Text(
                     goal,
                     style: const TextStyle(color: Colors.white),
                   ),
-                  selected: _selectedGoals.contains(goal),
+                  selected: _selectedGoal == goal,
                   backgroundColor: Colors.grey[850],
                   selectedColor: const Color(0xFF8854FF),
-                  checkmarkColor: Colors.white,
                   onSelected: (selected) {
                     setState(() {
-                      if (selected) {
-                        _selectedGoals.add(goal);
-                      } else {
-                        _selectedGoals.remove(goal);
-                      }
+                      _selectedGoal = selected ? goal : null;
                     });
                   },
                 ),
@@ -653,9 +566,47 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        onPressed: () {
-          // TODO: Lưu thông tin user qua API nếu cần
-          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+        onPressed: () async {
+          final address =
+              '${_addressController.text}, ${_cityController.text}, ${_districtController.text}, ${_provinceController.text}';
+          String? expType;
+          if (_intensity >= 1 && _intensity <= 3) {
+            expType = "Beginner";
+          } else if (_intensity >= 4 && _intensity <= 5) {
+            expType = "Intermediate";
+          } else if (_intensity >= 6 && _intensity <= 7) {
+            expType = "Advanced";
+          }
+          String? sexValue = _selectedGender;
+          if (sexValue != null) {
+            sexValue = sexValue.toUpperCase() == 'MALE'
+                ? 'MALE'
+                : (sexValue.toUpperCase() == 'FEMALE' ? 'FEMALE' : null);
+          }
+          final body = {
+            "dateOfBirth": _selectedDob != null
+                ? _selectedDob!.toIso8601String().split('T')[0]
+                : null,
+            "sex": sexValue,
+            "address": address,
+            "weight": double.tryParse(_weightController.text),
+            "height": int.tryParse(_heightController.text),
+            "goal": _selectedGoal != null ? _goalMap[_selectedGoal!] : null,
+            "expType": expType,
+            "profilePicture": null, // luôn truyền null cho avatar
+          };
+          print('PATCH profile body: ' + body.toString());
+          final success = await UserService.updateProfile(context, body);
+          print('PATCH profile result: ' + success.toString());
+          if (success) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/main',
+              (route) => false,
+            );
+          } else {
+            _showError('Cập nhật thất bại hoặc token hết hạn!');
+          }
         },
         child: const Text(
           'Lưu',
