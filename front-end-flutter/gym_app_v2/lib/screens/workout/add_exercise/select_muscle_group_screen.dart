@@ -44,7 +44,17 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Chọn nhóm cơ'),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Chọn nhóm cơ',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -76,38 +86,51 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final list = _all
+                // Build filtered list with synthetic 'All' card at top
+                final filtered = _all
                     .where(
                       (m) =>
                           _query.isEmpty ||
                           m.name.toLowerCase().contains(_query),
                     )
                     .toList();
-                if (list.isEmpty) {
+
+                // Insert synthetic all item (client-side)
+                final items =
+                    [
+                      MuscleGroupModel(
+                        id: '_ALL_',
+                        name: 'Tất cả',
+                        exercisesCount: 0,
+                      ),
+                    ] +
+                    filtered;
+
+                if (filtered.isEmpty && _query.isNotEmpty) {
                   return const Center(
                     child: Text(
-                      'Không có nhóm cơ',
+                      'Không tìm thấy nhóm cơ',
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
                 }
-                return ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(color: Colors.grey[800], height: 1),
+
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 1.4,
+                  ),
+                  itemCount: items.length,
                   itemBuilder: (context, i) {
-                    final mg = list[i];
-                    return ListTile(
-                      title: Text(
-                        mg.name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                      onTap: () {
-                        Navigator.push(
+                    final mg = items[i];
+                    return _MuscleGroupCard(
+                      mg: mg,
+                      isAll: mg.id == '_ALL_',
+                      onTap: () async {
+                        final created = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SelectExerciseScreen(
@@ -118,6 +141,9 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                             ),
                           ),
                         );
+                        if (created != null) {
+                          if (mounted) Navigator.pop(context, created);
+                        }
                       },
                     );
                   },
@@ -126,6 +152,86 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MuscleGroupCard extends StatelessWidget {
+  final MuscleGroupModel mg;
+  final bool isAll;
+  final VoidCallback onTap;
+  const _MuscleGroupCard({
+    required this.mg,
+    required this.isAll,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.grey[800]!, width: 0.8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isAll
+                    ? Colors.pinkAccent.withOpacity(0.15)
+                    : Colors.deepPurple.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isAll ? Icons.all_inclusive : Icons.fitness_center,
+                color: isAll ? Colors.pinkAccent : Colors.deepPurpleAccent,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              mg.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+              ),
+            ),
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    isAll ? 'Tất cả bài tập' : '${mg.exercisesCount} bài tập',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white38,
+                  size: 18,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
