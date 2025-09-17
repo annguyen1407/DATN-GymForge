@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
+import '../../widgets/app_snack_bar.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -41,11 +42,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   List<String> get _goalOptions => _goalMap.keys.toList();
   int? _selectedAvatarIndex;
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
+  void _showError(String message) => AppSnackBar.showError(context, message);
 
   bool _validateCurrentStep() {
     switch (_currentStep) {

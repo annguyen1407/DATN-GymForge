@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/app_button.dart';
+import '../../../widgets/app_snack_bar.dart';
 import '../../../repositories/workout_day_exercises_repository.dart';
 import '../../../models/exercise_model.dart';
 
@@ -279,11 +281,8 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
             right: 0,
             child: Center(
               child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Video demo chưa khả dụng')),
-                  );
-                },
+                onTap: () =>
+                    AppSnackBar.showInfo(context, 'Video demo chưa khả dụng'),
                 child: Container(
                   width: 90, // reduced size
                   height: 90, // reduced size
@@ -533,7 +532,6 @@ class _BottomBar extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    final disabled = !enabled;
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -554,87 +552,12 @@ class _BottomBar extends StatelessWidget {
           ),
         ],
       ),
-      child: GestureDetector(
-        onTap: disabled ? null : onSubmit,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 240),
-          opacity: disabled ? 0.55 : 1,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 22),
-            decoration: BoxDecoration(
-              gradient: disabled
-                  ? LinearGradient(
-                      colors: [Colors.grey[800]!, Colors.grey[700]!],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : const LinearGradient(
-                      colors: [Color(0xFFFF6B6B), Color(0xFFFF6B6B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: disabled
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: const Color(0xFFFF6B6B).withOpacity(0.32),
-                        blurRadius: 22,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!submitting) ...[
-                  const Icon(Icons.add_rounded, color: Colors.white, size: 26),
-                  const SizedBox(width: 10),
-                ],
-                Flexible(
-                  child: submitting
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.6,
-                                valueColor: AlwaysStoppedAnimation(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Đang lưu...',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Text(
-                          'Thêm bài tập',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: AppButton.gradient(
+        label: submitting ? 'Đang lưu...' : 'Thêm bài tập',
+        loading: submitting,
+        leadingIcon: submitting ? null : Icons.add_rounded,
+        onPressed: enabled && !submitting ? onSubmit : null,
+        size: AppButtonSize.large,
       ),
     );
   }

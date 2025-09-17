@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../repositories/workout_plans_repository.dart';
+import '../../widgets/app_snack_bar.dart';
+import '../../widgets/app_button.dart';
 
 class CreateWorkoutPlanScreen extends StatefulWidget {
   final String userId;
@@ -58,7 +60,12 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    final lower = msg.toLowerCase();
+    if (lower.contains('lỗi') || lower.contains('thất bại')) {
+      AppSnackBar.showError(context, msg);
+    } else {
+      AppSnackBar.showInfo(context, msg);
+    }
   }
 
   @override
@@ -113,22 +120,20 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'savePlanFab',
-        backgroundColor: const Color(0xFFA26FFD),
-        onPressed: _submitting ? null : _submit,
-        icon: _submitting
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.check, color: Colors.white),
-        label: Text(_submitting ? 'Đang lưu...' : 'Lưu kế hoạch'),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          bottom: 20 + MediaQuery.of(context).padding.bottom,
+          top: 8,
+        ),
+        child: AppButton.primary(
+          label: _submitting ? 'Đang lưu...' : 'Lưu kế hoạch',
+          leadingIcon: _submitting ? null : Icons.check_rounded,
+          loading: _submitting,
+          onPressed: _submitting ? null : _submit,
+          size: AppButtonSize.large,
+        ),
       ),
       body: Stack(
         children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/add_action_button.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../models/workout_plan_model.dart';
 import '../../widgets/workout_card.dart';
@@ -135,8 +136,7 @@ class _PlanTabState extends State<PlanTab> {
         Positioned(
           right: 24,
           bottom: 24,
-          child: FloatingActionButton(
-            backgroundColor: Colors.redAccent,
+          child: AddActionButton.circle(
             onPressed: () async {
               final created = await Navigator.push(
                 context,
@@ -149,7 +149,6 @@ class _PlanTabState extends State<PlanTab> {
                 _triggerFetch(force: true);
               }
             },
-            child: const Icon(Icons.add, color: Colors.white),
           ),
         ),
       ],

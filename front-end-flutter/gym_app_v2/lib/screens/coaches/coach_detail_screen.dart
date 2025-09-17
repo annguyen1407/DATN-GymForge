@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/add_action_button.dart';
 import 'package:flutter/services.dart';
 import '../../widgets/workout_template_card.dart';
 import '../chat/chat_screen.dart';
@@ -121,18 +122,10 @@ class CoachDetailScreen extends StatelessWidget {
                             // Action buttons row
                             Row(
                               children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Colors.black,
-                                    size: 28,
-                                  ),
+                                AddActionButton.circle(
+                                  onPressed: () {
+                                    // TODO: Add coach action (e.g., follow / add plan)
+                                  },
                                 ),
                                 const SizedBox(width: 16),
                                 GestureDetector(

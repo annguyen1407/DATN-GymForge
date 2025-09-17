@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'forgot_password_screen.dart';
+import '../../../widgets/app_snack_bar.dart';
+import '../../../widgets/app_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -63,9 +65,7 @@ class _SignInScreenState extends State<SignInScreen> {
         key: 'refresh_token',
         value: data['refresh_token'],
       );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công!')));
+      AppSnackBar.showSuccess(context, 'Đăng nhập thành công!');
       // Kiểm tra dateOfBirth
       final user = data['user'];
       if (user != null && user['dateOfBirth'] == null) {
@@ -202,27 +202,12 @@ class _SignInScreenState extends State<SignInScreen> {
                           const SizedBox(height: 8),
                         ],
                         const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8854FF),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _loading ? null : _login,
-                            child: _loading
-                                ? const CircularProgressIndicator()
-                                : const Text(
-                                    'Đăng nhập',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
+                        AppButton.primary(
+                          label: 'Đăng nhập',
+                          size: AppButtonSize.large,
+                          loading: _loading,
+                          onPressed: _loading ? null : _login,
+                          leadingIcon: _loading ? null : Icons.login_rounded,
                         ),
                         const SizedBox(height: 16),
                         const SizedBox(height: 16),

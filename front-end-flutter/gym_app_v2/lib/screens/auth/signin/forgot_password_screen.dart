@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/api_service.dart';
+import '../../../widgets/app_snack_bar.dart';
+import '../../../widgets/app_button.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -84,9 +86,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _isLoading = false;
       if (ok) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đặt lại mật khẩu thành công!')),
-        );
+        AppSnackBar.showSuccess(context, 'Đặt lại mật khẩu thành công!');
       } else {
         _error = 'OTP không đúng hoặc đã hết hạn.';
       }
@@ -161,34 +161,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8854FF),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _isLoading ? null : _submitEmail,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Gửi mã xác thực',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
+                        AppButton.primary(
+                          label: 'Gửi mã xác thực',
+                          size: AppButtonSize.large,
+                          loading: _isLoading,
+                          onPressed: _isLoading ? null : _submitEmail,
+                          leadingIcon: _isLoading ? null : Icons.send_rounded,
                         ),
                       ] else ...[
                         const Icon(
@@ -299,36 +277,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8854FF),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _isLoading
-                                ? null
-                                : _submitOtpAndPassword,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Đặt lại mật khẩu',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
+                        AppButton.primary(
+                          label: 'Đặt lại mật khẩu',
+                          size: AppButtonSize.large,
+                          loading: _isLoading,
+                          onPressed: _isLoading ? null : _submitOtpAndPassword,
+                          leadingIcon: _isLoading ? null : Icons.lock_reset,
                         ),
                       ],
                       if (_error != null) ...[

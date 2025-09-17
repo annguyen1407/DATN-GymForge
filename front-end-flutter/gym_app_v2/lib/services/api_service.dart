@@ -214,4 +214,27 @@ class ApiService {
       return false;
     }
   }
+
+  /// Xoá 1 workout day theo id. Trả về Map (JSON) nếu thành công, null nếu lỗi.
+  static Future<Map<String, dynamic>?> deleteWorkoutDay(
+    String workoutDayId,
+  ) async {
+    try {
+      final res = await ApiClient.instance.delete(
+        '/workout-plans/days/$workoutDayId',
+      );
+      if (res == null) return null; // token không hợp lệ
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        try {
+          final decoded = jsonDecode(res.body);
+          if (decoded is Map<String, dynamic>) return decoded;
+        } catch (_) {
+          return {'status': res.statusCode};
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
