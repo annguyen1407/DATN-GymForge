@@ -33,11 +33,13 @@ class ExerciseDetailScreen extends StatefulWidget {
 
 class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
   final _repo = ExercisesRepository();
+  final _wdeRepo = WorkoutDayExercisesRepository();
   final _setsCtl = TextEditingController();
   final _repsCtl = TextEditingController();
   final _weightCtl = TextEditingController();
   final _restCtl = TextEditingController();
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
   bool _loading = true;
   String? _loadError;
@@ -197,6 +199,74 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    if (widget.workoutDayExerciseId == null ||
+        widget.workoutDayExerciseId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không có ID record để xoá')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1C1E22),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Xác nhận xoá',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Bạn chắc chắn muốn xoá bài tập này khỏi ngày tập?\n\n"${_exercise?.name ?? ''}"',
+            style: const TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                'Xoá',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (ok != true) return;
+    setState(() => _deleting = true);
+    try {
+      final success = await _wdeRepo.delete(widget.workoutDayExerciseId!);
+      if (!mounted) return;
+      if (success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đã xoá bài tập')));
+        Navigator.pop(context, {
+          'deleted': true,
+          'workoutDayExerciseId': widget.workoutDayExerciseId,
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Xoá thất bại: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -372,6 +442,25 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
             child: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          // Delete icon góc phải
+          Positioned(
+            right: 4,
+            top: MediaQuery.of(context).padding.top + 4,
+            child: IconButton(
+              icon: _deleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.redAccent,
+                      ),
+                    )
+                  : const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: _deleting ? null : _confirmDelete,
+              tooltip: 'Xoá bài tập',
             ),
           ),
           Positioned(

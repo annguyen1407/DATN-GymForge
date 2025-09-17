@@ -9,12 +9,14 @@ class SelectExerciseScreen extends StatefulWidget {
   final String workoutPlanId;
   final String workoutDayId;
   final int dayNumber;
+  final List<String> excludedExerciseIds; // exerciseId đã tồn tại trong ngày
   const SelectExerciseScreen({
     super.key,
     required this.muscleGroup,
     required this.workoutPlanId,
     required this.workoutDayId,
     required this.dayNumber,
+    this.excludedExerciseIds = const [],
   });
 
   @override
@@ -46,6 +48,12 @@ class _SelectExerciseScreenState extends State<SelectExerciseScreen> {
       } else {
         _all = all
             .where((e) => e.muscleGroupNames.contains(widget.muscleGroup.name))
+            .toList();
+      }
+      // Loại bỏ những exercise đã có trong ngày
+      if (widget.excludedExerciseIds.isNotEmpty) {
+        _all = _all
+            .where((e) => !widget.excludedExerciseIds.contains(e.id))
             .toList();
       }
       _applyFilter();

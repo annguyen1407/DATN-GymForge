@@ -362,6 +362,20 @@ class _WorkoutExerciseDetailScreenState
                                       ),
                                     );
                                     if (result is Map) {
+                                      // Nếu detail trả về đã xoá bài tập
+                                      if (result['deleted'] == true) {
+                                        final deletedId =
+                                            result['workoutDayExerciseId']
+                                                as String?;
+                                        if (deletedId != null) {
+                                          setState(() {
+                                            _exercises.removeWhere(
+                                              (e) => e.id == deletedId,
+                                            );
+                                          });
+                                        }
+                                        return; // dừng, không cập nhật nữa
+                                      }
                                       final sets =
                                           (result['sets'] as int?) ??
                                           exercise.sets;
@@ -458,6 +472,11 @@ class _WorkoutExerciseDetailScreenState
                   workoutPlanId: widget.workoutPlanId,
                   workoutDayId: widget.workoutDayId,
                   dayNumber: widget.dayNumber,
+                  excludedExerciseIds: _exercises
+                      .map((e) => e.exerciseId)
+                      .whereType<String>()
+                      .toSet()
+                      .toList(),
                 ),
               ),
             );

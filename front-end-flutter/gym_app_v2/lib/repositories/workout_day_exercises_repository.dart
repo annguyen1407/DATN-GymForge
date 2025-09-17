@@ -151,4 +151,14 @@ class WorkoutDayExercisesRepository {
     }
     throw Exception('Update failed: ${res.statusCode}');
   }
+
+  Future<bool> delete(String id) async {
+    final path = '/workout-plans/exercises/$id';
+    final res = await ApiClient.instance.delete(path);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return true; // backend có thể trả body hoặc không; chỉ cần status success
+    }
+    throw Exception('Delete failed: ${res.statusCode}');
+  }
 }

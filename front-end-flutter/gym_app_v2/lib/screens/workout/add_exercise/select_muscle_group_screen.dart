@@ -7,11 +7,14 @@ class SelectMuscleGroupScreen extends StatefulWidget {
   final String workoutPlanId;
   final String workoutDayId;
   final int dayNumber;
+  final List<String>
+  excludedExerciseIds; // danh sách exerciseId đã có trong ngày
   const SelectMuscleGroupScreen({
     super.key,
     required this.workoutPlanId,
     required this.workoutDayId,
     required this.dayNumber,
+    this.excludedExerciseIds = const [],
   });
 
   @override
@@ -98,7 +101,10 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 // Insert synthetic all item (client-side)
                 final totalCount = filtered.fold<int>(
                   0,
-                  (sum, m) => sum + (m.exercisesCount ?? 0),
+                  (sum, m) =>
+                      sum +
+                      (m.exercisesCount ??
+                          0), // giữ ?? 0 vì model có thể nullable
                 );
                 final items = [
                   MuscleGroupModel(
@@ -140,6 +146,7 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                               workoutPlanId: widget.workoutPlanId,
                               workoutDayId: widget.workoutDayId,
                               dayNumber: widget.dayNumber,
+                              excludedExerciseIds: widget.excludedExerciseIds,
                             ),
                           ),
                         );
