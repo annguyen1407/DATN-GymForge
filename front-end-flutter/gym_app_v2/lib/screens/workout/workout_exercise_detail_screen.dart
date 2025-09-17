@@ -16,8 +16,6 @@ class WorkoutExerciseDetailScreen extends StatefulWidget {
   final String date; // Ngày tháng năm (VD: "1/4/2025")
   final String calories; // Calories (VD: "200 calories")
   final String backgroundImage; // Hình nền
-  final List<ExerciseItem>?
-  presetExercises; // Optional danh sách bài tập truyền sẵn (fallback)
 
   const WorkoutExerciseDetailScreen({
     required this.workoutDayId,
@@ -27,7 +25,6 @@ class WorkoutExerciseDetailScreen extends StatefulWidget {
     required this.date,
     required this.calories,
     required this.backgroundImage,
-    this.presetExercises,
     super.key,
   });
 
@@ -47,13 +44,7 @@ class _WorkoutExerciseDetailScreenState
   @override
   void initState() {
     super.initState();
-    if (widget.presetExercises != null && widget.presetExercises!.isNotEmpty) {
-      _exercises = List.from(widget.presetExercises!);
-      _loading = false; // still fetch to refresh in background
-      _fetch();
-    } else {
-      _fetch();
-    }
+    _fetch();
   }
 
   Future<void> _fetch() async {
@@ -79,11 +70,12 @@ class _WorkoutExerciseDetailScreenState
         );
       }).toList();
       final mapped = await Future.wait(detailFutures);
-      setState(() {
-        _exercises = mapped;
-      });
+      if (mounted)
+        setState(() {
+          _exercises = mapped;
+        });
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -346,20 +338,15 @@ class _WorkoutExerciseDetailScreenState
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) =>
-                                            ExerciseDetailScreen(
-                                              exerciseName: exercise.name,
-                                              author: 'Tao bởi ban',
-                                              calories: '200 calories',
-                                              description:
-                                                  _getExerciseDescription(
-                                                    exercise.name,
-                                                  ),
-                                              backgroundImage: exercise.image,
-                                              specs: _generateExerciseSpecs(
-                                                exercise.name,
-                                              ),
-                                            ),
+                                        builder: (context) => ExerciseDetailScreen(
+                                          exerciseName: exercise.name,
+                                          author: 'Tao bởi ban',
+                                          calories: '200 calories',
+                                          description:
+                                              'Bài tập này giúp cải thiện sức khỏe và thể lực tổng thể. Thực hiện đúng kỹ thuật để đạt hiệu quả cao nhất.',
+                                          backgroundImage: exercise.image,
+                                          specs: const [],
+                                        ),
                                       ),
                                     );
                                   },
@@ -471,30 +458,5 @@ class _WorkoutExerciseDetailScreenState
         ],
       ),
     );
-  }
-
-  /// Generate mô tả cho bài tập
-  String _getExerciseDescription(String exerciseName) {
-    switch (exerciseName.toLowerCase()) {
-      case 'barbell bench press':
-      case 'jump rope':
-        return 'The barbell bench press is a classic exercise popular among all weight lifting circles. From bodybuilders to powerlifters, the bench press is a staple chest exercise in nearly every workout program.';
-      case 'jumping jacks':
-        return 'Jumping jacks là bài tập cardio cơ bản giúp tăng nhịp tim và đốt cháy calories hiệu quả.';
-      case 'jog in place':
-        return 'Chạy tại chỗ là bài tập đơn giản giúp khởi động cơ thể và cải thiện sức bền tim mạch.';
-      default:
-        return 'Bài tập này giúp cải thiện sức khỏe và thể lực tổng thể. Thực hiện đúng kỹ thuật để đạt hiệu quả cao nhất.';
-    }
-  }
-
-  /// Generate thông số bài tập
-  List<ExerciseSpec> _generateExerciseSpecs(String exerciseName) {
-    return [
-      const ExerciseSpec(name: 'Số hiệp', value: '3'),
-      const ExerciseSpec(name: 'Số reps', value: '8'),
-      const ExerciseSpec(name: 'Thời gian nghỉ', value: '120'),
-      const ExerciseSpec(name: 'Mức tạ', value: '40kg'),
-    ];
   }
 }

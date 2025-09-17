@@ -1,35 +1,30 @@
 import 'package:flutter/material.dart';
 import '../../widgets/workout_exercise_card.dart';
-import '../../widgets/exercise_card.dart';
 import 'workout_exercise_detail_screen.dart';
 import '../../repositories/workout_plans_repository.dart';
 
 /// WorkoutDetailScreen: Màn hình chi tiết kế hoạch tập luyện khi click vào WorkoutCard
 /// Hiển thị danh sách các ngày tập của một kế hoạch tập luyện
 class WorkoutDetailScreen extends StatefulWidget {
-  final String? planId; // optional: if null -> local/demo mode
+  final String planId; // now required for real data
   final String image;
   final String title;
   final String? subtitle;
   final String? description;
-  final List<WorkoutExercise>? exercises; // Optional initial placeholder list
-
   const WorkoutDetailScreen({
-    this.planId,
+    required this.planId,
     required this.image,
     required this.title,
     this.subtitle,
     this.description,
-    this.exercises,
     super.key,
   });
-
   @override
   State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
 }
 
 class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
-  int? selectedExerciseIndex; // Index của ngày tập được chọn
+  int? selectedExerciseIndex;
   final _repo = WorkoutPlansRepository();
   Future<List<WorkoutDayModel>>? _futureDays;
   List<WorkoutDayModel> _days = [];
@@ -38,57 +33,39 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Tự động chọn ngày tập đầu tiên chưa hoàn thành
-    if (widget.planId != null) {
-      _futureDays = _fetchDays();
-    } else if (widget.exercises != null) {
-      // Map legacy placeholder exercises to pseudo days (no API)
-      _days = List.generate(
-        widget.exercises!.length,
-        (i) => WorkoutDayModel(
-          id: 'local-$i',
-          workoutPlanId: 'local',
-          dayNumber: i + 1,
-          date: DateTime.now().add(Duration(days: i)),
-        ),
-      );
-      if (_days.isNotEmpty) selectedExerciseIndex = 0;
-    }
+    _futureDays = _fetchDays();
   }
 
   Future<List<WorkoutDayModel>> _fetchDays() async {
-    if (widget.planId == null) return [];
-    final days = await _repo.getPlanDays(widget.planId!);
-    _days = days;
-    if (_days.isNotEmpty) {
-      // auto-select first incomplete (no completion flag yet, select first)
-      selectedExerciseIndex = 0;
+    try {
+      final days = await _repo.getPlanDays(widget.planId);
+      _days = days;
+      if (_days.isNotEmpty) selectedExerciseIndex = 0;
+      setState(() {});
+      return days;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải ngày tập (mock mode?): $e')),
+        );
+      }
+      return [];
     }
-    setState(() {}); // refresh selection state
-    return days;
   }
 
   Future<void> _addDay() async {
-    if (widget.planId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể tạo ngày: thiếu planId')),
-      );
-      return;
-    }
     if (_creating) return;
     setState(() => _creating = true);
     try {
       final nextNumber = _days.isEmpty
           ? 1
-          : (_days.where((d) => d.dayNumber != null).isEmpty
-                ? _days.length + 1
-                : (_days
-                          .where((d) => d.dayNumber != null)
-                          .map((d) => d.dayNumber!)
-                          .fold<int>(0, (p, c) => c > p ? c : p) +
-                      1));
+          : (_days
+                    .where((d) => d.dayNumber != null)
+                    .map((d) => d.dayNumber!)
+                    .fold<int>(0, (p, c) => c > p ? c : p) +
+                1);
       final created = await _repo.createDay(
-        widget.planId!,
+        widget.planId,
         dayNumber: nextNumber,
         date: DateTime.now().add(Duration(days: nextNumber - 1)),
       );
@@ -373,14 +350,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 MaterialPageRoute(
                                   builder: (context) => WorkoutExerciseDetailScreen(
                                     workoutDayId: _days[idx].id,
-                                    workoutPlanId: widget.planId ?? 'local',
+                                    workoutPlanId: widget.planId,
                                     dayNumber: _days[idx].dayNumber ?? idx + 1,
                                     dayTitle:
                                         'Ngày ${_days[idx].dayNumber ?? idx + 1}',
                                     date: _getWorkoutDate(idx),
                                     calories: '200 calories',
                                     backgroundImage: widget.image,
-                                    presetExercises: _generateSampleExercises(),
                                   ),
                                 ),
                               );
@@ -415,93 +391,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         ],
       ),
     );
-  }
-
-  /// Tạo dữ liệu mẫu cho các bài tập trong ngày
-  List<ExerciseItem> _generateSampleExercises() {
-    return [
-      const ExerciseItem(
-        name: 'Jump rope',
-        reps: '3 rep',
-        image: 'assets/images/jump_rope.jpg',
-        sets: 3,
-        repsCount: 30,
-        weight: 0,
-        restTime: 60,
-      ),
-      const ExerciseItem(
-        name: 'Jumping jacks',
-        reps: '3 rep',
-        image: 'assets/images/jumping_jacks.jpg',
-        sets: 4,
-        repsCount: 20,
-        weight: 0,
-        restTime: 45,
-      ),
-      const ExerciseItem(
-        name: 'Jog in place',
-        reps: '3 rep',
-        image: 'assets/images/jog_in_place.jpg',
-        sets: 2,
-        repsCount: 60,
-        weight: 0,
-        restTime: 90,
-      ),
-      const ExerciseItem(
-        name: 'Split snatches',
-        reps: '3 rep',
-        image: 'assets/images/split_snatches.jpg',
-        sets: 3,
-        repsCount: 12,
-        weight: 25,
-        restTime: 120,
-      ),
-      const ExerciseItem(
-        name: 'Squat thrust split jumps',
-        reps: '3 rep',
-        image: 'assets/images/squat_thrust.jpg',
-        sets: 4,
-        repsCount: 15,
-        weight: 0,
-        restTime: 75,
-      ),
-      const ExerciseItem(
-        name: 'Plyometric woodchopper',
-        reps: '3 rep',
-        image: 'assets/images/woodchopper.jpg',
-        sets: 3,
-        repsCount: 12,
-        weight: 40,
-        restTime: 120,
-      ),
-      const ExerciseItem(
-        name: 'Plank jack',
-        reps: '3 rep',
-        image: 'assets/images/plank_jack.jpg',
-        sets: 3,
-        repsCount: 20,
-        weight: 0,
-        restTime: 60,
-      ),
-      const ExerciseItem(
-        name: 'Skaters',
-        reps: '3 rep',
-        image: 'assets/images/skaters.jpg',
-        sets: 4,
-        repsCount: 25,
-        weight: 0,
-        restTime: 45,
-      ),
-      const ExerciseItem(
-        name: 'Rollbacks',
-        reps: '3 rep',
-        image: 'assets/images/rollbacks.jpg',
-        sets: 2,
-        repsCount: 15,
-        weight: 0,
-        restTime: 90,
-      ),
-    ];
   }
 
   /// Tạo ngày tháng cho workout dựa trên index
