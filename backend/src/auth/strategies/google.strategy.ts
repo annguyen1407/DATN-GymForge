@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
@@ -36,7 +36,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
       // Check if user already exists with this Google ID
       let user = await this.prisma.user.findFirst({
-        where: { googleId: id },
+        where: { googleId: id, isDeleted: false },
       });
 
       if (user) {
@@ -50,6 +50,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       });
 
       if (user) {
+        if (user.isDeleted) {
+          return done(new UnauthorizedException('Account is deactivated'), false);
+        }
         // User exists with email, link Google account
         user = await this.prisma.user.update({
           where: { id: user.id },

@@ -103,8 +103,6 @@ export class WorkoutPlansController {
     return this.workoutPlansService.createFromTemplate(templateId, createFromTemplateDto, user.id);
   }
 
-
-
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
@@ -135,8 +133,17 @@ export class WorkoutPlansController {
   @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
   @ApiOperation({ summary: 'Create a day for a workout plan' })
   @ApiResponse({ status: 201, description: 'Day created successfully' })
-  @ApiQuery({ name: 'planId', required: true, description: 'Workout plan ID (UUID)' })
-  @ApiBody({ type: CreateWorkoutDayDto })
+  @ApiParam({ name: 'planId', required: true, description: 'Workout plan ID (UUID)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        dayNumber: { type: 'number', example: 1, description: 'Day number in the workout plan' },
+        date: { type: 'string', format: 'date', example: '2025-01-20', description: 'Scheduled calendar date (optional)' },
+      },
+      required: [],
+    },
+  })
   createDay(@Param('planId', ParseUUIDPipe) planId: string, @Body() dto: Omit<CreateWorkoutDayDto, 'workoutPlanId'>) {
     return this.workoutPlansService.createDay({ ...dto, workoutPlanId: planId });
   }
@@ -235,6 +242,7 @@ export class WorkoutPlansController {
     });
   }
 
+  // Place generic param route last to avoid conflicts with static paths like 'exercises'
   @Get(':id')
   @ApiOperation({ summary: 'Get a workout plan by ID' })
   @ApiResponse({ status: 200, description: 'Workout plan details' })
@@ -242,5 +250,4 @@ export class WorkoutPlansController {
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.workoutPlansService.findOne(id);
   }
-
 }
