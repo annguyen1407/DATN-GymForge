@@ -782,7 +782,7 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Today Calories Summary',
+                                      'Calories Summary',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,

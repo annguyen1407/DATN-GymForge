@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import '../../widgets/stats_card.dart';
-import './workout_info.dart';
+import 'log_exercise_detail_screen.dart';
 
 /// PlanDetailsPage: Displays details of a workout plan, including exercises and completion gauges
 class PlanDetailsPage extends StatelessWidget {
@@ -79,24 +79,24 @@ class PlanDetailsPage extends StatelessWidget {
                       Center(
                         child: LinearPercentIndicator(
                           width: null, // Expand to full width of parent
-                          lineHeight: 40.0, // Larger bar
+                          lineHeight: 60.0, // Larger bar
                           percent: averageProgress,
-                          progressColor: Colors.orange.shade400,
+                          progressColor: Colors.orange.shade600,
                           backgroundColor: Colors.grey[800]!,
-                          barRadius: const Radius.circular(5),
+                          barRadius: const Radius.circular(10),
                           center: Text(
                             '${(averageProgress * 100).toStringAsFixed(0)}%',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 24,
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.fromLTRB(12, 16, 12, 18),
                         decoration: BoxDecoration(
                           color: Colors.grey[900],
                           borderRadius: BorderRadius.circular(8),
@@ -104,21 +104,25 @@ class PlanDetailsPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Finished workout',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(9, 0, 0, 0),
+                              child: const Text(
+                                'Finished workout',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
+
                             const SizedBox(height: 12),
                             ListView.separated(
                               physics: const NeverScrollableScrollPhysics(),
                               shrinkWrap: true,
                               itemCount: exercises.length,
                               separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
                               itemBuilder: (context, index) {
                                 final exercise = exercises[index];
                                 return GestureDetector(
@@ -127,46 +131,85 @@ class PlanDetailsPage extends StatelessWidget {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) =>
-                                            WorkoutInfoPage(exercise: exercise),
+                                            // WorkoutInfoPage(exercise: exercise),
+                                            ExerciseDetailScreen(
+                                              exerciseName: exercise["name"]
+                                                  .toString(),
+                                              author: "author",
+                                              calories: "100",
+                                              description: "desc",
+                                              backgroundImage: "bg",
+                                              specs: [],
+                                            ),
                                       ),
                                     );
                                   },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[850],
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          exercise['name'],
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        LinearPercentIndicator(
-                                          lineHeight: 20.0,
-                                          percent: exercise['progress'],
-                                          progressColor: Colors.orange.shade400,
-                                          backgroundColor: Colors.grey[800]!,
-                                          barRadius: const Radius.circular(5),
-                                          center: Text(
-                                            '${(exercise['progress'] * 100).toStringAsFixed(0)}%',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
+                                  // Finished Exercise with Progress Gauge
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      LinearPercentIndicator(
+                                        width: null,
+                                        lineHeight: 60.0, // Larger bar
+                                        percent: exercise['progress'],
+                                        progressColor: Colors.orange.shade600,
+                                        backgroundColor: Colors.grey[800]!,
+                                        barRadius: const Radius.circular(10),
+                                        center: Row(
+                                          mainAxisAlignment: MainAxisAlignment
+                                              .start, // Aligns content to the start
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 8.0,
+                                              ), // Optional padding for better spacing
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    exercise['name'],
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  if (exercise['description'] !=
+                                                          null &&
+                                                      exercise['description']
+                                                          .toString()
+                                                          .isNotEmpty)
+                                                    Text(
+                                                      exercise['description']
+                                                          .toString(),
+                                                      style: const TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 10,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    )
+                                                  else
+                                                    const Text(
+                                                      'No description available',
+                                                      style: TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 );
                               },

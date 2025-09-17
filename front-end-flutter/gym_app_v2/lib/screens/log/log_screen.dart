@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:fl_chart/fl_chart.dart'; // Added for line chart
 import '../../widgets/log_tab.dart';
 import '../../widgets/stats_card.dart';
 import '../../widgets/category_icon.dart';
@@ -46,6 +47,46 @@ class _LogScreenState extends State<LogScreen>
       {'name': 'Pull-Ups', 'sets': 3, 'reps': 15, 'weight': 0.0},
     ],
   };
+
+  // Mock historical data for Weight and 1RM (replace with backend data)
+  final List<Map<String, dynamic>> _bodyMetricsHistory = [
+    {
+      'week': 1,
+      'date': DateTime(2025, 8, 4),
+      'weight': 70.0,
+      'oneRepMax': 100.0,
+    },
+    {
+      'week': 2,
+      'date': DateTime(2025, 8, 11),
+      'weight': 69.5,
+      'oneRepMax': 102.0,
+    },
+    {
+      'week': 3,
+      'date': DateTime(2025, 8, 18),
+      'weight': 69.0,
+      'oneRepMax': 104.0,
+    },
+    {
+      'week': 4,
+      'date': DateTime(2025, 8, 25),
+      'weight': 68.8,
+      'oneRepMax': 105.0,
+    },
+    {
+      'week': 5,
+      'date': DateTime(2025, 9, 1),
+      'weight': 68.5,
+      'oneRepMax': 106.0,
+    },
+    {
+      'week': 6,
+      'date': DateTime(2025, 9, 8),
+      'weight': 68.0,
+      'oneRepMax': 108.0,
+    },
+  ];
 
   @override
   void initState() {
@@ -203,6 +244,13 @@ class _LogScreenState extends State<LogScreen>
                       if (newWeight != null && newWeight > 0) {
                         setState(() {
                           _weight = newWeight;
+                          // Update historical data (example)
+                          _bodyMetricsHistory.add({
+                            'week': _bodyMetricsHistory.length + 1,
+                            'date': DateTime.now(),
+                            'weight': newWeight,
+                            'oneRepMax': _oneRepMax,
+                          });
                         });
                       }
                       // Validate and update height
@@ -219,6 +267,10 @@ class _LogScreenState extends State<LogScreen>
                       if (newOneRepMax != null && newOneRepMax > 0) {
                         setState(() {
                           _oneRepMax = newOneRepMax;
+                          // Update historical data (example)
+                          _bodyMetricsHistory[_bodyMetricsHistory.length -
+                                  1]['oneRepMax'] =
+                              newOneRepMax;
                         });
                       }
                       Navigator.pop(context);
@@ -578,26 +630,172 @@ class _LogScreenState extends State<LogScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              // Update Metrics Button
-              ElevatedButton(
-                onPressed: () => _showBodyMetricsUpdateModal(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8854FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              // Line Chart for Weight and 1RM
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                height: 200, // Adjust height as needed
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      horizontalInterval: 10, // Adjust based on data range
+                      verticalInterval: 1,
+                      getDrawingHorizontalLine: (value) {
+                        return FlLine(
+                          color: Colors.white.withOpacity(0.1),
+                          strokeWidth: 1,
+                        );
+                      },
+                      getDrawingVerticalLine: (value) {
+                        return FlLine(
+                          color: Colors.white.withOpacity(0.1),
+                          strokeWidth: 1,
+                        );
+                      },
+                    ),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              value.toInt().toString(),
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                          interval: 10, // Adjust based on data range
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          getTitlesWidget: (value, meta) {
+                            final week = value.toInt();
+                            if (week >= 1 &&
+                                week <= _bodyMetricsHistory.length) {
+                              return Text(
+                                'W$week',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    minX: 1,
+                    maxX: _bodyMetricsHistory.length.toDouble(),
+                    minY:
+                        (_bodyMetricsHistory
+                                    .map((e) => (e['weight'] as double))
+                                    .reduce((a, b) => a < b ? a : b) -
+                                5)
+                            .floorToDouble(), // Adjust for padding
+                    maxY:
+                        (_bodyMetricsHistory
+                                    .map((e) => (e['oneRepMax'] as double))
+                                    .reduce((a, b) => a > b ? a : b) +
+                                5)
+                            .ceilToDouble(), // Adjust for padding
+                    lineBarsData: [
+                      // Weight Line
+                      LineChartBarData(
+                        spots: _bodyMetricsHistory
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) => FlSpot(
+                                (entry.key + 1).toDouble(),
+                                entry.value['weight'] as double,
+                              ),
+                            )
+                            .toList(),
+                        isCurved: true,
+                        color: const Color(0xFF8854FF), // Purple for Weight
+                        barWidth: 2,
+                        dotData: FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: const Color(0xFF8854FF).withOpacity(0.2),
+                        ),
+                      ),
+                      // 1RM Line
+                      LineChartBarData(
+                        spots: _bodyMetricsHistory
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) => FlSpot(
+                                (entry.key + 1).toDouble(),
+                                entry.value['oneRepMax'] as double,
+                              ),
+                            )
+                            .toList(),
+                        isCurved: true,
+                        color: Colors.orange.shade400, // Orange for 1RM
+                        barWidth: 2,
+                        dotData: FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: Colors.orange.shade400.withOpacity(0.2),
+                        ),
+                      ),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        // tooltipBgColor: Colors.grey[800],
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((spot) {
+                            final week = spot.x.toInt();
+                            final value = spot.y.toStringAsFixed(1);
+                            final label = spot.barIndex == 0 ? 'Weight' : '1RM';
+                            return LineTooltipItem(
+                              '$label: $value kg\nWeek $week',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  minimumSize: const Size(double.infinity, 0), // Full width
-                ),
-                child: const Text(
-                  'Update Metrics',
-                  style: TextStyle(color: Colors.white),
                 ),
               ),
-              const SizedBox(height: 16),
+              // const SizedBox(height: 6),
+              // Legend for the chart
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildLegendItem('Weight', const Color(0xFF8854FF)),
+                  const SizedBox(width: 16),
+                  _buildLegendItem('1RM', Colors.orange.shade400),
+                ],
+              ),
+              const SizedBox(height: 12),
               // Metrics Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -620,6 +818,26 @@ class _LogScreenState extends State<LogScreen>
                     '${_oneRepMax.toStringAsFixed(1)} kg',
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              // Update Metrics Button
+              ElevatedButton(
+                onPressed: () => _showBodyMetricsUpdateModal(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8854FF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  minimumSize: const Size(double.infinity, 0), // Full width
+                ),
+                child: const Text(
+                  'Update Metrics',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -651,6 +869,21 @@ class _LogScreenState extends State<LogScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // Helper method to build legend item
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      ],
     );
   }
 }
