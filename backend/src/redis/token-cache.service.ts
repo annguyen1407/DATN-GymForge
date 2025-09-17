@@ -79,8 +79,23 @@ export class TokenCacheService implements OnModuleInit {
   }
 
   async removeAllUserRefreshTokens(userId: string): Promise<void> {
-    // This would require implementing a reverse lookup or pattern search in Redis
-    // For now, we'll just handle single token removal
-    this.logger.warn('removeAllUserRefreshTokens not implemented yet');
+    // Scan all refresh_token:* keys and delete those belonging to the user
+    try {
+      // Using node-redis v4 scanIterator for efficient key scanning
+      const iter = this.redisClient.scanIterator({ MATCH: 'refresh_token:*', COUNT: 200 });
+      for await (const key of iter) {
+        try {
+          const owner = await this.redisClient.get(key);
+          if (owner === userId) {
+            await this.redisClient.del(key);
+          }
+        } catch (innerErr) {
+          this.logger.warn(`Failed processing key ${key}: ${innerErr?.message || innerErr}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to remove all refresh tokens for user ${userId}: ${error.message}`);
+      // Swallow to avoid blocking callers, but log for observability
+    }
   }
 }

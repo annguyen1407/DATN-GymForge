@@ -103,8 +103,8 @@ export class AuthService {
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, isDeleted: false },
     });
 
     if (user && user.password && await bcrypt.compare(password, user.password)) {
@@ -115,16 +115,16 @@ export class AuthService {
   }
 
   async validateUserById(id: string): Promise<User | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
     });
 
     return user;
   }
 
   async findUserById(id: string): Promise<User> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
     });
 
     if (!user) {
@@ -138,6 +138,7 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: {
         email: email,
+        isDeleted: false,
         emailVerificationOTP: otp,
         emailVerificationOTPExpires: {
           gt: new Date(),
@@ -169,8 +170,8 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, isDeleted: false },
     });
 
     if (!user) {
@@ -207,6 +208,7 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: {
         email: email,
+        isDeleted: false,
         passwordResetOTP: otp,
         passwordResetOTPExpires: {
           gt: new Date(),
@@ -245,8 +247,8 @@ export class AuthService {
 
 
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const user = await this.prisma.user.findFirst({
+      where: { email, isDeleted: false },
     });
 
     if (!user) {
@@ -314,7 +316,7 @@ export class AuthService {
       // Remove old refresh token (token rotation)
       await this.tokenCache.removeRefreshToken(refresh_token);
       // Issue new tokens
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      const user = await this.prisma.user.findFirst({ where: { id: payload.sub, isDeleted: false } });
       if (!user) throw new UnauthorizedException('User not found');
       return await this.generateAuthResponse(user);
     } catch (error) {
@@ -325,7 +327,7 @@ export class AuthService {
   private generateAccessToken(payload: JwtPayload): string {
     const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '15m';
     return this.jwtService.sign(payload, {
-      expiresIn // Short-lived access token, now configurable
+      expiresIn: expiresIn // Short-lived access token
     });
   }
 
@@ -360,4 +362,33 @@ export class AuthService {
       expires_in: this.configService.get<string>('JWT_EXPIRES_IN'),
     };
   }
+  async softDeleteUser(id: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.isDeleted) return { message: 'User already deleted' };
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    // Invalidate all refresh tokens for this user
+    await this.tokenCache.removeAllUserRefreshTokens(id);
+
+    return { message: 'User soft-deleted successfully' };
+  }
+
+  async restoreUser(id: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.isDeleted) return { message: 'User is not deleted' };
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { isDeleted: false, deletedAt: null },
+    });
+
+    return { message: 'User restored successfully' };
+  }
+
 }
