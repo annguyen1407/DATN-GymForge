@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Request, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request, Req, Res, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -13,8 +13,10 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { User } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -126,5 +128,29 @@ export class AuthController {
   async logout(@Body() refreshTokenDto: RefreshTokenDto): Promise<{ message: string }> {
     await this.authService.logout(refreshTokenDto.refresh_token);
     return { message: 'Logged out successfully' };
+  }
+
+  // Admin: soft-delete a user
+  @Patch('admin/users/:userId/soft-delete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft-delete a user (admin only)' })
+  @ApiResponse({ status: 200, description: 'User soft-deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async softDeleteUser(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.authService.softDeleteUser(userId);
+  }
+
+  // Admin: restore a soft-deleted user
+  @Patch('admin/users/:userId/restore')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore a soft-deleted user (admin only)' })
+  @ApiResponse({ status: 200, description: 'User restored successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async restoreUser(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.authService.restoreUser(userId);
   }
 }

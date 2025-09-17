@@ -115,6 +115,10 @@ model User {
   // OAuth fields
   googleId                  String?
 
+  // Soft delete fields
+  isDeleted                 Boolean            @default(false)
+  deletedAt                 DateTime?
+
   // Timestamps
   createdAt                 DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
@@ -131,6 +135,13 @@ model User {
   coachProfile      Coach?             @relation("UserCoach")
   gymerProfile      Gymer?             @relation("UserGymer")
 
+  // Indexes for performance optimization
+  @@index([email])
+  @@index([username])
+  @@index([isDeleted])
+  @@index([role])
+  @@index([isDeleted, role])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -174,6 +185,10 @@ model TrainingRequest {
   coach        Coach                   @relation(fields: [coachId], references: [id], name: "SentRequests")
   gymer        Gymer                   @relation(fields: [gymerId], references: [id], name: "ReceivedRequests")
 
+  @@index([gymerId])
+  @@index([coachId])
+  @@index([status])
+  @@index([requestedAt])
   @@map("training_requests")
 }
 
@@ -188,6 +203,9 @@ model Feedback {
   coach      Coach    @relation(fields: [coachId], references: [id])
   gymer      Gymer    @relation(fields: [gymerId], references: [id])
 
+  @@index([gymerId])
+  @@index([coachId])
+  @@index([createdAt])
   @@map("feedbacks")
 }
 
@@ -200,6 +218,8 @@ model Conversation {
   gymer     Gymer     @relation(fields: [gymerId], references: [id])
   messages  Message[]
 
+  @@index([coachId])
+  @@index([gymerId])
   @@map("conversations")
 }
 
@@ -210,9 +230,12 @@ model Message {
   content         String?
   createdAt       DateTime     @default(now())
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender          User         @relation(fields: [senderId], references: [id])
 
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
   @@map("messages")
 }
 
@@ -230,8 +253,13 @@ model Appointment {
 
   gymer             Gymer             @relation(fields: [gymerId], references: [id])
   coach             Coach             @relation(fields: [coachId], references: [id])
-  workoutExercise   WorkoutExercise?  @relation(fields: [workoutExerciseId], references: [id])
+  workoutExercise   WorkoutExercise?  @relation(fields: [workoutExerciseId], references: [id], onDelete: SetNull)
 
+  @@index([gymerId])
+  @@index([coachId])
+  @@index([workoutExerciseId])
+  @@index([date])
+  @@index([status])
   @@map("appointments")
 }
 
@@ -244,6 +272,9 @@ model Notification {
 
   user       User     @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
   @@map("notifications")
 }
 
@@ -257,6 +288,9 @@ model Payment {
 
   user         User           @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([status])
+  @@index([paymentDate])
   @@map("payments")
 }
 
@@ -269,6 +303,8 @@ model Achievement {
 
   user        User      @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([achievedAt])
   @@map("achievements")
 }
 
@@ -287,6 +323,9 @@ model WorkoutPlan {
   exercises   WorkoutExercise[]
   workoutDays WorkoutDay[]
 
+  @@index([userId])
+  @@index([isTemplate])
+  @@index([status])
   @@map("workout_plans")
 }
 
@@ -296,9 +335,11 @@ model WorkoutDay {
   dayNumber     Int?
   date          DateTime?     @db.Date
 
-  workoutPlan   WorkoutPlan   @relation(fields: [workoutPlanId], references: [id])
+  workoutPlan   WorkoutPlan   @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
   exercises     WorkoutExercise[]
 
+  @@index([workoutPlanId])
+  @@index([dayNumber])
   @@map("workout_days")
 }
 
@@ -318,11 +359,16 @@ model WorkoutExercise {
   order               Int?
   notes               String?
 
-  workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id])
-  workoutDay          WorkoutDay?    @relation(fields: [workoutDayId], references: [id])
+  workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  workoutDay          WorkoutDay?    @relation(fields: [workoutDayId], references: [id], onDelete: SetNull)
   appointments        Appointment[]
   WorkoutExerciseLog  WorkoutExerciseLog[]
 
+  @@index([workoutPlanId])
+  @@index([workoutDayId])
+  @@index([exerciseId])
+  @@index([dayNumber])
+  @@index([workoutDayId, order])
   @@map("workout_exercises")
 }
 
@@ -344,6 +390,9 @@ model Exercise {
   user             User?                  @relation(fields: [userId], references: [id])
   muscleGroups     ExerciseMuscleGroup[]
 
+  @@index([userId])
+  @@index([equipmentId])
+  @@index([name])
   @@map("exercises")
 }
 
@@ -361,9 +410,12 @@ model ExerciseMuscleGroup {
   exerciseId      String         @db.Uuid
   muscleGroupId   String         @db.Uuid
 
-  exercise        Exercise       @relation(fields: [exerciseId], references: [id])
-  muscleGroup     MuscleGroup    @relation(fields: [muscleGroupId], references: [id])
+  exercise        Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscleGroup     MuscleGroup    @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
 
+  @@index([exerciseId])
+  @@index([muscleGroupId])
+  @@index([exerciseId, muscleGroupId])
   @@map("exercise_muscle_groups")
 }
 
@@ -389,6 +441,8 @@ model Log {
   user                User                   @relation(fields: [userId], references: [id])
   workoutExerciseLogs WorkoutExerciseLog[]
 
+  @@index([userId])
+  @@index([dateLogged])
   @@map("logs")
 }
 
@@ -399,6 +453,8 @@ model Meal {
   type       MealType? @map("meal_type")
   name       String?
 
+  @@index([date])
+  @@index([type])
   @@map("meals")
 }
 
@@ -411,9 +467,12 @@ model WorkoutExerciseLog {
   caloriesBurned      Float?    @map("calo_burned")
   dayNumber           Int?
 
-  log                 Log       @relation(fields: [logId], references: [id])
-  workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id])
+  log                 Log       @relation(fields: [logId], references: [id], onDelete: Cascade)
+  workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
 
+  @@index([workoutExerciseId])
+  @@index([logId])
+  @@index([date])
   @@map("workout_exercise_logs")
 }
 
@@ -435,7 +494,7 @@ model SetsLog {
   weight         Float?
   caloriesBurned Float?        @map("calo_burned")
 
-  exerciseLog    ExerciseLog   @relation(fields: [exerciseLogId], references: [id], name: "ExerciseLogSets")
+  exerciseLog    ExerciseLog   @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade, name: "ExerciseLogSets")
 
   @@map("sets_logs")
 }
