@@ -7,11 +7,14 @@ class SelectMuscleGroupScreen extends StatefulWidget {
   final String workoutPlanId;
   final String workoutDayId;
   final int dayNumber;
+  final List<String>
+  excludedExerciseIds; // danh sách exerciseId đã có trong ngày
   const SelectMuscleGroupScreen({
     super.key,
     required this.workoutPlanId,
     required this.workoutDayId,
     required this.dayNumber,
+    this.excludedExerciseIds = const [],
   });
 
   @override
@@ -44,7 +47,17 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Chọn nhóm cơ'),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Chọn nhóm cơ',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -76,38 +89,56 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final list = _all
+                // Build filtered list with synthetic 'All' card at top
+                final filtered = _all
                     .where(
                       (m) =>
                           _query.isEmpty ||
                           m.name.toLowerCase().contains(_query),
                     )
                     .toList();
-                if (list.isEmpty) {
+
+                // Insert synthetic all item (client-side)
+                final totalCount = filtered.fold<int>(
+                  0,
+                  (sum, m) =>
+                      sum +
+                      (m.exercisesCount ??
+                          0), // giữ ?? 0 vì model có thể nullable
+                );
+                final items = [
+                  MuscleGroupModel(
+                    id: '_ALL_',
+                    name: 'Tất cả',
+                    exercisesCount: totalCount,
+                  ),
+                  ...filtered,
+                ];
+
+                if (filtered.isEmpty && _query.isNotEmpty) {
                   return const Center(
                     child: Text(
-                      'Không có nhóm cơ',
+                      'Không tìm thấy nhóm cơ',
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
                 }
-                return ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(color: Colors.grey[800], height: 1),
+
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    // Higher ratio => less height (width / height)
+                    childAspectRatio: 1.55,
+                  ),
+                  itemCount: items.length,
                   itemBuilder: (context, i) {
-                    final mg = list[i];
-                    return ListTile(
-                      title: Text(
-                        mg.name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                      onTap: () {
-                        Navigator.push(
+                    final mg = items[i];
+                    return GestureDetector(
+                      onTap: () async {
+                        final created = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SelectExerciseScreen(
@@ -115,10 +146,88 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                               workoutPlanId: widget.workoutPlanId,
                               workoutDayId: widget.workoutDayId,
                               dayNumber: widget.dayNumber,
+                              excludedExerciseIds: widget.excludedExerciseIds,
                             ),
                           ),
                         );
+                        if (created != null) {
+                          if (mounted) Navigator.pop(context, created);
+                        }
                       },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey[800]!,
+                            width: 0.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.10),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: mg.id == '_ALL_'
+                                        ? Colors.pinkAccent.withOpacity(0.16)
+                                        : Colors.deepPurple.withOpacity(0.24),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: Icon(
+                                    mg.id == '_ALL_'
+                                        ? Icons.all_inclusive
+                                        : Icons.fitness_center,
+                                    color: mg.id == '_ALL_'
+                                        ? Colors.pinkAccent
+                                        : Colors.deepPurpleAccent,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    mg.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${mg.exercisesCount} bài tập',
+                              style: TextStyle(
+                                color: Colors.deepPurpleAccent.shade100,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 );

@@ -108,7 +108,6 @@ class _SearchBoxState extends State<SearchBox> {
         );
         break;
       case SearchBoxVariant.filled:
-      default:
         decoration = BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(widget.borderRadius),
