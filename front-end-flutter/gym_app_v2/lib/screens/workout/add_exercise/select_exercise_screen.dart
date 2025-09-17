@@ -188,36 +188,33 @@ class _ExerciseSelectCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 6,
-              runSpacing: -4,
+              spacing: 8,
+              runSpacing: 6,
               children: [
                 if (ex.restTime != null)
-                  _IconText(
+                  _MetricChip(
                     icon: Icons.timer_outlined,
-                    text: '${ex.restTime}s',
-                  ),
-                if (ex.met != null)
-                  _IconText(
-                    icon: Icons.local_fire_department_outlined,
-                    text: '${ex.met} MET',
+                    text: '${ex.restTime}s nghỉ',
+                    colors: [
+                      const Color(0xFFFF6B6B).withOpacity(0.18),
+                      const Color(0xFFFF8E53).withOpacity(0.12),
+                    ],
+                    borderColor: const Color(0xFFFF6B6B).withOpacity(0.42),
+                    iconColor: const Color(0xFFFF6B6B),
                   ),
                 if (ex.defaultWeight != null)
-                  _IconText(
+                  _MetricChip(
                     icon: Icons.fitness_center_outlined,
                     text: '${ex.defaultWeight}kg',
+                    colors: [
+                      const Color(0xFFFF6B6B).withOpacity(0.18),
+                      const Color(0xFFFF8E53).withOpacity(0.12),
+                    ],
+                    borderColor: const Color(0xFFFF6B6B).withOpacity(0.42),
+                    iconColor: const Color(0xFFFF6B6B),
                   ),
               ],
             ),
-            if (ex.muscleGroupNames.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: ex.muscleGroupNames
-                    .take(3)
-                    .map((n) => _Tag(text: n))
-                    .toList(),
-              ),
-            ],
             const SizedBox(height: 8),
             Row(
               children: const [
@@ -254,39 +251,50 @@ class _SpecChip extends StatelessWidget {
   }
 }
 
-class _IconText extends StatelessWidget {
+class _MetricChip extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _IconText({required this.icon, required this.text});
+  final List<Color> colors;
+  final Color borderColor;
+  final Color iconColor;
+  const _MetricChip({
+    required this.icon,
+    required this.text,
+    required this.colors,
+    required this.borderColor,
+    required this.iconColor,
+  });
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.white54),
-        const SizedBox(width: 3),
-        Text(text, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 0.9),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: iconColor.withOpacity(0.95)),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              color: iconColor.withOpacity(0.95),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Tag extends StatelessWidget {
-  final String text;
-  const _Tag({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[800]!),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white70, fontSize: 11),
-      ),
-    );
-  }
-}
+// _Tag widget removed (muscle group tags hidden per request).

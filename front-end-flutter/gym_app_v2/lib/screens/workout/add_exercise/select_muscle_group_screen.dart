@@ -96,15 +96,18 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                     .toList();
 
                 // Insert synthetic all item (client-side)
-                final items =
-                    [
-                      MuscleGroupModel(
-                        id: '_ALL_',
-                        name: 'Tất cả',
-                        exercisesCount: 0,
-                      ),
-                    ] +
-                    filtered;
+                final totalCount = filtered.fold<int>(
+                  0,
+                  (sum, m) => sum + (m.exercisesCount ?? 0),
+                );
+                final items = [
+                  MuscleGroupModel(
+                    id: '_ALL_',
+                    name: 'Tất cả',
+                    exercisesCount: totalCount,
+                  ),
+                  ...filtered,
+                ];
 
                 if (filtered.isEmpty && _query.isNotEmpty) {
                   return const Center(
@@ -116,19 +119,18 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 }
 
                 return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 1.4,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    // Higher ratio => less height (width / height)
+                    childAspectRatio: 1.55,
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) {
                     final mg = items[i];
-                    return _MuscleGroupCard(
-                      mg: mg,
-                      isAll: mg.id == '_ALL_',
+                    return GestureDetector(
                       onTap: () async {
                         final created = await Navigator.push(
                           context,
@@ -145,6 +147,80 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                           if (mounted) Navigator.pop(context, created);
                         }
                       },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey[800]!,
+                            width: 0.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.10),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: mg.id == '_ALL_'
+                                        ? Colors.pinkAccent.withOpacity(0.16)
+                                        : Colors.deepPurple.withOpacity(0.24),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: Icon(
+                                    mg.id == '_ALL_'
+                                        ? Icons.all_inclusive
+                                        : Icons.fitness_center,
+                                    color: mg.id == '_ALL_'
+                                        ? Colors.pinkAccent
+                                        : Colors.deepPurpleAccent,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    mg.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${mg.exercisesCount} bài tập',
+                              style: TextStyle(
+                                color: Colors.deepPurpleAccent.shade100,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 );
@@ -152,86 +228,6 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MuscleGroupCard extends StatelessWidget {
-  final MuscleGroupModel mg;
-  final bool isAll;
-  final VoidCallback onTap;
-  const _MuscleGroupCard({
-    required this.mg,
-    required this.isAll,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.grey[800]!, width: 0.8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isAll
-                    ? Colors.pinkAccent.withOpacity(0.15)
-                    : Colors.deepPurple.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                isAll ? Icons.all_inclusive : Icons.fitness_center,
-                color: isAll ? Colors.pinkAccent : Colors.deepPurpleAccent,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              mg.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                height: 1.1,
-              ),
-            ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    isAll ? 'Tất cả bài tập' : '${mg.exercisesCount} bài tập',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: Colors.white38,
-                  size: 18,
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

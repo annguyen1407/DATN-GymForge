@@ -235,101 +235,124 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.grey[800],
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 18),
-      ),
-    );
+    return _AnimatedIconButton(icon: icon, onTap: onTap);
   }
 
-  Widget _summaryCard() {
+  // Summary card removed; replaced by hero header + sections.
+
+  Widget _heroHeader(BuildContext context) {
     final mg = widget.exercise.muscleGroupNames;
-    return Container(
+    return SizedBox(
+      height: 340,
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5E2EFF), Color(0xFF8A4DFF)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text(
-            widget.exercise.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [const Color(0xFF2D2F33), const Color(0xFF181A1D)],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          if (mg.isNotEmpty)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: mg
-                  .take(5)
-                  .map(
-                    (e) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        e,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.25),
+                    Colors.black.withOpacity(0.85),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Mock video placeholder (since URL null)
+          Positioned(
+            top: 140, // moved slightly lower
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Video demo chưa khả dụng')),
+                  );
+                },
+                child: Container(
+                  width: 90, // reduced size
+                  height: 90, // reduced size
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.4),
+                      width: 2,
                     ),
-                  )
-                  .toList(),
+                    color: Colors.white.withOpacity(0.15),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(
+                      8,
+                    ), // adjusted margin proportionally
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.92),
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.black,
+                      size: 40, // reduced icon size
+                    ),
+                  ),
+                ),
+              ),
             ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _miniStat('MET', widget.exercise.met?.toStringAsFixed(1) ?? '--'),
-              _miniStat('Rest', '${widget.exercise.restTime ?? 60}s'),
-              _miniStat('Sets', (widget.exercise.defaultSets ?? 3).toString()),
-              _miniStat('Reps', (widget.exercise.defaultReps ?? 10).toString()),
-            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniStat(String label, String value) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: MediaQuery.of(context).padding.top + 4,
+            child: Row(
+              children: [
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          Positioned(
+            bottom: 18,
+            left: 20,
+            right: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.exercise.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (mg.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (int i = 0; i < mg.take(4).length; i++)
+                        _MuscleTag(text: mg[i], highlight: i == 0),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],
@@ -339,113 +362,128 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Volume calculation retained internally but UI hidden.
     return Stack(
       children: [
         Scaffold(
           backgroundColor: const Color(0xFF0B0C0E),
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF0B0C0E),
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: const Text(
-              'Cấu hình bài tập',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _summaryCard(),
-                    const SizedBox(height: 24),
-                    if (_error != null)
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.redAccent.withOpacity(0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.redAccent,
-                              size: 20,
+          // AppBar removed for immersive header
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _heroHeader(context),
+                const SizedBox(height: 22),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_error != null)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.redAccent.withOpacity(0.4),
+                              width: 1,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _error!,
-                                style: const TextStyle(
-                                  color: Colors.redAccent,
-                                  fontSize: 13,
-                                  height: 1.4,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+                      const _SectionTitle(text: 'Giới thiệu'),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.exercise.instruction?.trim().isNotEmpty == true
+                            ? widget.exercise.instruction!.trim()
+                            : 'Chưa có giới thiệu cho bài tập này.',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13.5,
+                          height: 1.45,
                         ),
                       ),
-                    const _SectionTitle(text: 'Thông số chính'),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _numberSegment(
-                          label: 'Sets',
-                          ctl: _setsCtl,
-                          min: 1,
-                          max: 50,
+                      const SizedBox(height: 24),
+                      const _SectionTitle(text: 'Hướng dẫn'),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.exercise.description?.trim().isNotEmpty == true
+                            ? widget.exercise.description!.trim()
+                            : 'Chưa có hướng dẫn chi tiết.',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13.5,
+                          height: 1.45,
                         ),
-                        const SizedBox(width: 12),
-                        _numberSegment(
-                          label: 'Reps',
-                          ctl: _repsCtl,
-                          min: 1,
-                          max: 200,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _numberSegment(
-                          label: 'Weight',
-                          ctl: _weightCtl,
-                          min: 0,
-                          max: 2000,
-                          suffix: 'kg',
-                        ),
-                        const SizedBox(width: 12),
-                        _numberSegment(
-                          label: 'Rest',
-                          ctl: _restCtl,
-                          min: 0,
-                          max: 1000,
-                          suffix: 's',
-                        ),
-                      ],
-                    ),
-                    // Volume card removed.
-                  ],
+                      ),
+                      const SizedBox(height: 28),
+                      const _SectionTitle(text: 'Thiết lập mục tiêu'),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          _numberSegment(
+                            label: 'Sets',
+                            ctl: _setsCtl,
+                            min: 1,
+                            max: 50,
+                          ),
+                          const SizedBox(width: 12),
+                          _numberSegment(
+                            label: 'Reps',
+                            ctl: _repsCtl,
+                            min: 1,
+                            max: 200,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _numberSegment(
+                            label: 'Weight',
+                            ctl: _weightCtl,
+                            min: 0,
+                            max: 2000,
+                            suffix: 'kg',
+                          ),
+                          const SizedBox(width: 12),
+                          _numberSegment(
+                            label: 'Rest',
+                            ctl: _restCtl,
+                            min: 0,
+                            max: 1000,
+                            suffix: 's',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
           bottomSheet: _BottomBar(
             enabled: _isValid && !_submitting,
@@ -597,6 +635,137 @@ class _BottomBar extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MuscleTag extends StatelessWidget {
+  final String text;
+  final bool highlight;
+  const _MuscleTag({required this.text, required this.highlight});
+  @override
+  Widget build(BuildContext context) {
+    if (highlight) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF6B6B).withOpacity(0.45),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.local_fire_department,
+              color: Colors.white,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.18), width: 0.8),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedIconButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _AnimatedIconButton({required this.icon, required this.onTap});
+  @override
+  State<_AnimatedIconButton> createState() => _AnimatedIconButtonState();
+}
+
+class _AnimatedIconButtonState extends State<_AnimatedIconButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 110),
+      reverseDuration: const Duration(milliseconds: 140),
+      lowerBound: 0.0,
+      upperBound: 0.18,
+    );
+    _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _press() async {
+    try {
+      // Optional: light haptic feedback
+      // ignore: deprecated_member_use
+      // HapticFeedback.selectionClick(); (need import services if enabled)
+    } catch (_) {}
+    _controller.forward().then((_) => _controller.reverse());
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _press,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final scale = 1 - _scale.value;
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey[800],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(widget.icon, color: Colors.white, size: 18),
+            ),
+          );
+        },
       ),
     );
   }
