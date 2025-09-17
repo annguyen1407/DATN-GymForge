@@ -112,4 +112,43 @@ class WorkoutDayExercisesRepository {
     }
     throw Exception('Create failed: ${res.statusCode}');
   }
+
+  Future<WorkoutDayExerciseDto?> update({
+    required String id, // id của workout day exercise record
+    required String workoutPlanId,
+    required String workoutDayId,
+    required String exerciseId,
+    int? targetSets,
+    int? targetReps,
+    num? targetWeight,
+    int? restTimeSec,
+    int? timePerSetSec,
+    int? order,
+    String? notes,
+  }) async {
+    final path = '/workout-plans/exercises/$id';
+    final body = <String, dynamic>{
+      'workoutPlanId': workoutPlanId,
+      'workoutDayId': workoutDayId,
+      'exerciseId': exerciseId,
+      if (targetSets != null) 'targetSets': targetSets,
+      if (targetReps != null) 'targetReps': targetReps,
+      if (targetWeight != null) 'targetWeight': targetWeight,
+      if (restTimeSec != null) 'restTimeSec': restTimeSec,
+      if (timePerSetSec != null) 'timePerSetSec': timePerSetSec,
+      if (order != null) 'order': order,
+      // notes có thể null -> backend lưu null
+      'notes': notes,
+    };
+    final res = await ApiClient.instance.patch(path, body: body);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      final decoded = ApiClient.instance.decodeBody(res);
+      if (decoded is Map<String, dynamic>) {
+        return WorkoutDayExerciseDto.fromJson(decoded);
+      }
+      return null;
+    }
+    throw Exception('Update failed: ${res.statusCode}');
+  }
 }

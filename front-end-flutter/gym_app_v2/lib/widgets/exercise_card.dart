@@ -152,6 +152,8 @@ class ExerciseCard extends StatelessWidget {
 
 /// Model cho một bài tập trong ngày với các thông số config
 class ExerciseItem {
+  final String? id; // id record của workout day exercise (d.id)
+  final String? exerciseId; // id bài tập gốc (d.exerciseId) dùng để fetch chi tiết
   final String name; // Tên bài tập
   final String reps; // Số rép (giữ để tương thích với code cũ)
   final String image; // Đường dẫn hình ảnh
@@ -162,6 +164,8 @@ class ExerciseItem {
   final List<String> muscleGroupNames; // Nhóm cơ liên quan
 
   const ExerciseItem({
+    this.id,
+    this.exerciseId,
     required this.name,
     required this.reps,
     this.image = '',

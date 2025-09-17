@@ -58,6 +58,8 @@ class _WorkoutExerciseDetailScreenState
       final detailFutures = data.map((d) async {
         final detail = await _exerciseRepo.getById(d.exerciseId);
         return ExerciseItem(
+          id: d.id, // record id dùng cho PATCH path
+          exerciseId: d.exerciseId, // id bài tập gốc dùng fetch chi tiết
           name: detail?.name.isNotEmpty == true ? detail!.name : 'Exercise',
           reps: '${d.targetReps ?? detail?.defaultReps ?? 0}',
           sets: d.targetSets ?? detail?.defaultSets ?? 0,
@@ -334,21 +336,60 @@ class _WorkoutExerciseDetailScreenState
                                 return ExerciseCard(
                                   exercise: exercise,
                                   index: index,
-                                  onTap: () {
-                                    Navigator.push(
+                                  onTap: () async {
+                                    final result = await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => ExerciseDetailScreen(
-                                          exerciseName: exercise.name,
-                                          author: 'Tao bởi ban',
-                                          calories: '200 calories',
-                                          description:
-                                              'Bài tập này giúp cải thiện sức khỏe và thể lực tổng thể. Thực hiện đúng kỹ thuật để đạt hiệu quả cao nhất.',
+                                          // exerciseId phải là id bài tập gốc để fetch chi tiết & gửi trong body PATCH
+                                          // record id (workout day exercise) đã truyền qua workoutDayExerciseId bên dưới
+                                          exerciseId: exercise.exerciseId ?? '',
+                                          workoutPlanId: widget.workoutPlanId,
+                                          workoutDayId: widget.workoutDayId,
+                                          workoutDayExerciseId: exercise
+                                              .id, // record id chuẩn cho PATCH
+                                          initialSets: exercise.sets > 0
+                                              ? exercise.sets
+                                              : 3,
+                                          initialReps: exercise.repsCount > 0
+                                              ? exercise.repsCount
+                                              : 10,
+                                          initialWeight: exercise.weight
+                                              .toDouble(),
+                                          initialRest: exercise.restTime,
                                           backgroundImage: exercise.image,
-                                          specs: const [],
                                         ),
                                       ),
                                     );
+                                    if (result is Map) {
+                                      final sets =
+                                          (result['sets'] as int?) ??
+                                          exercise.sets;
+                                      final reps =
+                                          (result['reps'] as int?) ??
+                                          exercise.repsCount;
+                                      final weight =
+                                          (result['weight'] as num?)?.toInt() ??
+                                          exercise.weight;
+                                      final rest =
+                                          (result['rest'] as int?) ??
+                                          exercise.restTime;
+                                      setState(() {
+                                        _exercises[index] = ExerciseItem(
+                                          id: exercise.id,
+                                          exerciseId: exercise.exerciseId,
+                                          name: exercise.name,
+                                          reps: '$reps',
+                                          image: exercise.image,
+                                          sets: sets,
+                                          repsCount: reps,
+                                          weight: weight,
+                                          restTime: rest,
+                                          muscleGroupNames:
+                                              exercise.muscleGroupNames,
+                                        );
+                                      });
+                                    }
                                   },
                                 );
                               },
