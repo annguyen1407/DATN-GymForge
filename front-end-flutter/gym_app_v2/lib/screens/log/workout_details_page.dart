@@ -28,48 +28,66 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
   final TextEditingController _setsController = TextEditingController();
   final TextEditingController _repsController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _caloriesController = TextEditingController();
+  final TextEditingController _foodNameController = TextEditingController();
+  final TextEditingController _foodCaloriesController = TextEditingController();
   final TextEditingController _newNoteController = TextEditingController();
+  final TextEditingController _bodyWeightController = TextEditingController();
+  final TextEditingController _bodyHeightController = TextEditingController();
   final List<String> _notes = []; // Store notes for the selected date
 
   // Mock body metrics for the selected date (replace with backend data)
   final Map<String, dynamic> _bodyMetrics = {
     'weight': 70.0,
     'height': 175.0,
-    'bodyFat': 20.0,
+    'bmi': 22.86, // Initial BMI calculated as weight / (height in meters)^2
   };
 
   // Mock nutrition data for the selected date (replace with backend data)
   final List<Map<String, dynamic>> _nutritionData = [
     {
       'meal': 'Breakfast',
-      'calories': 500,
-      'protein': 30,
-      'carbs': 60,
-      'fat': 15,
+      'foods': [
+        {'name': 'Oatmeal', 'calories': 300},
+        {'name': 'Banana', 'calories': 100},
+        {'name': 'Coffee', 'calories': 50},
+      ],
     },
-    {'meal': 'Lunch', 'calories': 700, 'protein': 40, 'carbs': 80, 'fat': 20},
-    {'meal': 'Dinner', 'calories': 700, 'protein': 40, 'carbs': 80, 'fat': 20},
+    {
+      'meal': 'Lunch',
+      'foods': [
+        {'name': 'Grilled Chicken', 'calories': 400},
+        {'name': 'Brown Rice', 'calories': 300},
+        {'name': 'Salad', 'calories': 150},
+      ],
+    },
+    {
+      'meal': 'Dinner',
+      'foods': [
+        {'name': 'Salmon', 'calories': 500},
+        {'name': 'Quinoa', 'calories': 250},
+        {'name': 'Broccoli', 'calories': 100},
+      ],
+    },
   ];
 
   // Mock plan data for the "Kế hoạch" tab
   final List<Map<String, dynamic>> _planData = [
     {
       'name': 'Buổi tập 1',
-      'progress': 0.8, // 80%
+      'progress': 0.8,
       'exercises': [
-        {'name': 'Bench Press', 'progress': 0.9}, // 90%
-        {'name': 'Squats', 'progress': 0.8}, // 80%
-        {'name': 'Deadlift', 'progress': 0.7}, // 70%
+        {'name': 'Bench Press', 'progress': 0.9},
+        {'name': 'Squats', 'progress': 0.8},
+        {'name': 'Deadlift', 'progress': 0.7},
       ],
     },
     {
       'name': 'Buổi tập 2',
-      'progress': 0.6, // 60%
+      'progress': 0.6,
       'exercises': [
-        {'name': 'Push-Ups', 'progress': 0.7}, // 70%
-        {'name': 'Lunges', 'progress': 0.6}, // 60%
-        {'name': 'Pull-Ups', 'progress': 0.5}, // 50%
+        {'name': 'Push-Ups', 'progress': 0.7},
+        {'name': 'Lunges', 'progress': 0.6},
+        {'name': 'Pull-Ups', 'progress': 0.5},
       ],
     },
   ];
@@ -88,17 +106,25 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
     _setsController.dispose();
     _repsController.dispose();
     _weightController.dispose();
-    _caloriesController.dispose();
+    _foodNameController.dispose();
+    _foodCaloriesController.dispose();
     _newNoteController.dispose();
+    _bodyWeightController.dispose();
+    _bodyHeightController.dispose();
     super.dispose();
   }
 
-  // Function to show modal for adding calories to a meal
-  Future<void> _showAddCaloriesModal(
-    BuildContext context,
-    Map<String, dynamic> meal,
-  ) async {
-    _caloriesController.clear();
+  // Function to calculate BMI
+  double _calculateBMI(double weight, double height) {
+    if (height <= 0) return 0.0;
+    final heightInMeters = height / 100; // Convert cm to meters
+    return weight / (heightInMeters * heightInMeters);
+  }
+
+  // Function to show modal for adjusting body metrics
+  Future<void> _showAdjustBodyMetricsModal(BuildContext context) async {
+    _bodyWeightController.text = _bodyMetrics['weight'].toStringAsFixed(1);
+    _bodyHeightController.text = _bodyMetrics['height'].toStringAsFixed(1);
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -118,9 +144,9 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Add Calories to ${meal['meal']}',
-                style: const TextStyle(
+              const Text(
+                'Adjust Body Metrics',
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -128,13 +154,33 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: _caloriesController,
+                controller: _bodyWeightController,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Additional Calories (kcal)',
+                  labelText: 'Weight (kg)',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white54),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _bodyHeightController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Height (cm)',
                   labelStyle: const TextStyle(color: Colors.white54),
                   border: OutlineInputBorder(
                     borderSide: const BorderSide(color: Colors.white54),
@@ -163,17 +209,150 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        final additionalCalories = double.tryParse(
-                          _caloriesController.text,
+                        final weight = double.tryParse(
+                          _bodyWeightController.text,
                         );
-                        if (additionalCalories != null &&
-                            additionalCalories >= 0) {
+                        final height = double.tryParse(
+                          _bodyHeightController.text,
+                        );
+                        if (weight != null &&
+                            weight > 0 &&
+                            height != null &&
+                            height > 0) {
                           setState(() {
-                            meal['calories'] =
-                                (meal['calories'] as int) +
-                                additionalCalories.toInt();
+                            _bodyMetrics['weight'] = weight;
+                            _bodyMetrics['height'] = height;
+                            _bodyMetrics['bmi'] = _calculateBMI(weight, height);
                           });
-                          _caloriesController.clear();
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8854FF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Function to show modal for adding a food to a meal
+  Future<void> _showAddFoodModal(
+    BuildContext context,
+    Map<String, dynamic> meal,
+  ) async {
+    _foodNameController.clear();
+    _foodCaloriesController.clear();
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add Food to ${meal['meal']}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _foodNameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Food Name',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white54),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _foodCaloriesController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Calories (kcal)',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  border: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white54),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final foodName = _foodNameController.text.trim();
+                        final foodCalories = double.tryParse(
+                          _foodCaloriesController.text,
+                        );
+                        if (foodName.isNotEmpty &&
+                            foodCalories != null &&
+                            foodCalories > 0) {
+                          setState(() {
+                            (meal['foods'] as List).add({
+                              'name': foodName,
+                              'calories': foodCalories.toInt(),
+                            });
+                          });
+                          _foodNameController.clear();
+                          _foodCaloriesController.clear();
                           Navigator.pop(context);
                         }
                       },
@@ -299,10 +478,15 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
 
   @override
   Widget build(BuildContext context) {
-    // Calculate calories intake and burned
+    // Calculate calories intake from all foods across meals
     final caloriesIntake = _nutritionData.fold<int>(
       0,
-      (sum, meal) => sum + (meal['calories'] as int),
+      (sum, meal) =>
+          sum +
+          (meal['foods'] as List<Map<String, dynamic>>).fold<int>(
+            0,
+            (mealSum, food) => mealSum + (food['calories'] as int),
+          ),
     );
     final caloriesBurned = widget.workouts.isNotEmpty
         ? widget.workouts.fold<int>(
@@ -347,11 +531,6 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
           ],
         ),
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () => _showAddWorkoutModal(context),
-      //   backgroundColor: const Color(0xFF8854FF),
-      //   child: const Icon(Icons.add, color: Colors.white),
-      // ),
       body: SafeArea(
         child: TabBarView(
           controller: _tabController,
@@ -383,7 +562,6 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 8),
                   _notes.isEmpty
                       ? const Center(
@@ -481,26 +659,43 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                                 color: Colors.grey[900],
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    plan['name'],
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          plan['name'],
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Tiến độ: ${(plan['progress'] * 100).toStringAsFixed(0)}%',
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${(plan['name'])}: ${(plan['progress'] * 100).toStringAsFixed(0)}%',
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 14,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.asset(
+                                      'assets/images/workout.jpeg', // Replace with your image asset path
+                                      width: 120,
+                                      height: 70,
+                                      fit: BoxFit.cover,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
                                 ],
                               ),
                             ),
@@ -514,10 +709,6 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
               padding: const EdgeInsets.all(16),
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -534,15 +725,14 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                         ),
                         IconButton(
                           icon: const Icon(
-                            Icons.add,
+                            Icons.edit,
                             color: Color(0xFF8854FF),
                             size: 20,
                           ),
-                          onPressed: () => _showAddNoteModal(context),
+                          onPressed: () => _showAdjustBodyMetricsModal(context),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -556,8 +746,8 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                           '${_bodyMetrics['height'].toStringAsFixed(1)} cm',
                         ),
                         _buildMetricItem(
-                          'Body Fat',
-                          '${_bodyMetrics['bodyFat'].toStringAsFixed(1)}%',
+                          'BMI',
+                          '${_bodyMetrics['bmi'].toStringAsFixed(2)}',
                         ),
                       ],
                     ),
@@ -575,144 +765,230 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                         style: TextStyle(color: Colors.white54, fontSize: 16),
                       ),
                     )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[900],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Calories Summary',
-                                    style: TextStyle(
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Today Calories Summary',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Intake 🍗 : $caloriesIntake kcal',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Burned 🔥: $caloriesBurned kcal',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                CircularPercentIndicator(
+                                  radius: 60.0,
+                                  lineWidth: 10.0,
+                                  percent: calorieRatio,
+                                  center: Text(
+                                    '${(calorieRatio * 100).toStringAsFixed(0)}%',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Intake: $caloriesIntake kcal',
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Burned: $caloriesBurned kcal',
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              CircularPercentIndicator(
-                                radius: 60.0,
-                                lineWidth: 10.0,
-                                percent: calorieRatio,
-                                center: Text(
-                                  '${(calorieRatio * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
+                                  progressColor: const Color(0xFF8854FF),
+                                  backgroundColor: Colors.grey[800]!,
+                                  circularStrokeCap: CircularStrokeCap.round,
                                 ),
-                                progressColor: const Color(0xFF8854FF),
-                                backgroundColor: Colors.grey[800]!,
-                                circularStrokeCap: CircularStrokeCap.round,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _nutritionData.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final meal = _nutritionData[index];
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        meal['meal'],
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                          const SizedBox(height: 16),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _nutritionData.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final meal = _nutritionData[index];
+                              final foods =
+                                  meal['foods'] as List<Map<String, dynamic>>;
+                              final totalCalories = foods.fold<int>(
+                                0,
+                                (sum, food) => sum + (food['calories'] as int),
+                              );
+                              return Container(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  3,
+                                  12,
+                                  12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[900],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          meal['meal'],
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Calories: ${meal['calories']} kcal',
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.add,
+                                            color: Color(0xFF8854FF),
+                                            size: 20,
+                                          ),
+                                          onPressed: () =>
+                                              _showAddFoodModal(context, meal),
                                         ),
-                                      ),
-                                      Text(
-                                        'Protein: ${meal['protein']} g',
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Carbs: ${meal['carbs']} g',
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Fat: ${meal['fat']} g',
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.add,
-                                        color: Color(0xFF8854FF),
-                                        size: 20,
-                                      ),
-                                      onPressed: () =>
-                                          _showAddCaloriesModal(context, meal),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                                    const SizedBox(height: 8),
+                                    if (foods.isEmpty)
+                                      const Text(
+                                        'No foods added yet',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 14,
+                                        ),
+                                      )
+                                    else
+                                      ...foods.asMap().entries.map((entry) {
+                                        final foodIndex = entry.key;
+                                        final food = entry.value;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8.0,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[800],
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Stack(
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            food['name'],
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontSize: 14,
+                                                                ),
+                                                          ),
+                                                          Text(
+                                                            '${food['calories']} kcal',
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white54,
+                                                                  fontSize: 12,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Positioned(
+                                                  top: 0,
+                                                  right: 0,
+                                                  child: IconButton(
+                                                    icon: const Icon(
+                                                      Icons.delete_outline,
+                                                      color: Colors.red,
+                                                      size: 20,
+                                                    ),
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        foods.removeAt(
+                                                          foodIndex,
+                                                        );
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    const Divider(color: Colors.grey),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Meals: ${foods.length}',
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Total: $totalCalories kcal',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
             ),
           ],
@@ -754,7 +1030,7 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      isScrollControlled: true, // Allow full height for keyboard
+      isScrollControlled: true,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -869,7 +1145,6 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // Validate and add workout
                         final name = _nameController.text.trim();
                         final sets = int.tryParse(_setsController.text);
                         final reps = int.tryParse(_repsController.text);
