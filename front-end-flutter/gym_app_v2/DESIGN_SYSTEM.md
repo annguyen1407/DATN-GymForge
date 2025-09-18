@@ -225,3 +225,170 @@ AddActionButton.circle(onPressed: _addItem);
 
 ---
 **Kết luận:** File này là nguồn tham chiếu chính để đảm bảo UI thống nhất. Cập nhật khi thêm thành phần nền tảng mới.
+
+---
+## 16. Thành phần tái sử dụng mới (2025-09 cập nhật)
+
+### 16.1 AppDatePicker (`widgets/date/app_date_picker.dart`)
+Date picker tuỳ biến dạng bottom sheet / dialog (compact) với:
+* Chỉ hiển thị ngày trong tháng hiện tại (ẩn ngày thừa tháng trước/sau)
+* `disablePast` chặn chọn ngày đã qua (dùng trong workout day)
+* Overlay chọn nhanh tháng/năm với grid "Tháng 1...12" + điều hướng năm
+* Animation chuyển tháng (fade/slide subtle)
+* Tùy chọn `hideTitle` khi nhúng vào flow (DOB, workout day edit)
+
+API mẫu:
+```dart
+final picked = await AppDatePicker.show(
+  context,
+  initialDate: DateTime.now(),
+  firstDate: DateTime(2020),
+  lastDate: DateTime(2030),
+  hideTitle: true,
+  disablePast: true,
+  confirmLabel: 'Lưu',
+  cancelLabel: 'Huỷ',
+);
+```
+
+Quy tắc:
+* Không tự parse chuỗi dd/MM/yyyy ngoài widget – luôn làm việc với `DateTime`.
+* Dùng chung formatter trong `AppDateUtils` (xem 16.4) để nhất quán hiển thị.
+
+### 16.2 DayActionsMenu (`widgets/day_actions_menu.dart`)
+Menu 3 chấm cho hành động trên Workout Day (Sửa / Xoá). Sử dụng `enum DayAction { edit, delete }` để type-safe.
+
+```dart
+DayActionsMenu(onAction: (action) async {
+  switch(action) {
+    case DayAction.edit: _editDate(); break;
+    case DayAction.delete: _confirmDeleteDay(); break;
+  }
+});
+```
+
+### 16.3 PlanActionsMenu (`widgets/plan_actions_menu.dart`)
+Tương tự `DayActionsMenu` nhưng phạm vi kế hoạch tập luyện. Dùng `enum PlanAction { edit, delete }`.
+
+```dart
+PlanActionsMenu(onAction: (action) async {
+  if (action == PlanAction.delete) _deletePlan();
+});
+```
+
+### 16.4 AppDateUtils (`utils/date_utils.dart`)
+Chuẩn hoá xử lý ngày:
+| Hàm | Mục đích |
+|-----|----------|
+| `formatDdMMyyyy(DateTime)` | Trả chuỗi `dd/MM/yyyy` |
+| `parseIsoOrDisplay(String?)` | Parse ISO hoặc chuỗi dd/MM/yyyy an toàn |
+| `normalizeToLocalDate(DateTime)` | Bỏ phần time để so sánh/logic |
+
+Nguyên tắc: Không parse từ UI text tuỳ tiện – luôn thông qua util này. Khi gửi API dùng ISO, khi hiển thị dùng `formatDdMMyyyy`.
+
+### 16.5 DestructiveConfirmSheet tái sử dụng xoá Plan / Day
+Đã thống nhất mọi confirm phá huỷ (xoá day, xoá kế hoạch) dùng bottom sheet này thay vì AlertDialog.
+
+Mẫu xoá kế hoạch:
+```dart
+final confirmed = await showModalBottomSheet<bool>(
+  context: context,
+  backgroundColor: Colors.transparent,
+  builder: (_) => DestructiveConfirmSheet(
+    title: 'Xoá kế hoạch',
+    message: 'Bạn chắc chắn muốn xoá kế hoạch này? Hành động không thể hoàn tác.',
+    confirmLabel: 'Xoá',
+    onConfirm: () => Navigator.pop(context, true),
+  ),
+);
+if (confirmed == true) {
+  final deleted = await _repo.deletePlan(planId);
+  if (deleted != null) {
+    Navigator.pop(context, {
+      'deleted': true,
+      'id': deleted.id,
+      'name': deleted.name,
+    });
+  }
+}
+
+  ### 16.5b Xoá & cập nhật Workout Day qua Repository
+  Thay vì gọi trực tiếp `ApiService`, dùng abstraction trong `WorkoutPlansRepository` để đồng bộ logging và parse model.
+
+  ```dart
+  // Cập nhật ngày
+  final updated = await _plansRepo.updateDay(
+    dayId,
+    workoutPlanId: planId,
+    date: pickedDate,
+  );
+  if (updated != null) {
+    // optimistic UI + navigator pop
+  }
+
+  // Xoá ngày
+  final confirmed = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => DestructiveConfirmSheet(
+      title: 'Xoá ngày tập',
+      message: 'Bạn chắc chắn muốn xoá ngày tập này?',
+      confirmLabel: 'Xoá',
+      onConfirm: () => Navigator.pop(context, true),
+    ),
+  );
+  if (confirmed == true) {
+    final deleted = await _plansRepo.deleteDay(dayId);
+    if (deleted != null) {
+      Navigator.pop(context, {'deleted': true, 'id': dayId});
+    }
+  }
+  ```
+```
+
+### 16.6 Mẫu truyền kết quả qua Navigator
+Chuẩn: Child màn chỉnh sửa/ngày tập trả Map có key rõ ràng:
+| Key | Ý nghĩa |
+|-----|---------|
+| `updatedDate` | Chuỗi dd/MM/yyyy sau chỉnh sửa (cho hiển thị nhanh) |
+| `updatedDateIso` | ISO chuẩn để parse chắc chắn |
+| `deleted` | true nếu mục bị xoá |
+| `id` | ID đối tượng để parent xác định & giữ selection |
+
+Parent nhận: optimistic update (dựa `updatedDateIso` ưu tiên) rồi refetch để đồng bộ.
+
+### 16.7 Pattern Optimistic + Refetch (Workout Day)
+1. Child PATCH -> trả về `updatedDateIso`.
+2. Parent cập nhật tạm `_days[idx] = copyWith(date: parsed)`.
+3. Gọi `_refetchAndPreserve(preserveId: id)` để tránh nhảy selection.
+
+### 16.8 Tên gọi & Tránh lệch ngữ nghĩa
+| Tình huống | Dùng | Tránh |
+|------------|------|-------|
+| Menu hành động Day | `DayActionsMenu` | PopupMenuButton tuỳ biến lại |
+| Menu hành động Plan | `PlanActionsMenu` | IconButton + showMenu thủ công |
+| Xác nhận xoá | `DestructiveConfirmSheet` | AlertDialog default |
+| Chọn ngày | `AppDatePicker.show()` | `showDatePicker` mặc định (không đồng bộ UI) |
+
+### 16.9 Roadmap đề xuất tiếp theo
+* Trích xuất `PlanEditScreen` dùng chung cho tạo / chỉnh sửa.
+* Thêm `FormFieldWrapper` để chuẩn hoá label + error.
+* Cơ chế theming động cho các button (compact density).
+* Viết test đơn giản cho `AppDateUtils` (parse edge cases 29/02, invalid...).
+
+---
+## 17. Phụ lục nhanh (Cheat-Sheet)
+```dart
+// Menu kế hoạch
+PlanActionsMenu(onAction: _handlePlanAction);
+
+// Menu ngày tập
+DayActionsMenu(onAction: _handleDayAction);
+
+// Date picker
+final d = await AppDatePicker.show(context, initialDate: DateTime.now(), hideTitle: true);
+
+// Parse date trả về
+final parsed = AppDateUtils.parseIsoOrDisplay(result['updatedDateIso'] ?? result['updatedDate']);
+```
+

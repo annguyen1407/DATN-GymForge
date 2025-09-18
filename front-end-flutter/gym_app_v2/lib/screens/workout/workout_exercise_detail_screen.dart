@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+// import '../../services/api_service.dart'; // replaced by repository abstraction
+import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/day_actions_menu.dart';
 import '../../widgets/add_action_button.dart';
 import '../../widgets/exercise_card.dart';
@@ -11,6 +12,8 @@ import '../../repositories/exercises_repository.dart';
 import 'exercise_detail_screen.dart';
 import 'workout_session_screen.dart';
 import 'add_exercise/select_muscle_group_screen.dart';
+import '../../widgets/date/app_date_picker.dart';
+import '../../utils/date_utils.dart';
 
 /// Screen hiển thị chi tiết một ngày tập: danh sách bài tập, equipment cần thiết,
 /// cùng menu hành động (sửa / xoá) ở góc phải trên.
@@ -43,6 +46,7 @@ class _WorkoutExerciseDetailScreenState
     extends State<WorkoutExerciseDetailScreen> {
   final _repo = WorkoutDayExercisesRepository();
   final _exerciseRepo = ExercisesRepository();
+  final _plansRepo = WorkoutPlansRepository();
 
   bool _loading = true;
   String? _error;
@@ -90,7 +94,41 @@ class _WorkoutExerciseDetailScreenState
     switch (action) {
       case DayAction.edit:
         if (!mounted) return;
-        AppSnackBar.showInfo(context, 'Chức năng chỉnh sửa sẽ sớm có.');
+        final initial =
+            AppDateUtils.parseIsoOrDisplay(_displayDate) ?? DateTime.now();
+        final picked = await AppDatePicker.show(
+          context,
+          initialDate: initial,
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+          title: '',
+          hideTitle: true,
+          confirmLabel: 'Lưu',
+          cancelLabel: 'Huỷ',
+          disablePast: true,
+        );
+        if (picked == null) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Center(child: CircularProgressIndicator()),
+        );
+        final updated = await _plansRepo.updateDay(
+          widget.workoutDayId,
+          workoutPlanId: widget.workoutPlanId,
+          date: picked,
+        );
+        if (!mounted) return;
+        Navigator.pop(context);
+        if (updated != null) {
+          AppSnackBar.showSuccess(context, 'Đã cập nhật ngày tập');
+          setState(() {
+            _displayDate = AppDateUtils.formatDdMMyyyy(picked);
+            _updatedDateIso = picked.toIso8601String();
+          });
+        } else {
+          AppSnackBar.showError(context, 'Cập nhật thất bại');
+        }
         break;
       case DayAction.delete:
         // Business rule: không cho xoá nếu vẫn còn bài tập trong ngày
@@ -119,9 +157,7 @@ class _WorkoutExerciseDetailScreenState
             barrierDismissible: false,
             builder: (_) => const Center(child: CircularProgressIndicator()),
           );
-          final deleted = await ApiService.deleteWorkoutDay(
-            widget.workoutDayId,
-          );
+          final deleted = await _plansRepo.deleteDay(widget.workoutDayId);
           if (!mounted) return;
           Navigator.pop(context); // close loading dialog
           if (deleted != null) {
@@ -151,18 +187,47 @@ class _WorkoutExerciseDetailScreenState
     }
   }
 
+  void _popWithResult() {
+    final changed = _displayDate != _initialDate;
+    Navigator.pop(
+      context,
+      changed
+          ? {
+              'updatedDate': _displayDate,
+              if (_updatedDateIso != null) 'updatedDateIso': _updatedDateIso,
+              'id': widget.workoutDayId,
+            }
+          : null,
+    );
+  }
+
+  String? _updatedDateIso; // chỉ set khi người dùng cập nhật
+  late String _displayDate = _initDisplay(widget.date);
+  late final String _initialDate = _displayDate; // giữ lại để so sánh khi pop
+
+  String _initDisplay(String raw) {
+    final dt = AppDateUtils.parseIsoOrDisplay(raw) ?? DateTime.now();
+    return AppDateUtils.formatDdMMyyyy(dt);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(child: _buildExercisesSection()),
-          _buildStartButton(),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        _popWithResult();
+        return false; // chặn pop mặc định vì đã tự xử lý
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(child: _buildExercisesSection()),
+            _buildStartButton(),
+          ],
+        ),
+        floatingActionButton: _buildFab(),
       ),
-      floatingActionButton: _buildFab(),
     );
   }
 
@@ -204,7 +269,7 @@ class _WorkoutExerciseDetailScreenState
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _popWithResult,
                 ),
                 DayActionsMenu(onAction: _handleDayAction),
               ],
@@ -235,7 +300,7 @@ class _WorkoutExerciseDetailScreenState
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      widget.date,
+                      _displayDate,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,

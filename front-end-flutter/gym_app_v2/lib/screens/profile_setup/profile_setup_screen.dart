@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/app_button.dart';
 import '../../services/user_service.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/date/app_date_picker.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -294,25 +295,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         const SizedBox(height: 24),
         GestureDetector(
           onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
+            final picked = await AppDatePicker.show(
+              context,
               initialDate: _selectedDob ?? DateTime(2000, 1, 1),
               firstDate: DateTime(1950),
               lastDate: DateTime.now(),
-              builder: (context, child) => Theme(
-                data: ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Color(0xFF8854FF),
-                    onPrimary: Colors.white,
-                    surface: Colors.black,
-                    onSurface: Colors.white,
-                  ),
-                  dialogTheme: DialogThemeData(
-                    backgroundColor: Colors.grey[900],
-                  ),
-                ),
-                child: child!,
-              ),
+              title: '',
+              hideTitle: true,
+              confirmLabel: 'Lưu',
+              cancelLabel: 'Huỷ',
+              showTodayShortcut: true,
             );
             if (picked != null) setState(() => _selectedDob = picked);
           },
@@ -329,7 +321,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 Text(
                   _selectedDob != null
                       ? '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}'
-                      : 'Chọn ngày sinh',
+                      : 'DD/MM/YYYY',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ],

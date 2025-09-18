@@ -23,15 +23,53 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   final _repo = WorkoutPlansRepository();
   String? _attachedImagePath; // future enhancement: pick image
 
-  static const List<String> _planTypes = [
-    'STRENGTH',
-    'CARDIO',
-    'FLEXIBILITY',
-    'COMBINED',
-  ];
+  static const Map<String, String> _planTypeVN = {
+    'STRENGTH': 'Sức mạnh',
+    'FLEXIBILITY': 'Dẻo dai',
+    'CARDIO': 'Sức bền',
+    'COMBINED': 'Kết hợp',
+  };
+
+  static const Map<String, Color> _typeColors = {
+    'STRENGTH': Colors.pinkAccent,
+    'FLEXIBILITY': Color(0xFF26A69A),
+    'CARDIO': Color(0xFFFF9800),
+    'COMBINED': Color(0xFF9C27B0),
+  };
+
+  String _typeLabel(String? k) =>
+      k == null ? 'Chọn loại kế hoạch' : (_planTypeVN[k] ?? k);
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    // Validation thủ công trước call API
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      _showSnackSafe(
+        ScaffoldMessenger.of(context),
+        'Tên kế hoạch không được trống',
+      );
+      return;
+    }
+    if (_selectedPlanType == null) {
+      _showSnackSafe(
+        ScaffoldMessenger.of(context),
+        'Vui lòng chọn loại kế hoạch',
+      );
+      return;
+    }
+    // days optional validation
+    if (_daysCtrl.text.trim().isNotEmpty) {
+      final n = int.tryParse(_daysCtrl.text.trim());
+      if (n == null || n <= 0 || n > 365) {
+        _showSnackSafe(ScaffoldMessenger.of(context), 'Số ngày không hợp lệ');
+        return;
+      }
+    }
+    if (!_formKey.currentState!.validate())
+      return; // still respect field validators
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
     try {
       final int? days = _daysCtrl.text.trim().isEmpty
@@ -46,17 +84,31 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
         planType: _selectedPlanType,
         days: days,
       );
-      if (!mounted) return;
+      if (!mounted) return; // widget still active?
       if (plan != null) {
-        Navigator.pop(context, plan);
+        navigator.pop(plan);
       } else {
-        _showSnack('Tạo kế hoạch thất bại');
+        _showSnackSafe(messenger, 'Tạo kế hoạch thất bại');
       }
     } catch (e) {
-      _showSnack('Lỗi: $e');
+      if (mounted) _showSnackSafe(messenger, 'Lỗi: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _showSnackSafe(ScaffoldMessengerState messenger, String message) {
+    if (!mounted) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: Colors.grey.shade900.withOpacity(.95),
+      ),
+    );
   }
 
   void _showSnack(String msg) {
@@ -78,6 +130,8 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // _canSubmit computed via getters; rebuild triggers reflect changes.
+    // Compact input decoration (reduced vertical padding & consistent styling)
     InputDecoration inputDecoration(String hint, {Widget? prefixIcon}) =>
         InputDecoration(
           hintText: hint,
@@ -85,7 +139,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
           fillColor: const Color(0xFF1E1E1E),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 14,
+            vertical: 12,
           ),
           prefixIcon: prefixIcon,
           border: OutlineInputBorder(
@@ -137,123 +191,412 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       ),
       body: Stack(
         children: [
-          // Gradient header nền
-          Container(
-            height: 200,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1F1F1F), Color(0xFF0D0D0D)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1B1B1B), Color(0xFF0E0E0E)],
+                ),
               ),
             ),
           ),
-          // Nội dung cuộn
-          Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 110, 20, 120),
-              children: [
-                _SectionLabel(title: 'Thông tin chính'),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _nameCtrl,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: inputDecoration(
-                          'Tên kế hoạch',
-                          prefixIcon: const Icon(
-                            Icons.dataset,
-                            color: Colors.white70,
-                            size: 20,
+          // Center card similar to edit dialog but scrollable content inside
+          SafeArea(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 140),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF1F1F1F), Color(0xFF141414)],
                           ),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.07),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.65),
+                              blurRadius: 28,
+                              offset: const Offset(0, 18),
+                            ),
+                            BoxShadow(
+                              color: Colors.pinkAccent.withOpacity(0.1),
+                              blurRadius: 36,
+                              spreadRadius: -4,
+                            ),
+                          ],
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Bắt buộc' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedPlanType,
-                        dropdownColor: const Color(0xFF1E1E1E),
-                        items: _planTypes
-                            .map(
-                              (t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(
-                                  t,
-                                  style: const TextStyle(color: Colors.white),
+                        // Reduced padding for a denser card layout
+                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: const [
+                                Expanded(
+                                  child: Text(
+                                    'Tạo kế hoạch mới',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: .3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _nameCtrl,
+                              enabled: !_submitting,
+                              decoration: inputDecoration(
+                                'Tên kế hoạch',
+                                prefixIcon: const Icon(
+                                  Icons.dataset,
+                                  color: Colors.white70,
+                                  size: 20,
                                 ),
                               ),
-                            )
-                            .toList(),
-                        decoration: inputDecoration(
-                          'Loại kế hoạch',
-                          prefixIcon: const Icon(
-                            Icons.category,
-                            color: Colors.white70,
-                            size: 20,
-                          ),
+                              style: const TextStyle(color: Colors.white),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Không được để trống'
+                                  : null,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Loại kế hoạch',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(.9),
+                                fontSize: 13,
+                                letterSpacing: .2,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _PlanTypeCompactSelector(
+                              selectedType: _selectedPlanType,
+                              typeColors: _typeColors,
+                              labelBuilder: _typeLabel,
+                              enabled: !_submitting,
+                              onPick: (t) =>
+                                  setState(() => _selectedPlanType = t),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _daysCtrl,
+                              enabled: !_submitting,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              style: const TextStyle(color: Colors.white),
+                              decoration: inputDecoration(
+                                'Số ngày',
+                                prefixIcon: const Icon(
+                                  Icons.calendar_today,
+                                  color: Colors.white70,
+                                  size: 20,
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return null;
+                                final n = int.tryParse(v.trim());
+                                if (n == null) return 'Không hợp lệ';
+                                if (n <= 0) return 'Phải > 0';
+                                if (n > 365) return 'Quá dài (<=365)';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'Mô tả chi tiết',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(.72),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _GlassCard(
+                              child: _DescriptionCard(
+                                controller: _descCtrl,
+                                onAttach: () async {
+                                  _showSnack(
+                                    'Chức năng đính kèm đang phát triển',
+                                  );
+                                },
+                                attached: _attachedImagePath != null,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Center(
+                              child: Text(
+                                'Nhấn Lưu kế hoạch để hoàn tất',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(.45),
+                                  fontSize: 12,
+                                  letterSpacing: .3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        onChanged: (v) => setState(() => _selectedPlanType = v),
-                        validator: (v) => v == null ? 'Chọn loại' : null,
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _daysCtrl,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        style: const TextStyle(color: Colors.white),
-                        decoration: inputDecoration(
-                          'Số ngày (tuỳ chọn)',
-                          prefixIcon: const Icon(
-                            Icons.calendar_today,
-                            color: Colors.white70,
-                            size: 20,
-                          ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return null;
-                          final n = int.tryParse(v.trim());
-                          if (n == null) return 'Không hợp lệ';
-                          if (n <= 0) return 'Phải > 0';
-                          if (n > 365) return 'Quá dài (<=365)';
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-                _SectionLabel(title: 'Mô tả chi tiết'),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: _DescriptionCard(
-                    controller: _descCtrl,
-                    onAttach: () async {
-                      _showSnack('Chức năng đính kèm đang phát triển');
-                    },
-                    attached: _attachedImagePath != null,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Center(
-                  child: Text(
-                    'Nhấn Lưu kế hoạch để hoàn tất',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(.5),
-                      fontSize: 12,
-                      letterSpacing: .3,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Compact selector widgets (copied & adapted from edit dialog implementation)
+class _PlanTypeCompactSelector extends StatefulWidget {
+  final String? selectedType;
+  final Map<String, Color> typeColors;
+  final String Function(String?) labelBuilder;
+  final bool enabled;
+  final ValueChanged<String> onPick;
+  const _PlanTypeCompactSelector({
+    required this.selectedType,
+    required this.typeColors,
+    required this.labelBuilder,
+    required this.enabled,
+    required this.onPick,
+  });
+
+  @override
+  State<_PlanTypeCompactSelector> createState() =>
+      _PlanTypeCompactSelectorState();
+}
+
+class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
+  final LayerLink _link = LayerLink();
+  OverlayEntry? _entry;
+  bool get _open => _entry != null;
+  static const _types = ['FLEXIBILITY', 'STRENGTH', 'CARDIO', 'COMBINED'];
+
+  void _toggle() {
+    if (!widget.enabled) return;
+    if (_open) {
+      _close();
+    } else {
+      _openMenu();
+    }
+  }
+
+  void _openMenu() {
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size ?? const Size(0, 0);
+    _entry = OverlayEntry(
+      builder: (ctx) {
+        return Positioned(
+          width: size.width,
+          child: CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            offset: Offset(0, size.height + 8),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(.08),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(.6),
+                      blurRadius: 24,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final t in _types)
+                        _TypeMenuItem(
+                          active: widget.selectedType == t,
+                          label: widget.labelBuilder(t),
+                          color: widget.typeColors[t] ?? Colors.pinkAccent,
+                          onTap: () {
+                            widget.onPick(t);
+                            _close();
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_entry!);
+  }
+
+  void _close() {
+    _entry?.remove();
+    _entry = null;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    if (_entry != null) {
+      // Avoid scheduling a rebuild after dispose
+      _entry?.remove();
+      _entry = null;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasSelection = widget.selectedType != null;
+    final Color? activeColor = hasSelection
+        ? (widget.typeColors[widget.selectedType] ?? Colors.pinkAccent)
+        : null; // no accent when unselected
+    return CompositedTransformTarget(
+      link: _link,
+      child: GestureDetector(
+        onTap: _toggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 170),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasSelection
+                  ? activeColor!.withOpacity(.9)
+                  : Colors.white.withOpacity(.14),
+              width: 1.05,
+            ),
+            gradient: hasSelection
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF242424),
+                      activeColor!.withOpacity(.20),
+                    ],
+                  )
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF242424), Color(0xFF242424)],
+                  ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.category_rounded,
+                color: hasSelection
+                    ? activeColor!.withOpacity(.95)
+                    : Colors.white60,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.labelBuilder(widget.selectedType),
+                  style: TextStyle(
+                    color: hasSelection ? Colors.white : Colors.white60,
+                    fontSize: 14.2,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: .2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              AnimatedRotation(
+                duration: const Duration(milliseconds: 220),
+                turns: _open ? .5 : 0,
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: hasSelection
+                      ? activeColor!.withOpacity(.95)
+                      : Colors.white38,
+                  size: 22,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeMenuItem extends StatelessWidget {
+  final bool active;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _TypeMenuItem({
+    required this.active,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? color.withOpacity(.15) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              active ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: active ? color : Colors.white38,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: active ? Colors.white : Colors.white.withOpacity(.8),
+                  fontSize: 13.6,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (active) Icon(Icons.check, color: color, size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -316,22 +659,7 @@ class _DescriptionCard extends StatelessWidget {
 }
 
 // Nhãn section
-class _SectionLabel extends StatelessWidget {
-  final String title;
-  const _SectionLabel({required this.title});
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        color: Colors.white.withOpacity(.72),
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1,
-      ),
-    );
-  }
-}
+// (Removed unused _SectionLabel widget from original list-based layout.)
 
 // Card hiệu ứng nhẹ (glass / elevated dark)
 class _GlassCard extends StatelessWidget {

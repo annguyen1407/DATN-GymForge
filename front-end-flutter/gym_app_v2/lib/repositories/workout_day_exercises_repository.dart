@@ -74,6 +74,32 @@ class WorkoutDayExercisesRepository {
     throw Exception('Request failed: ${res.statusCode}');
   }
 
+  /// Lấy tất cả bài tập thuộc một workout plan (query theo workoutPlanId)
+  /// Backend hỗ trợ endpoint ví dụ:
+  /// GET /workout-plans/exercises?workoutPlanId=PLAN_ID
+  Future<List<WorkoutDayExerciseDto>> getByWorkoutPlan(
+    String workoutPlanId,
+  ) async {
+    final path = '/workout-plans/exercises?workoutPlanId=$workoutPlanId';
+    final res = await ApiClient.instance.get(path);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      try {
+        final decoded = ApiClient.instance.decodeBody(res);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map<String, dynamic>>()
+              .map((e) => WorkoutDayExerciseDto.fromJson(e))
+              .toList();
+        }
+        throw Exception('Unexpected body type');
+      } catch (e) {
+        throw Exception('Decode error: $e');
+      }
+    }
+    throw Exception('Request failed: ${res.statusCode}');
+  }
+
   Future<WorkoutDayExerciseDto?> create({
     required String workoutPlanId,
     required String workoutDayId,
