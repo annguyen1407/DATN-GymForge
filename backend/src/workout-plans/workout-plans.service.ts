@@ -597,7 +597,14 @@ export class WorkoutPlansService {
   }
 
   async getDayStats(dayId: string) {
-    const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
+    const day = await this.prisma.workoutDay.findUnique({
+      where: { id: dayId },
+      include: {
+        workoutPlan: {
+          select: { id: true, name: true, userId: true },
+        },
+      },
+    });
     if (!day) throw new NotFoundException('Workout day not found');
 
     const exercises = await this.prisma.workoutExercise.findMany({
@@ -614,19 +621,20 @@ export class WorkoutPlansService {
     });
 
     const ids = exercises.map((e) => e.id);
-    if (ids.length === 0) return [];
 
-    const agg = await this.prisma.workoutExerciseLog.groupBy({
-      by: ['workoutExerciseId'],
-      where: { workoutExerciseId: { in: ids } },
-      _count: { _all: true },
-      _avg: { progressPercent: true },
-      _sum: { caloriesBurned: true },
-    });
+    const agg = ids.length
+      ? await this.prisma.workoutExerciseLog.groupBy({
+          by: ['workoutExerciseId'],
+          where: { workoutExerciseId: { in: ids } },
+          _count: { _all: true },
+          _avg: { progressPercent: true },
+          _sum: { caloriesBurned: true },
+        })
+      : [];
 
     const aggMap = new Map(agg.map((a) => [a.workoutExerciseId, a]));
 
-    return exercises.map((e) => {
+    const stats = exercises.map((e) => {
       const a = aggMap.get(e.id) as any;
       return {
         workoutExerciseId: e.id,
@@ -643,6 +651,19 @@ export class WorkoutPlansService {
         totalCaloriesBurned: a?._sum?.caloriesBurned ?? 0,
       };
     });
+
+    return {
+      workoutPlan: day.workoutPlan
+        ? { id: day.workoutPlan.id, name: day.workoutPlan.name, userId: day.workoutPlan.userId }
+        : null,
+      day: {
+        id: day.id,
+        workoutPlanId: day.workoutPlanId,
+        dayNumber: day.dayNumber,
+        date: (day as any).date ?? null,
+      },
+      stats,
+    };
   }
 
   async listExerciseLogs(workoutExerciseId: string) {

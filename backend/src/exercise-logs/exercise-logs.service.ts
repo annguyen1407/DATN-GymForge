@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
 import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
@@ -26,13 +26,13 @@ export class ExerciseLogsService {
       throw new NotFoundException('User not found');
     }
 
-    // Verify exercise exists if exerciseId is provided
-    if (createExerciseLogDto.exerciseId) {
-      const exercise = await this.prisma.exercise.findUnique({
-        where: { id: createExerciseLogDto.exerciseId },
+    // Verify workout exercise exists
+    {
+      const workoutExercise = await this.prisma.workoutExercise.findUnique({
+        where: { id: createExerciseLogDto.workoutExerciseId },
       });
-      if (!exercise) {
-        throw new NotFoundException('Exercise not found');
+      if (!workoutExercise) {
+        throw new NotFoundException('Workout exercise not found');
       }
     }
 
@@ -95,19 +95,17 @@ export class ExerciseLogsService {
       });
     }
 
-    // Create workout exercise log if part of a workout plan
-    if (createExerciseLogDto.workoutPlanId) {
-      await this.prisma.workoutExerciseLog.create({
-        data: {
-          logId: log.id,
-          workoutExerciseId: createExerciseLogDto.exerciseId || '',
-          date: new Date(createExerciseLogDto.date),
-          progressPercent: createExerciseLogDto.progressPercent,
-          caloriesBurned: createExerciseLogDto.totalCaloriesBurned,
-          dayNumber: createExerciseLogDto.dayNumber,
-        },
-      });
-    }
+    // Create workout exercise log (required)
+    await this.prisma.workoutExerciseLog.create({
+      data: {
+        logId: log.id,
+        workoutExerciseId: createExerciseLogDto.workoutExerciseId,
+        date: new Date(createExerciseLogDto.date),
+        progressPercent: createExerciseLogDto.progressPercent,
+        caloriesBurned: createExerciseLogDto.totalCaloriesBurned,
+        dayNumber: createExerciseLogDto.dayNumber,
+      },
+    });
 
     return this.findExerciseLogById(exerciseLog.id);
   }
@@ -164,7 +162,7 @@ export class ExerciseLogsService {
   }
 
   async updateExerciseLog(id: string, updateExerciseLogDto: UpdateExerciseLogDto) {
-    const exerciseLog = await this.findExerciseLogById(id);
+    await this.findExerciseLogById(id);
     
     // Update sets if provided
     if (updateExerciseLogDto.sets) {
@@ -192,7 +190,7 @@ export class ExerciseLogsService {
   }
 
   async deleteExerciseLog(id: string) {
-    const exerciseLog = await this.findExerciseLogById(id);
+    await this.findExerciseLogById(id);
 
     // Delete sets first
     await this.prisma.setsLog.deleteMany({
@@ -685,28 +683,35 @@ export class ExerciseLogsService {
   }
 
   async quickLogExercise(userId: string, quickLogDto: QuickLogExerciseDto) {
-    // Get exercise details for calorie calculation
-    const exercise = await this.prisma.exercise.findUnique({
-      where: { id: quickLogDto.exerciseId },
+    // Resolve exercise info from workoutExerciseId
+    const workoutExercise = await this.prisma.workoutExercise.findUnique({
+      where: { id: quickLogDto.workoutExerciseId },
+      select: { exerciseId: true, dayNumber: true },
     });
 
-    if (!exercise) {
-      throw new NotFoundException('Exercise not found');
+    if (!workoutExercise) {
+      throw new NotFoundException('Workout exercise not found');
+    }
+
+    let exercise: any = null;
+    if (workoutExercise.exerciseId) {
+      exercise = await this.prisma.exercise.findUnique({
+        where: { id: workoutExercise.exerciseId },
+      });
     }
 
     // Calculate total calories burned (simplified calculation)
     const totalReps = quickLogDto.sets.reduce((sum, set) => sum + set.reps, 0);
     const averageWeight = quickLogDto.sets.reduce((sum, set) => sum + (set.weight || 0), 0) / quickLogDto.sets.length;
-    const estimatedCalories = (exercise.met || 3.5) * (averageWeight / 10) * (totalReps / 10); // Simplified MET calculation
+    const estimatedCalories = (exercise?.met ?? 3.5) * (averageWeight / 10) * (totalReps / 10);
 
     // Create the full exercise log
     const createLogDto: CreateExerciseLogDto = {
       userId,
-      exerciseId: quickLogDto.exerciseId,
-      workoutPlanId: quickLogDto.workoutPlanId,
-      dayNumber: quickLogDto.dayNumber,
+      workoutExerciseId: quickLogDto.workoutExerciseId,
+      dayNumber: quickLogDto.dayNumber ?? (workoutExercise.dayNumber ?? undefined),
       date: new Date().toISOString().split('T')[0],
-      exerciseName: exercise.name || undefined,
+      exerciseName: exercise?.name || undefined,
       totalCaloriesBurned: estimatedCalories,
       notes: quickLogDto.notes,
       sets: quickLogDto.sets.map((set, index) => ({

@@ -39,15 +39,16 @@ export class CreateExerciseLogDto {
   @IsUUID()
   userId: string;
 
-  @ApiProperty({ description: 'Exercise ID from the exercise library', required: false })
-  @IsOptional()
-  @IsUUID()
-  exerciseId?: string;
 
-  @ApiProperty({ description: 'Workout plan ID if part of a plan', required: false })
+  @ApiProperty({ description: 'Workout plan ID if part of a plan', required: false, example: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' })
   @IsOptional()
   @IsUUID()
   workoutPlanId?: string;
+
+
+  @ApiProperty({ description: 'WorkoutExercise ID to log against a planned workout', required: true, example: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' })
+  @IsUUID()
+  workoutExerciseId: string;
 
   @ApiProperty({ description: 'Day number in the workout plan', required: false })
   @IsOptional()

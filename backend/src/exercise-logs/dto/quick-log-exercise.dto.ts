@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID, IsOptional, IsNumber, IsString, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsUUID, IsOptional, IsNumber, IsString, IsArray, ValidateNested, Min, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QuickSetDto {
@@ -22,9 +22,9 @@ export class QuickSetDto {
 }
 
 export class QuickLogExerciseDto {
-  @ApiProperty({ description: 'Exercise ID from the exercise library' })
+  @ApiProperty({ description: 'WorkoutExercise ID when logging against a planned workout', required: true, example: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' })
   @IsUUID()
-  exerciseId: string;
+  workoutExerciseId: string;
 
   @ApiProperty({ description: 'Workout plan ID if part of a plan', required: false })
   @IsOptional()
@@ -39,6 +39,7 @@ export class QuickLogExerciseDto {
 
   @ApiProperty({ description: 'Array of sets performed', type: [QuickSetDto] })
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => QuickSetDto)
   sets: QuickSetDto[];

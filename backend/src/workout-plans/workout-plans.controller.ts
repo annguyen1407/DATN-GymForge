@@ -10,8 +10,9 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { WorkoutPlansService } from './workout-plans.service';
+import { DayStatsResponseDto } from './dto/day-stats.dto';
 import { CreateWorkoutPlanDto } from './dto/create-workout-plan.dto';
 import { UpdateWorkoutPlanDto } from './dto/update-workout-plan.dto';
 import { CreateWorkoutExerciseDto } from './dto/create-workout-exercise.dto';
@@ -172,8 +173,8 @@ export class WorkoutPlansController {
   }
 
   @Get('days/:dayId/stats')
-  @ApiOperation({ summary: 'Get stats for a workout day (aggregate logs per assignment)' })
-  @ApiResponse({ status: 200, description: 'Aggregated stats by workout exercise' })
+  @ApiOperation({ summary: 'Get statistics for a workout day including its parent plan' })
+  @ApiOkResponse({ description: 'Parent plan + day meta + aggregated stats by workout exercise', type: DayStatsResponseDto })
   getDayStats(@Param('dayId', ParseUUIDPipe) dayId: string) {
     return this.workoutPlansService.getDayStats(dayId);
   }

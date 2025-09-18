@@ -54,7 +54,20 @@ describe('GoogleStrategy', () => {
   beforeEach(async () => {
     const mockConfigService = {
       get: jest.fn(),
-    };
+    } as any;
+
+    (mockConfigService.get as jest.Mock).mockImplementation((key: string) => {
+      switch (key) {
+        case 'GOOGLE_CLIENT_ID':
+          return 'mock-client-id';
+        case 'GOOGLE_CLIENT_SECRET':
+          return 'mock-client-secret';
+        case 'GOOGLE_CALLBACK_URL':
+          return 'http://localhost:3000/auth/google/callback';
+        default:
+          return undefined;
+      }
+    });
 
     const mockAuthService = {};
 
@@ -93,19 +106,7 @@ describe('GoogleStrategy', () => {
     prismaService = module.get(PrismaService);
     configService = module.get(ConfigService);
 
-    // Mock config values
-    configService.get.mockImplementation((key: string) => {
-      switch (key) {
-        case 'GOOGLE_CLIENT_ID':
-          return 'mock-client-id';
-        case 'GOOGLE_CLIENT_SECRET':
-          return 'mock-client-secret';
-        case 'GOOGLE_CALLBACK_URL':
-          return 'http://localhost:3000/auth/google/callback';
-        default:
-          return undefined;
-      }
-    });
+    // Mock config values are set on mockConfigService before module compilation
   });
 
   it('should be defined', () => {
@@ -115,12 +116,12 @@ describe('GoogleStrategy', () => {
   describe('validate', () => {
     it('should return existing user with Google ID', async () => {
       const done = jest.fn();
-      prismaService.user.findFirst.mockResolvedValue(mockUser);
+      (prismaService.user.findFirst as any).mockResolvedValue(mockUser);
 
       await strategy.validate('access-token', 'refresh-token', mockGoogleProfile, done);
 
       expect(prismaService.user.findFirst).toHaveBeenCalledWith({
-        where: { googleId: mockGoogleProfile.id },
+        where: { googleId: mockGoogleProfile.id, isDeleted: false },
       });
       expect(done).toHaveBeenCalledWith(null, mockUser);
     });
@@ -130,14 +131,14 @@ describe('GoogleStrategy', () => {
       const existingUser = { ...mockUser, googleId: null };
       const updatedUser = { ...mockUser, googleId: mockGoogleProfile.id };
 
-      prismaService.user.findFirst.mockResolvedValue(null);
-      prismaService.user.findUnique.mockResolvedValue(existingUser);
-      prismaService.user.update.mockResolvedValue(updatedUser);
+      (prismaService.user.findFirst as any).mockResolvedValue(null);
+      (prismaService.user.findUnique as any).mockResolvedValue(existingUser);
+      (prismaService.user.update as any).mockResolvedValue(updatedUser);
 
       await strategy.validate('access-token', 'refresh-token', mockGoogleProfile, done);
 
       expect(prismaService.user.findFirst).toHaveBeenCalledWith({
-        where: { googleId: mockGoogleProfile.id },
+        where: { googleId: mockGoogleProfile.id, isDeleted: false },
       });
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
         where: { email: mockGoogleProfile.emails[0].value },
@@ -157,10 +158,10 @@ describe('GoogleStrategy', () => {
       const done = jest.fn();
       const newUser = { ...mockUser, id: 'new-user-id' };
 
-      prismaService.user.findFirst.mockResolvedValue(null);
-      prismaService.user.findUnique.mockResolvedValue(null);
-      prismaService.user.create.mockResolvedValue(newUser);
-      prismaService.gymer.create.mockResolvedValue({ id: 'gymer-id', userId: newUser.id });
+      (prismaService.user.findFirst as any).mockResolvedValue(null);
+      (prismaService.user.findUnique as any).mockResolvedValue(null);
+      (prismaService.user.create as any).mockResolvedValue(newUser);
+      (prismaService.gymer.create as any).mockResolvedValue({ id: 'gymer-id', userId: newUser.id });
 
       await strategy.validate('access-token', 'refresh-token', mockGoogleProfile, done);
 
@@ -186,11 +187,11 @@ describe('GoogleStrategy', () => {
       const done = jest.fn();
       const error = new Error('Database error');
 
-      prismaService.user.findFirst.mockRejectedValue(error);
+      (prismaService.user.findFirst as any).mockRejectedValue(error);
 
       await strategy.validate('access-token', 'refresh-token', mockGoogleProfile, done);
 
-      expect(done).toHaveBeenCalledWith(error, null);
+      expect(done).toHaveBeenCalledWith(error, false);
     });
   });
 });
