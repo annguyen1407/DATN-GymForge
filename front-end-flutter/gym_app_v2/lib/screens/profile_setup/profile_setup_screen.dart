@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../services/user_service.dart';
 import '../../widgets/app_snack_bar.dart';
 
@@ -179,20 +180,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () {
-            // TODO: Thêm chức năng upload ảnh
-          },
-          icon: const Icon(Icons.add_a_photo, color: Colors.white),
-          label: const Text(
-            'Hoặc thêm ảnh của bạn',
-            style: TextStyle(color: Colors.white),
-          ),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.white24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+        // Upload avatar button (outline style)
+        SizedBox(
+          width: double.infinity,
+          child: AppButton.outline(
+            label: 'Hoặc thêm ảnh của bạn',
+            onPressed: () {
+              // TODO: Thêm chức năng upload ảnh
+            },
+            size: AppButtonSize.medium,
           ),
         ),
         const Spacer(),
@@ -533,83 +529,57 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildNextButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8854FF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: _nextStep,
-        child: const Text(
-          'Tiếp tục',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
-      ),
+    return AppButton.primary(
+      label: 'Tiếp tục',
+      onPressed: _nextStep,
+      size: AppButtonSize.large,
+      fullWidth: true,
     );
   }
 
   Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8854FF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: () async {
-          final address =
-              '${_addressController.text}, ${_cityController.text}, ${_districtController.text}, ${_provinceController.text}';
-          String? expType;
-          if (_intensity >= 1 && _intensity <= 3) {
-            expType = "Beginner";
-          } else if (_intensity >= 4 && _intensity <= 5) {
-            expType = "Intermediate";
-          } else if (_intensity >= 6 && _intensity <= 7) {
-            expType = "Advanced";
-          }
-          String? sexValue = _selectedGender;
-          if (sexValue != null) {
-            sexValue = sexValue.toUpperCase() == 'MALE'
-                ? 'MALE'
-                : (sexValue.toUpperCase() == 'FEMALE' ? 'FEMALE' : null);
-          }
-          final body = {
-            "dateOfBirth": _selectedDob != null
-                ? _selectedDob!.toIso8601String().split('T')[0]
-                : null,
-            "sex": sexValue,
-            "address": address,
-            "weight": double.tryParse(_weightController.text),
-            "height": int.tryParse(_heightController.text),
-            "goal": _selectedGoal != null ? _goalMap[_selectedGoal!] : null,
-            "expType": expType,
-            "profilePicture": null, // luôn truyền null cho avatar
-          };
-          print('PATCH profile body: $body');
-          final success = await UserService.updateProfile(context, body);
-          print('PATCH profile result: $success');
-          if (success) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/main',
-              (route) => false,
-            );
-          } else {
-            _showError('Cập nhật thất bại hoặc token hết hạn!');
-          }
-        },
-        child: const Text(
-          'Lưu',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
-      ),
+    return AppButton.gradient(
+      label: 'Lưu',
+      onPressed: () async {
+        final address =
+            '${_addressController.text}, ${_cityController.text}, ${_districtController.text}, ${_provinceController.text}';
+        String? expType;
+        if (_intensity >= 1 && _intensity <= 3) {
+          expType = "Beginner";
+        } else if (_intensity >= 4 && _intensity <= 5) {
+          expType = "Intermediate";
+        } else if (_intensity >= 6 && _intensity <= 7) {
+          expType = "Advanced";
+        }
+        String? sexValue = _selectedGender;
+        if (sexValue != null) {
+          sexValue = sexValue.toUpperCase() == 'MALE'
+              ? 'MALE'
+              : (sexValue.toUpperCase() == 'FEMALE' ? 'FEMALE' : null);
+        }
+        final body = {
+          "dateOfBirth": _selectedDob != null
+              ? _selectedDob!.toIso8601String().split('T')[0]
+              : null,
+          "sex": sexValue,
+          "address": address,
+          "weight": double.tryParse(_weightController.text),
+          "height": int.tryParse(_heightController.text),
+          "goal": _selectedGoal != null ? _goalMap[_selectedGoal!] : null,
+          "expType": expType,
+          "profilePicture": null, // luôn truyền null cho avatar
+        };
+        print('PATCH profile body: $body');
+        final success = await UserService.updateProfile(context, body);
+        print('PATCH profile result: $success');
+        if (success) {
+          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+        } else {
+          _showError('Cập nhật thất bại hoặc token hết hạn!');
+        }
+      },
+      size: AppButtonSize.large,
+      fullWidth: true,
     );
   }
 

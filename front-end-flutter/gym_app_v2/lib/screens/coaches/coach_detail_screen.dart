@@ -30,8 +30,7 @@ class CoachDetailScreen extends StatelessWidget {
           children: [
             // Header với hình nền và thông tin coach
             SizedBox(
-              height:
-                  MediaQuery.of(context).size.height * 0.6, // 60% screen height
+              height: MediaQuery.of(context).size.height * 0.6,
               width: double.infinity,
               child: Stack(
                 children: [
@@ -212,8 +211,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/cardio_training.jpg',
                               title: 'Cardio training sets',
-                              author: 'Robert Fox',
-                              rating: 4.8,
                               tag: 'Premium',
                               days: 7,
                               compact: false,
@@ -225,8 +222,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/strength_training.jpg',
                               title: 'Strength training',
-                              author: 'Robert Fox',
-                              rating: 4.6,
                               tag: 'Free',
                               days: 5,
                               compact: false,
@@ -238,8 +233,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/yoga_training.jpg',
                               title: 'Yoga & Flexibility',
-                              author: 'Robert Fox',
-                              rating: 4.9,
                               tag: 'Premium',
                               days: 10,
                               compact: false,

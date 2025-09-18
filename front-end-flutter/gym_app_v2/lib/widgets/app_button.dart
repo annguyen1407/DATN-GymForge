@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// Unified reusable button system for the app's dark + purple accent theme.
 ///
@@ -398,13 +399,13 @@ class _ButtonSpec {
     AppButtonSize size,
     Color? overrideColor,
   ) {
-    // Base palette (purple theme)
-    const accent = Color(0xFF8854FF); // primary purple
-    const accentAlt = Color(0xFF9966FF);
-    const danger = Color(0xFFFF4D4F);
-    const surfaceDark = Color(0xFF1B1C1F);
-    const surfaceDarker = Color(0xFF141518);
-    const outlineColor = Color(0xFF3A3C42);
+    // Base palette from tokens
+    const accent = DesignTokens.brand;
+    const accentAlt = DesignTokens.brandGradientEnd;
+    const danger = DesignTokens.danger; // align with global semantic
+    const surfaceDark = DesignTokens.surface; // closest mapping
+    const surfaceDarker = DesignTokens.surfaceAlt; // deeper layer
+    final outlineColor = DesignTokens.surfaceOutline.withOpacity(0.55);
 
     double heightPad(AppButtonSize s) {
       switch (s) {
@@ -550,14 +551,17 @@ class _ButtonSpec {
         break;
       case AppButtonVariant.gradient:
         gradient = const LinearGradient(
-          colors: [Color(0xFF8854FF), Color(0xFFB06BFF)],
+          colors: [
+            DesignTokens.brandGradientStart,
+            DesignTokens.brandGradientEnd,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
         disabledGradient = LinearGradient(
           colors: [
-            const Color(0xFF8854FF).withOpacity(.4),
-            const Color(0xFFB06BFF).withOpacity(.4),
+            DesignTokens.brandGradientStart.withOpacity(.4),
+            DesignTokens.brandGradientEnd.withOpacity(.4),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

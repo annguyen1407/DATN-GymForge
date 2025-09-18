@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// AddActionButton: Unified "+" action entry point used across the app.
 ///
@@ -84,16 +85,12 @@ class AddActionButton extends StatelessWidget {
             shape: BoxShape.circle,
             gradient: disabled
                 ? LinearGradient(colors: [Colors.grey[800]!, Colors.grey[700]!])
-                : const LinearGradient(
-                    colors: [Color(0xFF8854FF), Color(0xFF9966FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                : DesignTokens.brandGradient,
             boxShadow: disabled
                 ? []
                 : [
                     BoxShadow(
-                      color: const Color(0xFF8854FF).withOpacity(.35),
+                      color: DesignTokens.brand.withOpacity(.35),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -119,12 +116,8 @@ class AddActionButton extends StatelessWidget {
   Widget _buildPill(BuildContext context, {required bool outline}) {
     final disabled = !enabled;
     final effectiveLabel = label ?? 'Thêm';
-    final gradient = const LinearGradient(
-      colors: [Color(0xFF8854FF), Color(0xFF9966FF)],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    );
-    final bg = outline ? Colors.transparent : const Color(0xFF1E1F23);
+    final gradient = DesignTokens.brandGradient;
+    final bg = outline ? Colors.transparent : DesignTokens.surfaceAlt;
     final border = outline ? Border.all(color: Colors.white24, width: 1) : null;
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -143,7 +136,7 @@ class AddActionButton extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: const Color(0xFF8854FF).withOpacity(0.3),
+                      color: DesignTokens.brand.withOpacity(0.3),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),

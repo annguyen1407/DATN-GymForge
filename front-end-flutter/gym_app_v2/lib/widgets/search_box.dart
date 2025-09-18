@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 enum SearchBoxVariant { filled, elevated, outlined }
 
@@ -65,13 +66,13 @@ class _SearchBoxState extends State<SearchBox> {
 
   @override
   Widget build(BuildContext context) {
-    final bgBase = widget.backgroundColor ?? Colors.grey[900]!;
-    final ic = widget.iconColor ?? Colors.white54;
-    final tc = widget.textColor ?? Colors.white;
-    final hc = widget.hintColor ?? Colors.white54;
+    final bgBase = widget.backgroundColor ?? DesignTokens.surfaceAlt;
+    final ic = widget.iconColor ?? DesignTokens.textSecondary;
+    final tc = widget.textColor ?? DesignTokens.textPrimary;
+    final hc = widget.hintColor ?? DesignTokens.textSecondary;
     final bg = _focused
         ? (widget.variant == SearchBoxVariant.filled
-              ? Colors.grey[850]!
+              ? DesignTokens.surface
               : bgBase)
         : bgBase;
 
@@ -82,18 +83,11 @@ class _SearchBoxState extends State<SearchBox> {
           color: bg,
           borderRadius: BorderRadius.circular(widget.borderRadius),
           boxShadow: [
-            if (!_focused)
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              )
-            else
-              BoxShadow(
-                color: Colors.black.withOpacity(0.7),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
+            BoxShadow(
+              color: Colors.black.withOpacity(_focused ? 0.7 : 0.5),
+              blurRadius: _focused ? 10 : 6,
+              offset: Offset(0, _focused ? 4 : 3),
+            ),
           ],
         );
         break;
@@ -102,7 +96,9 @@ class _SearchBoxState extends State<SearchBox> {
           color: bg,
           borderRadius: BorderRadius.circular(widget.borderRadius),
           border: Border.all(
-            color: _focused ? Colors.pinkAccent : Colors.white12,
+            color: _focused
+                ? DesignTokens.brand
+                : DesignTokens.surfaceOutline.withOpacity(.35),
             width: 1.2,
           ),
         );

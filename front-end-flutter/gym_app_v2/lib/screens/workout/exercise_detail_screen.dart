@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
 import '../../repositories/workout_day_exercises_repository.dart';
 import '../../widgets/exercise_actions_menu.dart';
 import '../../widgets/destructive_confirm_sheet.dart';
 import '../../widgets/app_snack_bar.dart';
-import '../../widgets/app_button.dart';
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -563,9 +563,11 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                                 ),
                               ),
                             ),
-                            TextButton(
+                            AppButton.text(
+                              label: 'Thử lại',
                               onPressed: _fetch,
-                              child: const Text('Thử lại'),
+                              size: AppButtonSize.small,
+                              fullWidth: false,
                             ),
                           ],
                         ),

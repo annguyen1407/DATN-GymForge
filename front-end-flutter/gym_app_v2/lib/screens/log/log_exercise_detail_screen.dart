@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 
 /// LogExerciseDetailScreen: Màn hình chi tiết một bài tập cụ thể
 /// Hiển thị video demo, thông tin chi tiết và các thông số của bài tập
@@ -351,9 +352,11 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
             style: TextStyle(color: Colors.white70),
           ),
           actions: [
-            TextButton(
+            AppButton.text(
+              label: 'Đóng',
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
+              fullWidth: false,
+              size: AppButtonSize.small,
             ),
           ],
         );

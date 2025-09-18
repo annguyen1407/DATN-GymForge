@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 
 class WorkoutTemplateScreen extends StatelessWidget {
   final String image;
@@ -222,23 +223,10 @@ class WorkoutTemplateScreen extends StatelessWidget {
             // Button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text(
-                    'Thêm vào kế hoạch',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
+              child: AppButton.primary(
+                label: 'Thêm vào kế hoạch',
+                onPressed: () {},
+                size: AppButtonSize.large,
               ),
             ),
           ],

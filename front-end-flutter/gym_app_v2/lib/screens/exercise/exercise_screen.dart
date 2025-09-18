@@ -120,9 +120,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                               ),
                             ),
                           ),
-                          TextButton(
-                            onPressed: _fetch,
-                            child: const Text('Thử lại'),
+                          Center(
+                            child: SizedBox(
+                              width: 140,
+                              child: AppButton.primary(
+                                label: 'Thử lại',
+                                onPressed: _fetch,
+                                size: AppButtonSize.small,
+                              ),
+                            ),
                           ),
                         ],
                       )

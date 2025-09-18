@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'app_button.dart';
+import '../theme/design_tokens.dart';
 
 /// A reusable destructive confirmation bottom sheet used across screens.
 /// Return value convention: show it with showModalBottomSheet<bool>,
@@ -19,14 +21,19 @@ class DestructiveConfirmSheet extends StatelessWidget {
     required this.confirmLabel,
     required this.onConfirm,
     this.cancelLabel = 'Huỷ',
-    this.dangerColor = Colors.redAccent,
-    this.backgroundColor = const Color(0xFF141414),
+    this.dangerColor = DesignTokens.danger,
+    this.backgroundColor = DesignTokens.surface,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: EdgeInsets.fromLTRB(
+        DesignTokens.spaceL - 4, // 20
+        DesignTokens.spaceM, // 16
+        DesignTokens.spaceL - 4,
+        DesignTokens.spaceXL, // 32
+      ),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -54,45 +61,27 @@ class DestructiveConfirmSheet extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: DesignTokens.spaceM - 4),
           Text(
             message,
             style: const TextStyle(color: Colors.white70, height: 1.4),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: DesignTokens.spaceL + 4),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: AppButton.outline(
+                  label: cancelLabel,
                   onPressed: () => Navigator.pop(context, false),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.white.withOpacity(0.25)),
-                    foregroundColor: Colors.white70,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(cancelLabel),
+                  size: AppButtonSize.medium,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: DesignTokens.spaceM - 2),
               Expanded(
-                child: ElevatedButton(
+                child: AppButton.danger(
+                  label: confirmLabel,
                   onPressed: onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: dangerColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    confirmLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  size: AppButtonSize.medium,
                 ),
               ),
             ],

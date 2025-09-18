@@ -1,5 +1,6 @@
 // Dùng ở: log_screen. Card thống kê tổng quan.
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 class StatsCard extends StatelessWidget {
   const StatsCard({super.key});
@@ -17,18 +18,21 @@ class StatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24), // Reduced from 24
+      padding: const EdgeInsets.all(DesignTokens.spaceL),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey[900]!, Colors.grey[850]!],
+        gradient: const LinearGradient(
+          colors: [DesignTokens.surface, DesignTokens.surfaceAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey[800]!, width: 0.5),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXXL),
+        border: Border.all(
+          color: DesignTokens.surfaceOutline.withOpacity(.4),
+          width: 0.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.35),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -36,22 +40,25 @@ class StatsCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 20),
+          const SizedBox(width: DesignTokens.spaceL - 4),
           Container(
-            width: 100, // Reduced from 140
-            height: 100, // Reduced from 140
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orange.shade400, Colors.orange.shade600],
+                colors: [
+                  DesignTokens.warning.withOpacity(.85),
+                  DesignTokens.warning,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.orange.withOpacity(0.4),
-                  blurRadius: 12, // Reduced from 20
-                  offset: const Offset(0, 6), // Reduced from (0, 8)
+                  color: DesignTokens.warning.withOpacity(0.45),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -62,17 +69,17 @@ class StatsCard extends StatelessWidget {
                   Text(
                     todayWorkoutSets.toString(),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: DesignTokens.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 32, // Reduced from 44
+                      fontSize: 32,
                       letterSpacing: 0.5,
                     ),
                   ),
                   const Text(
                     'Workout Sets',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11, // Reduced from 12.9
+                      color: DesignTokens.textSecondary,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -80,28 +87,28 @@ class StatsCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 70), // Reduced from 70
+          const SizedBox(width: 70),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStatRow(
                   Icons.access_time_rounded,
-                  Colors.blue.shade400,
+                  DesignTokens.info,
                   todayTimeFormatted,
                   'Total Time',
                 ),
                 const SizedBox(height: 12), // Reduced from 16
                 _buildStatRow(
                   Icons.local_fire_department_rounded,
-                  Colors.orange.shade500,
+                  DesignTokens.warning,
                   '$todayCalories cal',
                   'Burned',
                 ),
                 const SizedBox(height: 12), // Reduced from 16
                 _buildStatRow(
                   Icons.diamond_rounded,
-                  Colors.cyan.shade400,
+                  DesignTokens.success,
                   '${(todayWorkoutSets * 50)} Points',
                   'Collected',
                 ),
@@ -124,13 +131,13 @@ class StatsCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, color: iconColor, size: 18), // Reduced from 22
+            Icon(icon, color: iconColor, size: 18),
             const SizedBox(width: 12),
             Text(
               value,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14, // Reduced from 16
+                color: DesignTokens.textPrimary,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
               ),
@@ -143,8 +150,8 @@ class StatsCard extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12, // Reduced from 13
+              color: DesignTokens.textSecondary,
+              fontSize: 12,
               fontWeight: FontWeight.w400,
             ),
           ),

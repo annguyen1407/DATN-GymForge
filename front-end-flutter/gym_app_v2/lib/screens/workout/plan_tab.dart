@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/add_action_button.dart';
+import '../../widgets/app_button.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../models/workout_plan_model.dart';
 import '../../widgets/workout_card.dart';
@@ -65,9 +66,13 @@ class _PlanTabState extends State<PlanTab> {
           builder: (context, snapshot) {
             if (_future == null) {
               return Center(
-                child: ElevatedButton(
-                  onPressed: () => _triggerFetch(force: true),
-                  child: const Text('Tải kế hoạch'),
+                child: SizedBox(
+                  width: 200,
+                  child: AppButton.primary(
+                    label: 'Tải kế hoạch',
+                    onPressed: () => _triggerFetch(force: true),
+                    size: AppButtonSize.medium,
+                  ),
                 ),
               );
             }
@@ -172,7 +177,12 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRefresh, child: const Text('Tải lại')),
+          AppButton.outline(
+            label: 'Tải lại',
+            onPressed: onRefresh,
+            fullWidth: false,
+            size: AppButtonSize.small,
+          ),
         ],
       ),
     );
@@ -196,7 +206,12 @@ class _ErrorState extends StatelessWidget {
             style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRetry, child: const Text('Thử lại')),
+          AppButton.primary(
+            label: 'Thử lại',
+            onPressed: onRetry,
+            fullWidth: false,
+            size: AppButtonSize.small,
+          ),
         ],
       ),
     );

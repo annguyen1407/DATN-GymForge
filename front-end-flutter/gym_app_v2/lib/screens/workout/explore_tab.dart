@@ -95,8 +95,6 @@ class ExploreTab extends StatelessWidget {
                   child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Cardio training sets',
-                    author: 'Robert Fox',
-                    rating: 4.8,
                     tag: 'Premium',
                   ),
                 ),
@@ -117,8 +115,6 @@ class ExploreTab extends StatelessWidget {
                   child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Cardio HIIT',
-                    author: 'Jane Cooper',
-                    rating: 4.7,
                     tag: 'Free',
                   ),
                 ),
@@ -150,8 +146,6 @@ class ExploreTab extends StatelessWidget {
                   child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Quick Push up',
-                    author: 'Diana Richards',
-                    rating: 4.5,
                     tag: 'Free',
                   ),
                 ),
@@ -172,8 +166,6 @@ class ExploreTab extends StatelessWidget {
                   child: const WorkoutTemplateCard(
                     image: '',
                     title: 'Flexibility',
-                    author: 'James Lee',
-                    rating: 4.6,
                     tag: 'Free',
                   ),
                 ),

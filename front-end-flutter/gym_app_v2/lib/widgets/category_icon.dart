@@ -1,5 +1,6 @@
 // Dùng ở: log_screen, workout_screen. Hiển thị icon tròn có badge cho category/action nhanh.
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// A reusable widget that displays a circular icon with an optional count badge and a label below.
 ///
@@ -50,7 +51,9 @@ class CategoryIcon extends StatelessWidget {
             // Nền tròn với icon ở giữa
             CircleAvatar(
               radius: 28,
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withOpacity(
+                0.15,
+              ), // giữ sắc độ theo màu truyền vào (category accent)
               child: Icon(icon, color: color, size: 28),
             ),
             // Nếu có count, hiển thị badge số lượng ở góc trên bên phải
@@ -61,16 +64,24 @@ class CategoryIcon extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: Colors.purple,
+                    gradient: DesignTokens.brandGradient,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 2),
+                    border: Border.all(color: DesignTokens.surface, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: DesignTokens.brand.withOpacity(0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Text(
                     '$count',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: DesignTokens.textPrimary,
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
                     ),
                   ),
                 ),
@@ -81,7 +92,12 @@ class CategoryIcon extends StatelessWidget {
         // Nhãn hiển thị bên dưới icon
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          style: TextStyle(
+            color: DesignTokens.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.15,
+          ),
         ),
       ],
     );

@@ -670,27 +670,13 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
               padding: const EdgeInsets.symmetric(horizontal: 140),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: AppButton.primary(
+                  label:
+                      currentSet < widget.exercises[currentExerciseIndex].sets
+                      ? 'Log set $currentSet'
+                      : 'Hoàn thành bài tập',
                   onPressed: hasStarted && !isResting ? _logSet : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasStarted && !isResting
-                        ? Colors.purple
-                        : Colors.grey[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: Text(
-                    currentSet < widget.exercises[currentExerciseIndex].sets
-                        ? 'Log set $currentSet'
-                        : 'Hoàn thành bài tập',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  size: AppButtonSize.large,
                 ),
               ),
             ),

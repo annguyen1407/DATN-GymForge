@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:fl_chart/fl_chart.dart'; // Added for line chart
-import '../../widgets/log_tab.dart';
 import '../../widgets/stats_card.dart';
 import '../../widgets/category_icon.dart';
 import '../../widgets/log_workout_time_card.dart';
@@ -107,14 +107,6 @@ class _LogScreenState extends State<LogScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  // Function to handle tab selection
-  void _onTabSelected(String tab) {
-    setState(() {
-      _selectedTab = tab;
-      _tabController.index = tab == 'Lịch sử' ? 0 : 1;
-    });
   }
 
   // Function to toggle between LogWorkoutTimeCard and TableCalendar
@@ -226,17 +218,18 @@ class _LogScreenState extends State<LogScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: AppButton.text(
+                    label: 'Cancel',
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white54),
-                    ),
+                    fullWidth: true,
+                    size: AppButtonSize.small,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ElevatedButton(
+                  child: AppButton.primary(
+                    label: 'Save',
+                    size: AppButtonSize.small,
                     onPressed: () {
                       // Validate and update weight
                       final weightInput = weightController.text;
@@ -275,17 +268,6 @@ class _LogScreenState extends State<LogScreen>
                       }
                       Navigator.pop(context);
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8854FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white),
-                    ),
                   ),
                 ),
               ],
@@ -559,34 +541,6 @@ class _LogScreenState extends State<LogScreen>
     );
   }
 
-  // Helper method to build toggle button
-  Widget _buildToggleButton(
-    String label,
-    bool isSelected,
-    VoidCallback onPressed,
-  ) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected
-              ? const Color(0xFF8854FF)
-              : Colors.grey[800],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white54,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
   // Content for "Chuyên sâu" tab
   Widget _buildInDepthContent() {
     // Calculate BMI: weight (kg) / (height (m) * height (m))
@@ -820,24 +774,11 @@ class _LogScreenState extends State<LogScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              // Update Metrics Button
-              ElevatedButton(
+              // Update Metrics Button (migrated to design system)
+              AppButton.primary(
+                label: 'Update Metrics',
                 onPressed: () => _showBodyMetricsUpdateModal(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8854FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  minimumSize: const Size(double.infinity, 0), // Full width
-                ),
-                child: const Text(
-                  'Update Metrics',
-                  style: TextStyle(color: Colors.white),
-                ),
+                size: AppButtonSize.medium,
               ),
             ],
           ),

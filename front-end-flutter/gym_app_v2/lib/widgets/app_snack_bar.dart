@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// Unified styled snackbar helper with variants.
 /// Usage:
@@ -115,8 +116,16 @@ class _SnackContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      margin: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spaceM - 4, // 12
+        vertical: DesignTokens.spaceS - 2, // 6
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        DesignTokens.spaceM - 2, // 14
+        DesignTokens.spaceS + 4, // 12
+        DesignTokens.spaceM - 2,
+        DesignTokens.spaceS + 4,
+      ),
       decoration: BoxDecoration(
         color: bg.withOpacity(0.94),
         borderRadius: BorderRadius.circular(16),
@@ -133,7 +142,7 @@ class _SnackContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, color: fg, size: 20),
-          const SizedBox(width: 12),
+          const SizedBox(width: DesignTokens.spaceM - 4),
           Expanded(
             child: Text(
               message,
