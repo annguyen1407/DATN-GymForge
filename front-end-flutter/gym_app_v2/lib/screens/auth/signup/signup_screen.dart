@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
 import 'verify_email_screen.dart';
+import '../../../widgets/app_button.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -238,27 +239,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                         const SizedBox(height: 8),
                       ],
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8854FF),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _loading ? null : _signup,
-                          child: _loading
-                              ? const CircularProgressIndicator()
-                              : const Text(
-                                  'Đăng ký ngay',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                        ),
+                      AppButton.primary(
+                        label: 'Đăng ký ngay',
+                        size: AppButtonSize.large,
+                        loading: _loading,
+                        onPressed: _loading ? null : _signup,
+                        leadingIcon: _loading ? null : Icons.person_add_alt_1,
                       ),
                       const SizedBox(height: 16),
                       Row(

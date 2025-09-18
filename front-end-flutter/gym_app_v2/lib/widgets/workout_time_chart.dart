@@ -1,3 +1,4 @@
+import 'app_snack_bar.dart';
 // Dùng ở: home_screen. Biểu đồ thời gian tập luyện.
 import 'package:flutter/material.dart';
 
@@ -603,16 +604,7 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
   void _showDayDetail(String day, double hours, String specificDate) {
     // Don't show detail for empty days
     if (hours == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No workout data for $specificDate'),
-          backgroundColor: Colors.grey[700],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackBar.showInfo(context, 'No workout data for $specificDate');
       return;
     }
 
@@ -750,16 +742,7 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
     return GestureDetector(
       onTap: () {
         // Show more detailed stats
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label: $value'),
-            backgroundColor: color,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackBar.showInfo(context, '$label: $value');
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

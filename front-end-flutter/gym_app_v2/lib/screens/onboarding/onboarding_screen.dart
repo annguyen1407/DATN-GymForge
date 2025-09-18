@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -151,27 +152,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8854FF),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: _nextPage,
-                            child: Text(
-                              _currentPage < onboardingData.length - 1
-                                  ? 'Tiếp theo'
-                                  : 'Đăng ký ngay',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                        AppButton.primary(
+                          label: _currentPage < onboardingData.length - 1
+                              ? 'Tiếp theo'
+                              : 'Đăng ký ngay',
+                          size: AppButtonSize.large,
+                          onPressed: _nextPage,
+                          leadingIcon: _currentPage < onboardingData.length - 1
+                              ? Icons.arrow_forward
+                              : Icons.person_add_alt_1,
                         ),
                         const SizedBox(height: 32),
                       ],

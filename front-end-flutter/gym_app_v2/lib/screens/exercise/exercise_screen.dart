@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/exercise_group_card.dart';
 import '../../widgets/search_box.dart';
 import '../../repositories/muscle_groups_repository.dart';
@@ -119,9 +120,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                               ),
                             ),
                           ),
-                          TextButton(
-                            onPressed: _fetch,
-                            child: const Text('Thử lại'),
+                          Center(
+                            child: SizedBox(
+                              width: 140,
+                              child: AppButton.primary(
+                                label: 'Thử lại',
+                                onPressed: _fetch,
+                                size: AppButtonSize.small,
+                              ),
+                            ),
                           ),
                         ],
                       )
@@ -176,24 +183,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[900],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () {},
-                  icon: const Icon(Icons.add),
-                  label: const Text(
-                    'Tạo bài tập riêng',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
+              child: AppButton.outline(
+                label: 'Tạo bài tập riêng',
+                size: AppButtonSize.large,
+                leadingIcon: Icons.add,
+                onPressed: () {},
               ),
             ),
           ],

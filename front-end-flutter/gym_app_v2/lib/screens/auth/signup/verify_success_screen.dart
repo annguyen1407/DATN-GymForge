@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/app_button.dart';
 
 class VerifySuccessScreen extends StatelessWidget {
   const VerifySuccessScreen({super.key});
@@ -71,22 +72,12 @@ class VerifySuccessScreen extends StatelessWidget {
                 const SizedBox(height: 48),
                 SizedBox(
                   width: 220,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF8854FF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pushReplacementNamed('/signin');
-                    },
-                    child: const Text(
-                      'Login Now',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                  child: AppButton.primary(
+                    label: 'Login Now',
+                    onPressed: () =>
+                        Navigator.of(context).pushReplacementNamed('/signin'),
+                    size: AppButtonSize.medium,
+                    fullWidth: true,
                   ),
                 ),
               ],

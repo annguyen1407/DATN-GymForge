@@ -101,10 +101,7 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 // Insert synthetic all item (client-side)
                 final totalCount = filtered.fold<int>(
                   0,
-                  (sum, m) =>
-                      sum +
-                      (m.exercisesCount ??
-                          0), // giữ ?? 0 vì model có thể nullable
+                  (sum, m) => sum + m.exercisesCount,
                 );
                 final items = [
                   MuscleGroupModel(

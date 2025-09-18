@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import 'dart:async';
 import '../../widgets/exercise_card.dart';
 
@@ -132,11 +133,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             ),
           ),
           actions: [
-            TextButton(
+            AppButton.text(
+              label: 'Hủy',
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+              fullWidth: false,
+              size: AppButtonSize.small,
             ),
-            TextButton(
+            AppButton.primary(
+              label: 'Lưu',
               onPressed: () {
                 final newReps = int.tryParse(repsController.text);
                 if (newReps != null && newReps > 0) {
@@ -146,7 +150,8 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
                 }
                 Navigator.pop(context);
               },
-              child: const Text('Lưu', style: TextStyle(color: Colors.purple)),
+              size: AppButtonSize.small,
+              fullWidth: false,
             ),
           ],
         );
@@ -237,29 +242,15 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             ),
           ),
           actions: [
-            TextButton(
+            AppButton.primary(
+              label: 'Lưu và hoàn thành',
+              size: AppButtonSize.medium,
+              fullWidth: false,
               onPressed: () {
-                // Lưu thông tin tập luyện (TODO: implement save to database)
                 _saveWorkoutData();
-                Navigator.pop(context); // Đóng dialog
-                // Pop về MainScreen (giữ lại tab hiện tại)
+                Navigator.pop(context);
                 Navigator.popUntil(context, (route) => route.isFirst);
               },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Lưu và hoàn thành',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
             ),
           ],
         );
@@ -679,27 +670,13 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
               padding: const EdgeInsets.symmetric(horizontal: 140),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: AppButton.primary(
+                  label:
+                      currentSet < widget.exercises[currentExerciseIndex].sets
+                      ? 'Log set $currentSet'
+                      : 'Hoàn thành bài tập',
                   onPressed: hasStarted && !isResting ? _logSet : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasStarted && !isResting
-                        ? Colors.purple
-                        : Colors.grey[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: Text(
-                    currentSet < widget.exercises[currentExerciseIndex].sets
-                        ? 'Log set $currentSet'
-                        : 'Hoàn thành bài tập',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  size: AppButtonSize.large,
                 ),
               ),
             ),

@@ -1,11 +1,11 @@
-// Dùng ở: workout_screen tab "Khám phá". Card hiển thị thông tin buổi tập template.
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
+import 'app_button.dart';
 
+/// Clean rebuilt WorkoutTemplateCard. Previous file was corrupted with duplicates.
 class WorkoutTemplateCard extends StatelessWidget {
   final String image;
   final String title;
-  final String? author;
-  final double? rating;
   final String? tag;
   final int? days;
   final bool showAccept;
@@ -14,221 +14,234 @@ class WorkoutTemplateCard extends StatelessWidget {
   final bool dimmed;
 
   const WorkoutTemplateCard({
+    super.key,
     required this.image,
     required this.title,
-    this.author,
-    this.rating,
     this.tag,
     this.days,
     this.showAccept = false,
     this.onAccept,
     this.compact = false,
     this.dimmed = false,
-    super.key,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      // Dạng nhỏ gọn: row, hình nhỏ, thông tin ngắn gọn
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) =>
+      compact ? _buildCompact(context) : _buildLarge(context);
+
+  Widget _buildCompact(BuildContext context) => Container(
+    margin: const EdgeInsets.symmetric(vertical: 3),
+    decoration: BoxDecoration(
+      color: DesignTokens.surfaceAlt,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: DesignTokens.surfaceOutline.withOpacity(.35),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(14),
+            bottomLeft: Radius.circular(14),
+          ),
+          child: _image(width: 82, height: 82),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(14),
-                bottomLeft: Radius.circular(14),
-              ),
-              child: image.isNotEmpty
-                  ? Image.asset(
-                      image,
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 80,
-                        height: 80,
-                        color: Colors.deepPurple[300],
-                      ),
-                    )
-                  : Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.deepPurple[300],
-                    ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: DesignTokens.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    letterSpacing: .2,
+                    height: 1.15,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
+                if (days != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '$days ngày',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        color: DesignTokens.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (days != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          '$days ngày',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
-            if (showAccept)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: onAccept,
-                  child: const Text(
-                    'Chấp nhận',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
-      );
-    }
-    // Card lớn, bo góc lớn, overlay tối nếu dimmed, giống thiết kế
-    return AspectRatio(
-      aspectRatio: 1.8,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: image.isNotEmpty
-                  ? Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(color: Colors.deepPurple[300]),
-                    )
-                  : Container(color: Colors.deepPurple[300]),
+        if (showAccept)
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: AppButton.danger(
+              label: 'Chấp nhận',
+              onPressed: onAccept,
+              size: AppButtonSize.small,
+              fullWidth: false,
             ),
-            // Overlay tối nếu dimmed hoặc showAccept
-            if (dimmed || showAccept)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(showAccept ? 0.55 : 0.35),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-              ),
-            // Tag (nếu có)
-            if (tag != null)
-              Positioned(
-                left: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tag == 'Premium' ? Colors.amber : Colors.redAccent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    tag!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-            // Title, days
-            Positioned(
-              left: 16,
-              bottom: 32,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  if (days != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        '$days ngày',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Nút Accept (nếu có)
-            if (showAccept)
-              Positioned(
-                right: 16,
-                bottom: 20,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: onAccept,
-                  child: const Text('Accept'),
-                ),
-              ),
-          ],
+          ),
+      ],
+    ),
+  );
+
+  Widget _buildLarge(BuildContext context) => AspectRatio(
+    aspectRatio: 1.8,
+    child: Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: DesignTokens.surfaceAlt,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DesignTokens.surfaceOutline.withOpacity(.35),
+          width: 1,
         ),
       ),
-    );
+      child: Stack(
+        children: [
+          Positioned.fill(child: _image()),
+          if (dimmed || showAccept)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: DesignTokens.overlayMedium.withOpacity(
+                    showAccept ? 0.75 : 0.45,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          if (tag != null)
+            Positioned(
+              left: 14,
+              top: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _tagColor(tag!),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: DesignTokens.surfaceOutline.withOpacity(.25),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  tag!,
+                  style: const TextStyle(
+                    color: DesignTokens.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    letterSpacing: .3,
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            left: 18,
+            bottom: 36,
+            right: 120,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: DesignTokens.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    letterSpacing: .3,
+                    height: 1.12,
+                  ),
+                ),
+                if (days != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '$days ngày',
+                      style: const TextStyle(
+                        color: DesignTokens.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (showAccept)
+            Positioned(
+              right: 18,
+              bottom: 24,
+              child: AppButton.danger(
+                label: 'Chấp nhận',
+                onPressed: onAccept,
+                size: AppButtonSize.small,
+                fullWidth: false,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _image({double? width, double? height}) {
+    if (image.isNotEmpty) {
+      return Image.asset(
+        image,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (c, e, s) => _placeholder(width, height),
+      );
+    }
+    return _placeholder(width, height);
   }
+
+  Color _tagColor(String tag) {
+    switch (tag.toLowerCase()) {
+      case 'premium':
+        return DesignTokens.warning;
+      case 'new':
+        return DesignTokens.info;
+      default:
+        return DesignTokens.danger;
+    }
+  }
+
+  Widget _placeholder(double? width, double? height) => Container(
+    width: width,
+    height: height,
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          DesignTokens.brandGradientStart,
+          DesignTokens.brandGradientEnd,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ),
+    child: Icon(
+      Icons.image_not_supported_outlined,
+      color: Colors.white.withOpacity(.55),
+      size: (width ?? 64) * .5,
+    ),
+  );
 }

@@ -1,5 +1,7 @@
+import 'app_snack_bar.dart';
 // Dùng ở: logscreen. Biểu đồ thời gian tập luyện.
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 /// LogWorkoutTimeCard: Biểu đồ thống kê thời gian tập luyện theo tuần
 class LogWorkoutTimeCard extends StatefulWidget {
@@ -393,7 +395,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             currentWeekData['dateRange'],
             key: ValueKey(currentWeekIndex),
             style: const TextStyle(
-              color: Colors.white70,
+              color: DesignTokens.textSecondary,
               fontSize: 16,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.3,
@@ -411,9 +413,12 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: Colors.grey[800],
+        color: DesignTokens.surfaceMuted,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[700]!, width: 0.5),
+        border: Border.all(
+          color: DesignTokens.surfaceOutline.withOpacity(.4),
+          width: 0.5,
+        ),
       ),
       child: IconButton(
         onPressed: isLoading ? null : onPressed,
@@ -430,7 +435,9 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               )
             : Icon(
                 icon,
-                color: isLoading ? Colors.white30 : Colors.white70,
+                color: isLoading
+                    ? DesignTokens.textSecondary.withOpacity(.3)
+                    : DesignTokens.textSecondary,
                 size: 18,
               ),
         padding: EdgeInsets.zero,
@@ -486,7 +493,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               width: 32,
               height: maxHeight,
               decoration: BoxDecoration(
-                color: Colors.grey[800]!.withOpacity(0.3),
+                color: DesignTokens.surfaceMuted.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Align(
@@ -499,19 +506,17 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
                   decoration: BoxDecoration(
                     gradient: isActive
                         ? LinearGradient(
-                            // Màu cam cho ngày hiện tại/được chọn
                             colors: [
-                              Colors.orange.shade400,
-                              Colors.orange.shade600,
+                              DesignTokens.warning.withOpacity(.85),
+                              DesignTokens.warning,
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                           )
-                        : LinearGradient(
-                            // Màu tím cho ngày bình thường
+                        : const LinearGradient(
                             colors: [
-                              Colors.purple.shade400,
-                              Colors.purple.shade600,
+                              DesignTokens.brandGradientStart,
+                              DesignTokens.brandGradientEnd,
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -519,8 +524,11 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: (isActive ? Colors.orange : Colors.purple)
-                            .withOpacity(0.4),
+                        color:
+                            (isActive
+                                    ? DesignTokens.warning
+                                    : DesignTokens.brand)
+                                .withOpacity(0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -533,7 +541,9 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             Text(
               day,
               style: TextStyle(
-                color: isActive ? Colors.orange.shade300 : Colors.white60,
+                color: isActive
+                    ? DesignTokens.warning.withOpacity(.85)
+                    : DesignTokens.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -543,8 +553,8 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               '${hours.toStringAsFixed(1)}h',
               style: TextStyle(
                 color: isActive
-                    ? Colors.orange.shade200
-                    : Colors.white.withOpacity(0.4),
+                    ? DesignTokens.warning.withOpacity(.7)
+                    : DesignTokens.textSecondary.withOpacity(.4),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -558,16 +568,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
   void _showDayDetail(String day, double hours, String specificDate) {
     // Don't show detail for empty days
     if (hours == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No workout data for $specificDate'),
-          backgroundColor: Colors.grey[700],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackBar.showInfo(context, 'No workout data for $specificDate');
       return;
     }
 
@@ -578,7 +579,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.grey[900]!, Colors.grey[850]!],
+            colors: const [DesignTokens.surface, DesignTokens.surfaceAlt],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -644,7 +645,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.purple.shade400, size: 24),
+          Icon(icon, color: DesignTokens.brand, size: 24),
           const SizedBox(height: 8),
           Text(
             value,
@@ -677,19 +678,19 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             'Total Hours',
             '${totalHours.toStringAsFixed(1)}h',
             Icons.schedule_rounded,
-            Colors.purple.shade400,
+            DesignTokens.brand,
           ),
           _buildStatItem(
             'Avg/Day',
             '${averageHours.toStringAsFixed(1)}h',
             Icons.trending_up_rounded,
-            Colors.green.shade400,
+            DesignTokens.success,
           ),
           _buildStatItem(
             'Best Day',
             bestDay,
             Icons.star_rounded,
-            Colors.orange.shade400,
+            DesignTokens.warning,
           ),
         ],
       ),
@@ -705,23 +706,17 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     return GestureDetector(
       onTap: () {
         // Show more detailed stats
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label: $value'),
-            backgroundColor: color,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackBar.showInfo(context, '$label: $value');
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.grey[800]!.withOpacity(0.5),
+          color: DesignTokens.surfaceMuted.withOpacity(0.5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[700]!, width: 0.5),
+          border: Border.all(
+            color: DesignTokens.surfaceOutline.withOpacity(.4),
+            width: 0.5,
+          ),
         ),
         child: Column(
           children: [
@@ -730,7 +725,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             Text(
               value,
               style: const TextStyle(
-                color: Colors.white,
+                color: DesignTokens.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
@@ -738,7 +733,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             Text(
               label,
               style: const TextStyle(
-                color: Colors.white60,
+                color: DesignTokens.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),

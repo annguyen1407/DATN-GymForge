@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
 import '../../widgets/search_box.dart';
+import '../../widgets/app_button.dart';
 
 class ExerciseListScreen extends StatefulWidget {
   final String muscleGroupId;
@@ -110,9 +111,15 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        TextButton(
-                          onPressed: _fetch,
-                          child: const Text('Thử lại'),
+                        Center(
+                          child: SizedBox(
+                            width: 160,
+                            child: AppButton.primary(
+                              label: 'Thử lại',
+                              onPressed: _fetch,
+                              size: AppButtonSize.small,
+                            ),
+                          ),
                         ),
                       ],
                     )

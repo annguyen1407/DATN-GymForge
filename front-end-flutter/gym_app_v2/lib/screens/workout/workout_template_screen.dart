@@ -1,248 +1,696 @@
 import 'package:flutter/material.dart';
+import '../../models/workout_plan_model.dart';
+import '../../repositories/workout_plans_repository.dart';
+import '../../widgets/app_snack_bar.dart';
+import '../../widgets/app_button.dart';
+import '../../repositories/workout_day_exercises_repository.dart';
+import '../../repositories/exercises_repository.dart';
+import '../../models/exercise_model.dart';
 
-class WorkoutTemplateScreen extends StatelessWidget {
-  final String image;
-  final String title;
-  final String? tag;
-  final int? exercises;
-  final List<String>? workoutList;
+/// Chi tiết template workout plan.
+class WorkoutTemplateScreen extends StatefulWidget {
+  final WorkoutPlanModel plan;
+  const WorkoutTemplateScreen({super.key, required this.plan});
 
-  const WorkoutTemplateScreen({
-    super.key,
-    required this.image,
-    required this.title,
-    this.tag,
-    this.exercises,
-    this.workoutList,
-  });
+  @override
+  State<WorkoutTemplateScreen> createState() => _WorkoutTemplateScreenState();
+}
+
+class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
+  final _repo = WorkoutPlansRepository();
+  final _dayExerciseRepo = WorkoutDayExercisesRepository();
+  final _exerciseRepo = ExercisesRepository();
+  WorkoutPlanModel? _detail;
+  bool _loading = true;
+  bool _error = false;
+
+  // exercises
+  bool _loadingExercises = true;
+  List<ExerciseModel> _exercises = [];
+  bool _cloning = false;
+  bool _showFullDescription = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _detail = widget.plan;
+    _fetch();
+    _fetchExercises();
+  }
+
+  Future<void> _fetch() async {
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    final res = await _repo.getPlan(widget.plan.id);
+    if (!mounted) return;
+    setState(() {
+      if (res != null) _detail = res;
+      _loading = false;
+      _error = res == null;
+    });
+  }
+
+  Future<void> _fetchExercises() async {
+    setState(() {
+      _loadingExercises = true;
+    });
+    try {
+      final list = await _dayExerciseRepo.getByWorkoutPlan(widget.plan.id);
+      // unique exercise ids
+      final ids = list.map((e) => e.exerciseId).toSet().toList();
+      final result = <ExerciseModel>[];
+      for (final id in ids) {
+        final ex = await _exerciseRepo.getById(id);
+        if (ex != null) result.add(ex);
+      }
+      if (!mounted) return;
+      setState(() {
+        _exercises = result;
+        _loadingExercises = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _exercises = [];
+        _loadingExercises = false;
+      });
+    }
+  }
+
+  Future<void> _cloneTemplate() async {
+    final template = _detail ?? widget.plan;
+    if (_cloning) return;
+    setState(() => _cloning = true);
+    try {
+      // For now we reuse template name/description; could prompt user later.
+      final cloned = await _repo.cloneTemplate(
+        templateId: template.id,
+        userId: template.userId, // userId is non-null in model
+        name: template.name,
+        description: template.description ?? '',
+      );
+      if (!mounted) return;
+      if (cloned != null) {
+        AppSnackBar.showSuccess(context, 'Đã tạo kế hoạch');
+        Navigator.pop(context, cloned);
+      } else {
+        AppSnackBar.showError(context, 'Tạo kế hoạch thất bại');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.showError(context, 'Lỗi: $e');
+    } finally {
+      if (mounted) setState(() => _cloning = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final plan = _detail ?? widget.plan;
+    final exercisesCount = _exercises.length; // override if loaded
+    final totalHeight = MediaQuery.of(context).size.height;
+    const bottomBarHeight = 84.0; // approx including safe area
+    const headerHeight = 250.0; // reduced
+    final availableListHeight =
+        totalHeight - bottomBarHeight - headerHeight - 295;
+
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
+      backgroundColor: const Color(0xFF0F0F11),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 140),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nếu không có ảnh, dùng Container màu
-                Container(
-                  width: double.infinity,
-                  height: 220,
-                  decoration: BoxDecoration(color: Colors.deepPurple[300]),
-                  child: image.isNotEmpty
-                      ? Image.asset(
-                          image,
-                          width: double.infinity,
-                          height: 220,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(color: Colors.deepPurple[300]),
-                        )
-                      : null,
+                _Header(
+                  planName: plan.name,
+                  height: headerHeight,
+                  planType: plan.planType,
+                  days: plan.days,
+                  exercises: _loadingExercises ? null : exercisesCount,
                 ),
-                Positioned(
-                  left: 12,
-                  top: 12,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  child: IconButton(
-                    icon: const Icon(Icons.share, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (tag != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tag == 'Free' ? Colors.redAccent : Colors.amber,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        tag!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.fitness_center,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${exercises ?? 12} bài tập',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: const [
-                      Icon(Icons.timer, color: Colors.white70, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'Độ bền bị theo thời gian',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: const [
-                      Icon(
-                        Icons.verified_user,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Được tham vấn bởi chuyên gia',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            // TabBar
-            DefaultTabController(
-              length: 2,
-              child: Expanded(
-                child: Column(
-                  children: [
-                    TabBar(
-                      indicatorColor: Color(0xFF8854FF),
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white54,
-                      tabs: const [
-                        Tab(text: 'Workout list'),
-                        Tab(text: 'Overview'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          // Workout list
-                          ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
-                            itemCount: workoutList?.length ?? 4,
-                            itemBuilder: (context, idx) {
-                              final name =
-                                  workoutList != null &&
-                                      idx < workoutList!.length
-                                  ? workoutList![idx]
-                                  : [
-                                      'Jump rope',
-                                      'Jumping jacks',
-                                      'Jog in place',
-                                      'Split snatches',
-                                    ][idx];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        width: 56,
-                                        height: 56,
-                                        color: Colors.deepPurple[300],
-                                        // Có thể thêm icon minh hoạ ở đây nếu muốn
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Text(
-                                        name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                      const SizedBox(height: 12),
+                      if (plan.description?.isNotEmpty == true) ...[
+                        GestureDetector(
+                          onTap: () => setState(
+                            () => _showFullDescription = !_showFullDescription,
                           ),
-                          // Overview
-                          Center(
-                            child: Text(
-                              'Overview content',
-                              style: TextStyle(color: Colors.white70),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Mô tả',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(.9),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                _showFullDescription
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 18,
+                                color: Colors.white54,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AnimatedCrossFade(
+                          firstChild: _DescriptionCard(
+                            text: plan.description!.length > 110
+                                ? plan.description!.substring(0, 110) + '...'
+                                : plan.description!,
+                          ),
+                          secondChild: _DescriptionCard(
+                            text: plan.description!,
+                          ),
+                          crossFadeState: _showFullDescription
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 250),
+                        ),
+                        const SizedBox(height: 26),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Bài tập',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withOpacity(.95),
+                            ),
+                          ),
+                          Text(
+                            _loadingExercises ? '...' : '$exercisesCount',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withOpacity(.55),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      Container(
+                        height: availableListHeight < 220
+                            ? 220
+                            : availableListHeight,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF19191D), Color(0xFF141416)],
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(.04),
+                          ),
+                        ),
+                        child: _loadingExercises
+                            ? const Center(child: CircularProgressIndicator())
+                            : _exercises.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'Chưa có bài tập',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(.65),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  14,
+                                  14,
+                                  14,
+                                ),
+                                itemCount: _exercises.length,
+                                itemBuilder: (c, i) =>
+                                    _ExerciseCard(model: _exercises[i]),
+                              ),
+                      ),
+                      const SizedBox(height: 28),
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_error)
+                        _ErrorInline(onRetry: _fetch),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12, top: 4),
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.10),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(.25),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(.55),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x000F0F11), Color(0xCC0F0F11)],
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: AppButton.primary(
+                  label: _cloning ? 'Đang tạo...' : 'Dùng template này',
+                  onPressed: _cloning ? null : _cloneTemplate,
+                  size: AppButtonSize.large,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// New custom header widget
+class _Header extends StatelessWidget {
+  final String planName;
+  final double height;
+  final String planType;
+  final int days;
+  final int? exercises; // null while loading
+  const _Header({
+    required this.planName,
+    required this.planType,
+    required this.days,
+    this.exercises,
+    this.height = 170,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF23232A), Color(0xFF141417)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: -40,
+            top: -30,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.purpleAccent.withOpacity(.08),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -20,
+            bottom: -20,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blueAccent.withOpacity(.07),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 18,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  planName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .4,
+                    color: Colors.white,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    _TypeBadge(planType: planType),
+                    _DaysBadge(days: days),
+                    if (exercises != null) _ExercisesBadge(count: exercises!),
                   ],
                 ),
-              ),
+              ],
             ),
-            // Button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text(
-                    'Thêm vào kế hoạch',
-                    style: TextStyle(fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeBadge extends StatelessWidget {
+  final String planType;
+  const _TypeBadge({required this.planType});
+  String _vn(String t) {
+    switch (t) {
+      case 'STRENGTH':
+        return 'Sức mạnh';
+      case 'CARDIO':
+        return 'Sức bền';
+      case 'FLEXIBILITY':
+        return 'Dẻo dai';
+      case 'COMBINED':
+        return 'Kết hợp';
+      default:
+        return t;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Color base;
+    switch (planType) {
+      case 'STRENGTH':
+        base = const Color(0xFF8854FF);
+        break;
+      case 'CARDIO':
+        base = const Color(0xFFFF7043);
+        break;
+      case 'FLEXIBILITY':
+        base = const Color(0xFF26A69A);
+        break;
+      case 'COMBINED':
+        base = const Color(0xFF42A5F5);
+        break;
+      default:
+        base = Colors.grey.shade600;
+    }
+    return _BaseBadge(
+      gradient: [base.withOpacity(.85), base.withOpacity(.55)],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.fitness_center, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            _vn(planType),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              letterSpacing: .4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DaysBadge extends StatelessWidget {
+  final int days;
+  const _DaysBadge({required this.days});
+  @override
+  Widget build(BuildContext context) {
+    return _BaseBadge(
+      gradient: const [Color(0xFF2E2E35), Color(0xFF1B1B1F)],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_today, size: 13, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            '$days ngày',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(.92),
+              letterSpacing: .4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BaseBadge extends StatelessWidget {
+  final List<Color> gradient;
+  final Widget child;
+  const _BaseBadge({required this.gradient, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        border: Border.all(color: Colors.white.withOpacity(.08), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.45),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ExercisesBadge extends StatelessWidget {
+  final int count;
+  const _ExercisesBadge({required this.count});
+  @override
+  Widget build(BuildContext context) {
+    return _BaseBadge(
+      gradient: const [Color(0xFF2E2532), Color(0xFF1A1920)],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.list_alt_rounded, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            '$count bài tập',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(.92),
+              letterSpacing: .4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------
+// New UI components
+// ------------------------------------------------------------
+
+class _DescriptionCard extends StatelessWidget {
+  final String text;
+  const _DescriptionCard({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF19191D), Color(0xFF141416)],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.55),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14.5,
+          height: 1.55,
+          color: Colors.white.withOpacity(.84),
+          letterSpacing: .25,
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorInline extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorInline({required this.onRetry});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(
+          Icons.error_outline,
+          size: 44,
+          color: Colors.redAccent.withOpacity(.9),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Không tải được chi tiết',
+          style: TextStyle(color: Colors.white70),
+        ),
+        const SizedBox(height: 10),
+        TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+      ],
+    );
+  }
+}
+
+// (Đã bỏ header cũ với các vòng tròn trang trí)
+
+// Exercise card
+class _ExerciseCard extends StatelessWidget {
+  final ExerciseModel model;
+  const _ExerciseCard({required this.model});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1C1C21), Color(0xFF141417)],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF2A2A30), Color(0xFF1A1A1D)],
+              ),
+              border: Border.all(color: Colors.white.withOpacity(.07)),
+            ),
+            child: const Icon(Icons.fitness_center, color: Colors.white70),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  model.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .3,
                   ),
                 ),
-              ),
+                if (model.description?.isNotEmpty == true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      model.description!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(.62),
+                        fontSize: 12.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Icon(Icons.chevron_right, color: Colors.white30),
+        ],
       ),
     );
   }

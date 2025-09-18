@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
 import '../../repositories/workout_day_exercises_repository.dart';
+import '../../widgets/exercise_actions_menu.dart';
+import '../../widgets/destructive_confirm_sheet.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -178,14 +182,11 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
         await Future.delayed(const Duration(milliseconds: 400));
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            canPatch
-                ? 'Đã cập nhật bài tập'
-                : 'Đã lưu cục bộ (thiếu context PATCH)',
-          ),
-        ),
+      AppSnackBar.showSuccess(
+        context,
+        canPatch
+            ? 'Đã cập nhật bài tập'
+            : 'Đã lưu cục bộ (thiếu context PATCH)',
       );
       Navigator.pop(context, {
         'sets': sets,
@@ -205,45 +206,19 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
   Future<void> _confirmDelete() async {
     if (widget.workoutDayExerciseId == null ||
         widget.workoutDayExerciseId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không có ID record để xoá')),
-      );
+      AppSnackBar.showWarning(context, 'Không có ID record để xoá');
       return;
     }
-    final ok = await showDialog<bool>(
+    final ok = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1C1E22),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Xác nhận xoá',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-          content: Text(
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DestructiveConfirmSheet(
+        title: 'Xoá bài tập',
+        message:
             'Bạn chắc chắn muốn xoá bài tập này khỏi ngày tập?\n\n"${_exercise?.name ?? ''}"',
-            style: const TextStyle(color: Colors.white70, height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ', style: TextStyle(color: Colors.white70)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text(
-                'Xoá',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+        confirmLabel: 'Xoá',
+        onConfirm: () => Navigator.pop(ctx, true),
+      ),
     );
     if (ok != true) return;
     setState(() => _deleting = true);
@@ -251,9 +226,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       final success = await _wdeRepo.delete(widget.workoutDayExerciseId!);
       if (!mounted) return;
       if (success) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Đã xoá bài tập')));
+        AppSnackBar.showSuccess(context, 'Đã xoá bài tập');
         Navigator.pop(context, {
           'deleted': true,
           'workoutDayExerciseId': widget.workoutDayExerciseId,
@@ -261,9 +234,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Xoá thất bại: $e')));
+        AppSnackBar.showError(context, 'Xoá thất bại: $e');
       }
     } finally {
       if (mounted) setState(() => _deleting = false);
@@ -405,9 +376,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Video demo chưa khả dụng')),
-                  );
+                  AppSnackBar.showInfo(context, 'Video demo chưa khả dụng');
                 },
                 child: Container(
                   width: 90,
@@ -444,23 +413,17 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
               onPressed: () => Navigator.pop(context),
             ),
           ),
-          // Delete icon góc phải
+          // Menu hành động (chỉ có xoá)
           Positioned(
             right: 4,
             top: MediaQuery.of(context).padding.top + 4,
-            child: IconButton(
-              icon: _deleting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.redAccent,
-                      ),
-                    )
-                  : const Icon(Icons.delete_outline, color: Colors.redAccent),
-              onPressed: _deleting ? null : _confirmDelete,
-              tooltip: 'Xoá bài tập',
+            child: ExerciseActionsMenu(
+              isDeleting: _deleting,
+              onAction: (a) async {
+                if (a == ExerciseAction.delete) {
+                  await _confirmDelete();
+                }
+              },
             ),
           ),
           Positioned(
@@ -600,9 +563,11 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                                 ),
                               ),
                             ),
-                            TextButton(
+                            AppButton.text(
+                              label: 'Thử lại',
                               onPressed: _fetch,
-                              child: const Text('Thử lại'),
+                              size: AppButtonSize.small,
+                              fullWidth: false,
                             ),
                           ],
                         ),
@@ -794,7 +759,6 @@ class _BottomBar extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    final disabled = !enabled;
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -815,87 +779,12 @@ class _BottomBar extends StatelessWidget {
           ),
         ],
       ),
-      child: GestureDetector(
-        onTap: disabled ? null : onSubmit,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 240),
-          opacity: disabled ? 0.55 : 1,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 22),
-            decoration: BoxDecoration(
-              gradient: disabled
-                  ? LinearGradient(
-                      colors: [Colors.grey[800]!, Colors.grey[700]!],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    )
-                  : const LinearGradient(
-                      colors: [Color(0xFFFF6B6B), Color(0xFFFF6B6B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: disabled
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: const Color(0xFFFF6B6B).withOpacity(0.32),
-                        blurRadius: 22,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!submitting) ...[
-                  const Icon(Icons.save_rounded, color: Colors.white, size: 24),
-                  const SizedBox(width: 10),
-                ],
-                Flexible(
-                  child: submitting
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.3,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Đang lưu...',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      child: AppButton.gradient(
+        label: submitting ? 'Đang lưu...' : label,
+        loading: submitting,
+        leadingIcon: submitting ? null : Icons.save_rounded,
+        onPressed: enabled && !submitting ? onSubmit : null,
+        size: AppButtonSize.large,
       ),
     );
   }

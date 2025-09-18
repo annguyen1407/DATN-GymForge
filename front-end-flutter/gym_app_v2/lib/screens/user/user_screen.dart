@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import 'package:flutter/services.dart';
 // import 'package:health/health.dart';
 import '../../services/log_out_service.dart';
@@ -151,34 +152,14 @@ class _UserScreenState extends State<UserScreen> {
                       ),
                       child: Column(
                         children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white12,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.logout,
-                                color: Color(0xFF8854FF),
-                              ),
-                              label: const Text(
-                                'Đăng xuất',
-                                style: TextStyle(
-                                  color: Color(0xFF8854FF),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              onPressed: () async {
-                                await LogoutService.logout(context);
-                              },
-                            ),
+                          AppButton.outline(
+                            label: 'Đăng xuất',
+                            size: AppButtonSize.medium,
+                            fullWidth: true,
+                            leadingIcon: Icons.logout,
+                            onPressed: () async {
+                              await LogoutService.logout(context);
+                            },
                           ),
                           const SizedBox(height: 8),
                           // _debugTokenButton(context),

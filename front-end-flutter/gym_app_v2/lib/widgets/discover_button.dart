@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../screens/coaches/coaches_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../screens/my_coach/my_coach_screen.dart';
+import 'app_snack_bar.dart';
 
 // File không sử dụng
 /// DiscoverButton: Nút khám phá trên trang Home
@@ -70,8 +71,9 @@ class _DiscoverButtonState extends State<DiscoverButton>
         break;
       default:
         // Fallback
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tính năng ${widget.label} đang phát triển')),
+        AppSnackBar.showInfo(
+          context,
+          'Tính năng ${widget.label} đang phát triển',
         );
     }
   }
