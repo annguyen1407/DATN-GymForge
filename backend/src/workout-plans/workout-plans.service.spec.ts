@@ -53,6 +53,18 @@ describe('WorkoutPlansService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      findMany: jest.fn(),
+    },
+    workoutDay: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    exercise: {
+      findUnique: jest.fn(),
+    },
+    workoutExerciseLog: {
+      groupBy: jest.fn(),
     },
   };
 
@@ -125,7 +137,7 @@ describe('WorkoutPlansService', () => {
       const result = await service.findAll();
 
       expect(mockPrismaService.workoutPlan.findMany).toHaveBeenCalledWith({
-        where: {},
+        where: { isTemplate: false },
         include: expect.any(Object),
         orderBy: { name: 'asc' },
       });
@@ -139,7 +151,7 @@ describe('WorkoutPlansService', () => {
       const result = await service.findAll('user-id');
 
       expect(mockPrismaService.workoutPlan.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-id' },
+        where: { userId: 'user-id', isTemplate: false },
         include: expect.any(Object),
         orderBy: { name: 'asc' },
       });
@@ -221,6 +233,9 @@ describe('WorkoutPlansService', () => {
 
     it('should add exercise to workout plan successfully', async () => {
       mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
+      mockPrismaService.workoutDay.findFirst.mockResolvedValue(null);
+      mockPrismaService.workoutDay.create.mockResolvedValue({ id: 'day-id', workoutPlanId: 'workout-plan-id', dayNumber: 1 });
+      (mockPrismaService as any).exercise.findUnique.mockResolvedValue({ id: 'exercise-id' });
       mockPrismaService.workoutExercise.create.mockResolvedValue(mockWorkoutExercise);
 
       const result = await service.addExercise(createWorkoutExerciseDto);
@@ -228,10 +243,9 @@ describe('WorkoutPlansService', () => {
       expect(mockPrismaService.workoutPlan.findUnique).toHaveBeenCalledWith({
         where: { id: createWorkoutExerciseDto.workoutPlanId },
       });
-      expect(mockPrismaService.workoutExercise.create).toHaveBeenCalledWith({
-        data: createWorkoutExerciseDto,
-        include: { workoutPlan: true },
-      });
+      expect(mockPrismaService.workoutDay.create).toHaveBeenCalled();
+      expect((mockPrismaService as any).exercise.findUnique).toHaveBeenCalledWith({ where: { id: createWorkoutExerciseDto.exerciseId } });
+      expect(mockPrismaService.workoutExercise.create).toHaveBeenCalled();
       expect(result).toEqual(mockWorkoutExercise);
     });
 
@@ -262,6 +276,50 @@ describe('WorkoutPlansService', () => {
       mockPrismaService.workoutExercise.findUnique.mockResolvedValue(null);
 
       await expect(service.removeExercise('invalid-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getDayStats', () => {
+    it('should return parent plan, day metadata, and aggregated stats', async () => {
+      const dayId = 'day-id';
+      (mockPrismaService as any).workoutDay.findUnique.mockResolvedValue({
+        id: dayId,
+        workoutPlanId: 'workout-plan-id',
+        dayNumber: 1,
+        date: new Date('2025-01-20'),
+        workoutPlan: { id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' },
+      });
+      (mockPrismaService as any).workoutExercise.findMany.mockResolvedValue([
+        { id: 'we-1', exerciseId: 'ex-1', targetSets: 3, targetReps: 10, targetWeight: 50, restTimeSec: 60, timePerSetSec: 40 },
+      ]);
+      (mockPrismaService as any).workoutExerciseLog.groupBy.mockResolvedValue([
+        { workoutExerciseId: 'we-1', _count: { _all: 2 }, _avg: { progressPercent: 60 }, _sum: { caloriesBurned: 200 } },
+      ]);
+
+      const res = await service.getDayStats(dayId);
+      expect(res.workoutPlan).toEqual({ id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' });
+      expect(res.day.id).toBe(dayId);
+      expect(res.stats).toHaveLength(1);
+      expect(res.stats[0].workoutExerciseId).toBe('we-1');
+      expect(res.stats[0].logsCount).toBe(2);
+      expect(res.stats[0].totalCaloriesBurned).toBe(200);
+    });
+
+    it('should handle a day that has no exercises', async () => {
+      const dayId = 'day-empty';
+      (mockPrismaService as any).workoutDay.findUnique.mockResolvedValue({
+        id: dayId,
+        workoutPlanId: 'workout-plan-id',
+        dayNumber: 2,
+        date: null,
+        workoutPlan: { id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' },
+      });
+      (mockPrismaService as any).workoutExercise.findMany.mockResolvedValue([]);
+
+      const res = await service.getDayStats(dayId);
+      expect(res.workoutPlan).toEqual({ id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' });
+      expect(res.day.id).toBe(dayId);
+      expect(res.stats).toEqual([]);
     });
   });
 });

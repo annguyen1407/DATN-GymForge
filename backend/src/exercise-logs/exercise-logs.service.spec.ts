@@ -29,6 +29,9 @@ describe('ExerciseLogsService', () => {
       findMany: jest.fn(),
       delete: jest.fn(),
     },
+    workoutExercise: {
+      findUnique: jest.fn(),
+    },
     setsLog: {
       createMany: jest.fn(),
       deleteMany: jest.fn(),
@@ -69,7 +72,7 @@ describe('ExerciseLogsService', () => {
 
       const createDto = {
         userId: 'non-existent-user',
-        exerciseId: 'exercise-id',
+        workoutExerciseId: 'we-id',
         date: '2024-01-15',
         sets: [],
       };
@@ -83,11 +86,12 @@ describe('ExerciseLogsService', () => {
     it('should create exercise log successfully', async () => {
       const mockUser = { id: 'user-id', name: 'Test User' };
       const mockExercise = { id: 'exercise-id', name: 'Push-ups', met: 3.5 };
+      const mockWorkoutExercise = { id: 'we-id' };
       const mockLog = { id: 'log-id', userId: 'user-id', dateLogged: new Date('2024-01-15') };
       const mockExerciseLog = { id: 'exercise-log-id', workoutLogId: 'log-id' };
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockPrismaService.exercise.findUnique.mockResolvedValue(mockExercise);
+      mockPrismaService.workoutExercise.findUnique.mockResolvedValue(mockWorkoutExercise);
       mockPrismaService.log.findFirst.mockResolvedValue(null);
       mockPrismaService.log.create.mockResolvedValue(mockLog);
       mockPrismaService.exerciseLog.create.mockResolvedValue(mockExerciseLog);
@@ -98,7 +102,7 @@ describe('ExerciseLogsService', () => {
 
       const createDto = {
         userId: 'user-id',
-        exerciseId: 'exercise-id',
+        workoutExerciseId: 'we-id',
         date: '2024-01-15',
         totalCaloriesBurned: 100,
         sets: [
@@ -134,15 +138,15 @@ describe('ExerciseLogsService', () => {
   });
 
   describe('quickLogExercise', () => {
-    it('should throw NotFoundException when exercise does not exist', async () => {
-      mockPrismaService.exercise.findUnique.mockResolvedValue(null);
+    it('should throw NotFoundException when workout exercise does not exist', async () => {
+      mockPrismaService.workoutExercise.findUnique.mockResolvedValue(null);
 
       const quickLogDto = {
-        exerciseId: 'non-existent-exercise',
+        workoutExerciseId: 'non-existent-we',
         sets: [{ reps: 12, weight: 50 }],
       };
 
-      await expect(service.quickLogExercise('user-id', quickLogDto)).rejects.toThrow(NotFoundException);
+      await expect(service.quickLogExercise('user-id', quickLogDto as any)).rejects.toThrow(NotFoundException);
     });
   });
 });

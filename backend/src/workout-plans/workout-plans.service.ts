@@ -304,6 +304,10 @@ export class WorkoutPlansService {
       await this.prisma.$transaction(exerciseCreates);
     }
 
+    // Sync 'days' field to actual count of WorkoutDay rows created
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: newWorkoutPlan.id } });
+    await this.prisma.workoutPlan.update({ where: { id: newWorkoutPlan.id }, data: { days: daysCount } });
+
     // Return the complete workout plan with exercises and days
     return this.findOne(newWorkoutPlan.id);
   }
@@ -400,13 +404,19 @@ export class WorkoutPlansService {
     const plan = await this.prisma.workoutPlan.findUnique({ where: { id: dto.workoutPlanId } });
     if (!plan) throw new NotFoundException('Workout plan not found');
 
-    return this.prisma.workoutDay.create({
+    const created = await this.prisma.workoutDay.create({
       data: {
         workoutPlanId: dto.workoutPlanId,
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
       },
     });
+
+    // Keep WorkoutPlan.days in sync with actual number of days
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: dto.workoutPlanId } });
+    await this.prisma.workoutPlan.update({ where: { id: dto.workoutPlanId }, data: { days: daysCount } });
+
+    return created;
   }
 
   async listDays(workoutPlanId: string) {
@@ -442,7 +452,14 @@ export class WorkoutPlansService {
     if (day.exercises.length > 0) {
       throw new BadRequestException('Cannot delete a day that has exercises. Remove exercises first.');
     }
-    return this.prisma.workoutDay.delete({ where: { id: dayId } });
+
+    const deleted = await this.prisma.workoutDay.delete({ where: { id: dayId } });
+
+    // Keep WorkoutPlan.days in sync with actual number of days
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: day.workoutPlanId } });
+    await this.prisma.workoutPlan.update({ where: { id: day.workoutPlanId }, data: { days: daysCount } });
+
+    return deleted;
   }
 
   // Workout Exercise methods
@@ -479,6 +496,9 @@ export class WorkoutPlansService {
       let day = await this.prisma.workoutDay.findFirst({ where: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
       if (!day) {
         day = await this.prisma.workoutDay.create({ data: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
+        // Keep WorkoutPlan.days in sync when an implicit day is created
+        const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: planId } });
+        await this.prisma.workoutPlan.update({ where: { id: planId }, data: { days: daysCount } });
       }
       dayId = day.id;
     } else {
@@ -597,7 +617,14 @@ export class WorkoutPlansService {
   }
 
   async getDayStats(dayId: string) {
-    const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
+    const day = await this.prisma.workoutDay.findUnique({
+      where: { id: dayId },
+      include: {
+        workoutPlan: {
+          select: { id: true, name: true, userId: true },
+        },
+      },
+    });
     if (!day) throw new NotFoundException('Workout day not found');
 
     const exercises = await this.prisma.workoutExercise.findMany({
@@ -614,19 +641,20 @@ export class WorkoutPlansService {
     });
 
     const ids = exercises.map((e) => e.id);
-    if (ids.length === 0) return [];
 
-    const agg = await this.prisma.workoutExerciseLog.groupBy({
-      by: ['workoutExerciseId'],
-      where: { workoutExerciseId: { in: ids } },
-      _count: { _all: true },
-      _avg: { progressPercent: true },
-      _sum: { caloriesBurned: true },
-    });
+    const agg = ids.length
+      ? await this.prisma.workoutExerciseLog.groupBy({
+          by: ['workoutExerciseId'],
+          where: { workoutExerciseId: { in: ids } },
+          _count: { _all: true },
+          _avg: { progressPercent: true },
+          _sum: { caloriesBurned: true },
+        })
+      : [];
 
     const aggMap = new Map(agg.map((a) => [a.workoutExerciseId, a]));
 
-    return exercises.map((e) => {
+    const stats = exercises.map((e) => {
       const a = aggMap.get(e.id) as any;
       return {
         workoutExerciseId: e.id,
@@ -643,6 +671,19 @@ export class WorkoutPlansService {
         totalCaloriesBurned: a?._sum?.caloriesBurned ?? 0,
       };
     });
+
+    return {
+      workoutPlan: day.workoutPlan
+        ? { id: day.workoutPlan.id, name: day.workoutPlan.name, userId: day.workoutPlan.userId }
+        : null,
+      day: {
+        id: day.id,
+        workoutPlanId: day.workoutPlanId,
+        dayNumber: day.dayNumber,
+        date: (day as any).date ?? null,
+      },
+      stats,
+    };
   }
 
   async listExerciseLogs(workoutExerciseId: string) {
