@@ -35,6 +35,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   Future<List<WorkoutDayModel>>? _futureDays;
   List<WorkoutDayModel> _days = [];
   bool _creating = false;
+  int _initialDaysCount = 0;
+  bool _daysDirty = false; // set true if days length changes
   // Local mutable fields for plan (edited via dialog)
   late String _planName;
   String? _planDescription;
@@ -159,6 +161,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       if (!mounted) return [];
       setState(() {
         _days = days;
+        if (_initialDaysCount == 0) {
+          _initialDaysCount = days.length; // capture baseline
+        } else if (days.length != _initialDaysCount) {
+          _daysDirty = true; // length changed after baseline
+        }
         if (_days.isNotEmpty &&
             (selectedExerciseIndex == null ||
                 selectedExerciseIndex! >= _days.length)) {
@@ -458,6 +465,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         _days.add(created);
         _days.sort((a, b) => (a.dayNumber ?? 0).compareTo(b.dayNumber ?? 0));
         selectedExerciseIndex = _days.length - 1;
+        if (_days.length != _initialDaysCount) {
+          _daysDirty = true;
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -468,9 +478,23 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     }
   }
 
+  Future<bool> _handlePop() async {
+    if (_daysDirty) {
+      Navigator.pop(context, {
+        'updatedDays': _days.length,
+        'planId': widget.planId,
+      });
+    } else {
+      Navigator.pop(context);
+    }
+    return false; // we've handled pop
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: _handlePop,
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Column(
         children: [
@@ -516,7 +540,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: _handlePop,
                       ),
                       PlanActionsMenu(
                         onAction: (action) async {
@@ -838,7 +862,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   // (Local helpers _getWorkoutDate & _formatDisplayDate removed – centralized in AppDateUtils)

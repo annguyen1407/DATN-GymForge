@@ -15,10 +15,17 @@ class ExploreTab extends StatefulWidget {
 
 class _ExploreTabState extends State<ExploreTab> {
   final _repo = WorkoutPlansRepository();
-  Future<List<WorkoutPlanModel>>? _future;
-  String? _currentFilter; // current selected planType or null = all
-  String _search = '';
   final _searchCtrl = TextEditingController();
+
+  // Raw data fetched once
+  List<WorkoutPlanModel> _allTemplates = [];
+  // Derived filtered list
+  List<WorkoutPlanModel> _filtered = [];
+
+  String? _selectedPlanType; // null = all
+  String _searchTerm = '';
+  bool _initialLoading = true;
+  bool _error = false;
 
   // Category definitions (UI + corresponding backend planType)
   // NOTE: If backend does not support ENDURANCE remove or map appropriately.
@@ -52,31 +59,60 @@ class _ExploreTabState extends State<ExploreTab> {
   @override
   void initState() {
     super.initState();
-    _fetch();
+    _loadInitial();
   }
 
-  void _fetch() {
+  Future<void> _loadInitial() async {
     setState(() {
-      _future = _repo.getTemplatePlans(planType: _currentFilter);
+      _initialLoading = true;
+      _error = false;
+    });
+    try {
+      final data = await _repo.getTemplatePlans();
+      if (!mounted) return;
+      _allTemplates = data;
+      _applyFilters();
+      setState(() {
+        _initialLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _initialLoading = false;
+        _error = true;
+      });
+    }
+  }
+
+  void _applyFilters() {
+    List<WorkoutPlanModel> result = _allTemplates;
+    if (_selectedPlanType != null) {
+      result = result.where((p) => p.planType == _selectedPlanType).toList();
+    }
+    if (_searchTerm.isNotEmpty) {
+      final q = _searchTerm.toLowerCase();
+      result = result.where((p) => p.name.toLowerCase().contains(q)).toList();
+    }
+    _filtered = result;
+  }
+
+  void _onSelect(String? planType) {
+    if (_selectedPlanType == planType) return;
+    setState(() {
+      _selectedPlanType = planType;
+      _applyFilters();
     });
   }
 
   Future<void> _refresh() async {
-    _fetch();
-    final f = _future;
-    if (f != null) await f;
-  }
-
-  void _onSelect(String? planType) {
-    if (_currentFilter == planType) return; // no change
-    _currentFilter = planType;
-    _fetch();
-  }
-
-  List<WorkoutPlanModel> _applySearch(List<WorkoutPlanModel> data) {
-    final q = _search.trim().toLowerCase();
-    if (q.isEmpty) return data;
-    return data.where((p) => p.name.toLowerCase().contains(q)).toList();
+    try {
+      final data = await _repo.getTemplatePlans();
+      if (!mounted) return;
+      setState(() {
+        _allTemplates = data;
+        _applyFilters();
+      });
+    } catch (_) {}
   }
 
   @override
@@ -94,8 +130,14 @@ class _ExploreTabState extends State<ExploreTab> {
           controller: _searchCtrl,
           hint: 'Tìm template...',
           variant: SearchBoxVariant.elevated,
-          onChanged: (v) => setState(() => _search = v),
-          onClear: () => setState(() => _search = ''),
+          onChanged: (v) => setState(() {
+            _searchTerm = v;
+            _applyFilters();
+          }),
+          onClear: () => setState(() {
+            _searchTerm = '';
+            _applyFilters();
+          }),
           padding: const EdgeInsets.symmetric(horizontal: 20),
         ),
         const SizedBox(height: 14),
@@ -111,9 +153,9 @@ class _ExploreTabState extends State<ExploreTab> {
                     child: Center(
                       child: _SelectableCategoryIcon(
                         category: c,
-                        active: _currentFilter == c.planType,
+                        active: _selectedPlanType == c.planType,
                         onTap: () => _onSelect(
-                          _currentFilter == c.planType ? null : c.planType,
+                          _selectedPlanType == c.planType ? null : c.planType,
                         ),
                       ),
                     ),
@@ -125,31 +167,28 @@ class _ExploreTabState extends State<ExploreTab> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: FutureBuilder<List<WorkoutPlanModel>>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+          child: Builder(
+            builder: (context) {
+              if (_initialLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snapshot.hasError) {
-                return _ExploreErrorState(onRetry: _refresh);
+              if (_error) {
+                return _ExploreErrorState(onRetry: _loadInitial);
               }
-              final data = _applySearch(snapshot.data ?? []);
-              if (data.isEmpty) {
-                return _ExploreEmptyState(onRefresh: _refresh);
+              if (_filtered.isEmpty) {
+                return _ExploreEmptyState(onRefresh: _loadInitial);
               }
               return RefreshIndicator(
                 onRefresh: _refresh,
                 color: Colors.redAccent,
                 child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-                  itemCount: data.length,
+                  itemCount: _filtered.length,
                   itemBuilder: (context, index) {
-                    final plan = data[index];
-                    final subtitleParts = <String>[];
-                    subtitleParts.add('${plan.days} ngày');
-                    subtitleParts.add('${plan.exercisesCount} bài tập');
-                    final subtitle = subtitleParts.join(' • ');
+                    final plan = _filtered[index];
+                    final subtitle =
+                        '${plan.days} ngày • ${plan.exercisesCount} bài tập';
                     return WorkoutCard(
                       image: plan.picture ?? '',
                       title: plan.name,
@@ -161,13 +200,17 @@ class _ExploreTabState extends State<ExploreTab> {
                         if (plan.userName != null) 'Bởi: ${plan.userName}',
                         plan.status,
                       ],
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => WorkoutTemplateScreen(plan: plan),
                           ),
                         );
+                        if (result != null) {
+                          // Optionally refresh or insert new plan; for now just reload data list.
+                          _refresh();
+                        }
                       },
                     );
                   },
