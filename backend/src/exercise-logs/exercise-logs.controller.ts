@@ -10,7 +10,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ExerciseLogsService } from './exercise-logs.service';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
 import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
@@ -42,7 +42,6 @@ export class ExerciseLogsController {
   @ApiResponse({ status: 201, description: 'Exercise logged successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'User, workout exercise, or workout plan not found' })
-  @ApiBody({ schema: { example: { userId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', workoutExerciseId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', date: '2025-01-10', dayNumber: 3, progressPercent: 40, totalCaloriesBurned: 120, notes: 'Good session', sets: [{ setNumber: 1, reps: 12, weight: 52.5 }] } } })
   create(@Body() createExerciseLogDto: CreateExerciseLogDto) {
     return this.exerciseLogsService.createExerciseLog(createExerciseLogDto);
   }
@@ -54,7 +53,6 @@ export class ExerciseLogsController {
   @ApiResponse({ status: 201, description: 'Exercise logged successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'Workout exercise or exercise not found' })
-  @ApiBody({ schema: { example: { workoutExerciseId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', sets: [{ reps: 10, weight: 50 }], notes: 'Felt good' } } })
   quickLog(@Body() quickLogDto: QuickLogExerciseDto, @CurrentUser() user: any) {
     return this.exerciseLogsService.quickLogExercise(user.id, quickLogDto);
   }
