@@ -304,6 +304,10 @@ export class WorkoutPlansService {
       await this.prisma.$transaction(exerciseCreates);
     }
 
+    // Sync 'days' field to actual count of WorkoutDay rows created
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: newWorkoutPlan.id } });
+    await this.prisma.workoutPlan.update({ where: { id: newWorkoutPlan.id }, data: { days: daysCount } });
+
     // Return the complete workout plan with exercises and days
     return this.findOne(newWorkoutPlan.id);
   }
@@ -400,13 +404,19 @@ export class WorkoutPlansService {
     const plan = await this.prisma.workoutPlan.findUnique({ where: { id: dto.workoutPlanId } });
     if (!plan) throw new NotFoundException('Workout plan not found');
 
-    return this.prisma.workoutDay.create({
+    const created = await this.prisma.workoutDay.create({
       data: {
         workoutPlanId: dto.workoutPlanId,
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
       },
     });
+
+    // Keep WorkoutPlan.days in sync with actual number of days
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: dto.workoutPlanId } });
+    await this.prisma.workoutPlan.update({ where: { id: dto.workoutPlanId }, data: { days: daysCount } });
+
+    return created;
   }
 
   async listDays(workoutPlanId: string) {
@@ -442,7 +452,14 @@ export class WorkoutPlansService {
     if (day.exercises.length > 0) {
       throw new BadRequestException('Cannot delete a day that has exercises. Remove exercises first.');
     }
-    return this.prisma.workoutDay.delete({ where: { id: dayId } });
+
+    const deleted = await this.prisma.workoutDay.delete({ where: { id: dayId } });
+
+    // Keep WorkoutPlan.days in sync with actual number of days
+    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: day.workoutPlanId } });
+    await this.prisma.workoutPlan.update({ where: { id: day.workoutPlanId }, data: { days: daysCount } });
+
+    return deleted;
   }
 
   // Workout Exercise methods
@@ -479,6 +496,9 @@ export class WorkoutPlansService {
       let day = await this.prisma.workoutDay.findFirst({ where: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
       if (!day) {
         day = await this.prisma.workoutDay.create({ data: { workoutPlanId: planId, dayNumber: dayNumber ?? undefined } });
+        // Keep WorkoutPlan.days in sync when an implicit day is created
+        const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: planId } });
+        await this.prisma.workoutPlan.update({ where: { id: planId }, data: { days: daysCount } });
       }
       dayId = day.id;
     } else {
