@@ -17,7 +17,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _daysCtrl = TextEditingController(); // new
+  // Days input removed: API will receive days = 0 by default
   String? _selectedPlanType; // new
   bool _submitting = false;
   final _repo = WorkoutPlansRepository();
@@ -59,22 +59,12 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       return;
     }
     // days optional validation
-    if (_daysCtrl.text.trim().isNotEmpty) {
-      final n = int.tryParse(_daysCtrl.text.trim());
-      if (n == null || n <= 0 || n > 365) {
-        _showSnackSafe(ScaffoldMessenger.of(context), 'Số ngày không hợp lệ');
-        return;
-      }
-    }
     if (!_formKey.currentState!.validate())
       return; // still respect field validators
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
     try {
-      final int? days = _daysCtrl.text.trim().isEmpty
-          ? null
-          : int.tryParse(_daysCtrl.text.trim());
       final plan = await _repo.createPlan(
         userId: widget.userId,
         name: _nameCtrl.text.trim(),
@@ -82,7 +72,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
             ? null
             : _descCtrl.text.trim(),
         planType: _selectedPlanType,
-        days: days,
+        days: 0,
       );
       if (!mounted) return; // widget still active?
       if (plan != null) {
@@ -124,7 +114,6 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
-    _daysCtrl.dispose();
     super.dispose();
   }
 
@@ -297,31 +286,6 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                                   setState(() => _selectedPlanType = t),
                             ),
                             const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _daysCtrl,
-                              enabled: !_submitting,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              style: const TextStyle(color: Colors.white),
-                              decoration: inputDecoration(
-                                'Số ngày',
-                                prefixIcon: const Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.white70,
-                                  size: 20,
-                                ),
-                              ),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return null;
-                                final n = int.tryParse(v.trim());
-                                if (n == null) return 'Không hợp lệ';
-                                if (n <= 0) return 'Phải > 0';
-                                if (n > 365) return 'Quá dài (<=365)';
-                                return null;
-                              },
-                            ),
                             const SizedBox(height: 18),
                             Text(
                               'Mô tả chi tiết',
