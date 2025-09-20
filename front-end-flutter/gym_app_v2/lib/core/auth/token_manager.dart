@@ -122,6 +122,33 @@ class TokenManager {
     }
   }
 
+  /// Decode current access token payload (claims). Returns null if none/invalid.
+  Future<Map<String, dynamic>?> getAccessTokenClaims() async {
+    final token = await _getAccessToken();
+    if (token == null) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Convenience: extract current user id (sub) from access token.
+  Future<String?> getCurrentUserId() async {
+    final claims = await getAccessTokenClaims();
+    if (claims == null) return null;
+    final sub = claims['sub'];
+    if (sub is String && sub.isNotEmpty) return sub;
+    return null;
+  }
+
   Future<TokenPair?> _doRefresh(String refreshToken) async {
     final outcome = await forceRefresh(refreshToken: refreshToken);
     return outcome.pair; // backward compatibility (null if not success)

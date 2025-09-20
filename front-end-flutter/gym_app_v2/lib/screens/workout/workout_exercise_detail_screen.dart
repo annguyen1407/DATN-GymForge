@@ -538,12 +538,22 @@ class _WorkoutExerciseDetailScreenState
                       workoutTitle: widget.dayTitle,
                       exercises: _exercises,
                       currentExerciseIndex: 0,
+                      workoutPlanId: widget.workoutPlanId,
+                      dayNumber: widget.dayNumber,
+                      workoutDayDate: _parseWorkoutDayDate(widget.date),
+                      workoutDayId: widget.workoutDayId,
                     ),
                   ),
                 );
               },
       ),
     );
+  }
+
+  DateTime _parseWorkoutDayDate(String raw) {
+    // raw có thể ISO hoặc dd/MM/yyyy (đang hiển thị). Reuse AppDateUtils nếu cần.
+    final parsed = AppDateUtils.parseIsoOrDisplay(raw) ?? DateTime.now();
+    return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
   Widget _buildFab() {
