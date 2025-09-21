@@ -138,8 +138,8 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                       count: mg.exercisesCount,
                       highlight: mg.id == '_ALL_',
                       onTap: () async {
-                        final created = await Navigator.push(
-                          context,
+                        final navigator = Navigator.of(context);
+                        final created = await navigator.push(
                           MaterialPageRoute(
                             builder: (_) => SelectExerciseScreen(
                               muscleGroup: mg,
@@ -150,8 +150,9 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                             ),
                           ),
                         );
-                        if (created != null) {
-                          if (mounted) Navigator.pop(context, created);
+                        if (!mounted) return;
+                        if (created != null && mounted) {
+                          navigator.pop(created);
                         }
                       },
                     );

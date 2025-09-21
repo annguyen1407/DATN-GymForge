@@ -54,6 +54,7 @@ class _SignInScreenState extends State<SignInScreen> {
       _loading = true;
     });
     final data = await ApiService.login(email, password);
+    if (!mounted) return; // context safety after await
     if (data != null &&
         data['status'] != null &&
         (data['status'] == 200 || data['status'] == 201) &&
@@ -65,6 +66,7 @@ class _SignInScreenState extends State<SignInScreen> {
         key: 'refresh_token',
         value: data['refresh_token'],
       );
+      if (!mounted) return; // re-check context before UI ops
       AppSnackBar.showSuccess(context, 'Đăng nhập thành công!');
       // Kiểm tra dateOfBirth
       final user = data['user'];
@@ -83,6 +85,7 @@ class _SignInScreenState extends State<SignInScreen> {
         ).pushNamedAndRemoveUntil('/main', (route) => false);
       }
     } else if (data != null && data['status'] == 401) {
+      if (!mounted) return;
       final msg = (data['message'] ?? '').toString().toLowerCase();
       if (msg.contains('verify your email')) {
         setState(() {
@@ -94,13 +97,16 @@ class _SignInScreenState extends State<SignInScreen> {
         });
       }
     } else {
+      if (!mounted) return;
       setState(() {
         _error = 'Đăng nhập thất bại!';
       });
     }
-    setState(() {
-      _loading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
   @override

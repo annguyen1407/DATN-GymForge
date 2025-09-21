@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 
 /// LogExerciseDetailScreen: Màn hình chi tiết một bài tập cụ thể
@@ -58,8 +59,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.8),
+                            Colors.black.withOpacityRatio(0.3),
+                            Colors.black.withOpacityRatio(0.8),
                           ],
                         ),
                       ),
@@ -105,10 +106,10 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                           width: 80, // Giảm từ 100 xuống 80
                           height: 80, // Giảm từ 100 xuống 80
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withOpacityRatio(0.2),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withOpacityRatio(0.5),
                               width: 2,
                             ),
                           ),
@@ -117,7 +118,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                               6,
                             ), // Giảm từ 8 xuống 6
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withOpacityRatio(0.9),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -264,7 +265,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       height: 80,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacity(0.6),
+        color: Colors.grey[800]?.withOpacityRatio(0.6),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -297,7 +298,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.grey[900]?.withOpacity(0.5),
+          color: Colors.grey[900]?.withOpacityRatio(0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[700]!, width: 0.5),
         ),

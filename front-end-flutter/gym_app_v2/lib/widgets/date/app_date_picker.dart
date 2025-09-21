@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../theme/design_tokens.dart';
 
 /// A reusable, design-token driven date picker presented as a bottom sheet
@@ -181,7 +182,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
             border: Border.all(color: DesignTokens.surfaceOutline, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withOpacityRatio(0.55),
                 blurRadius: isCompact ? 24 : 32,
                 offset: Offset(0, isCompact ? 10 : 18),
               ),
@@ -242,7 +243,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     width: 48,
     height: 5,
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.12),
+      color: Colors.white.withOpacityRatio(0.12),
       borderRadius: BorderRadius.circular(3),
     ),
   );
@@ -288,9 +289,9 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withOpacityRatio(0.06),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withOpacityRatio(0.08)),
             ),
             child: Row(
               children: [
@@ -310,7 +311,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                   child: Icon(
                     Icons.expand_more,
                     size: 16,
-                    color: DesignTokens.textSecondary.withOpacity(0.9),
+                    color: DesignTokens.textSecondary.withOpacityRatio(0.9),
                   ),
                 ),
               ],
@@ -396,7 +397,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
             if (day == null) {
               textColor = null;
             } else if (isDisabled) {
-              textColor = DesignTokens.textFaint.withOpacity(0.35);
+              textColor = DesignTokens.textFaint.withOpacityRatio(0.35);
             } else if (isSelected) {
               textColor = DesignTokens.textInverted;
             } else if (isToday) {
@@ -421,7 +422,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: DesignTokens.brand.withOpacity(0.35),
+                    color: DesignTokens.brand.withOpacityRatio(0.35),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -430,7 +431,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
             } else if (isToday) {
               deco = BoxDecoration(
                 border: Border.all(
-                  color: DesignTokens.brand.withOpacity(0.6),
+                  color: DesignTokens.brand.withOpacityRatio(0.6),
                   width: 1.2,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -561,7 +562,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                   } else if (isCurrentRealMonth) {
                     deco = BoxDecoration(
                       border: Border.all(
-                        color: DesignTokens.brand.withOpacity(0.6),
+                        color: DesignTokens.brand.withOpacityRatio(0.6),
                       ),
                       borderRadius: BorderRadius.circular(14),
                     );
@@ -652,16 +653,16 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
     VoidCallback? onTap, {
     bool disabled = false,
   }) {
-    final Color baseColor = Colors.white.withOpacity(0.07);
+    final Color baseColor = Colors.white.withOpacityRatio(0.07);
     return InkWell(
       onTap: disabled ? null : onTap,
       borderRadius: BorderRadius.circular(10),
       child: Ink(
         decoration: BoxDecoration(
-          color: disabled ? baseColor.withOpacity(0.15) : baseColor,
+          color: disabled ? baseColor.withOpacityRatio(0.15) : baseColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: Colors.white.withOpacity(disabled ? 0.04 : 0.08),
+            color: Colors.white.withOpacityRatio(disabled ? 0.04 : 0.08),
           ),
         ),
         padding: const EdgeInsets.all(6),
@@ -669,7 +670,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
           icon,
           size: 20,
           color: disabled
-              ? DesignTokens.textSecondary.withOpacity(0.35)
+              ? DesignTokens.textSecondary.withOpacityRatio(0.35)
               : DesignTokens.textSecondary,
         ),
       ),
@@ -741,7 +742,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
           child: OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: DesignTokens.textSecondary,
-              side: BorderSide(color: Colors.white.withOpacity(0.10)),
+              side: BorderSide(color: Colors.white.withOpacityRatio(0.10)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

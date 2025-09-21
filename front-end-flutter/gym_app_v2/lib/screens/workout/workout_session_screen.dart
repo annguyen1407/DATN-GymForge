@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import 'dart:async';
 import '../../widgets/app_button.dart';
 import '../../widgets/exercise_card.dart';
 import '../../utils/workout_completion.dart';
 import '../../services/exercise_logs_service.dart';
 import '../../core/auth/token_manager.dart';
+import '../../core/logging/app_logger.dart';
 
 /// WorkoutSessionScreen: Màn hình tập luyện chính
 /// Hiển thị timer, thông tin hiệp, điều khiển phát nhạc và danh sách bài tập
@@ -371,11 +373,12 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               onPressed: _isUploading
                   ? null
                   : () async {
+                      final navigator = Navigator.of(context);
                       await _uploadExerciseLogs();
-                      if (mounted) {
-                        Navigator.pop(context); // close dialog
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      }
+                      if (!mounted) return;
+                      navigator.pop(); // close dialog
+                      if (!mounted) return;
+                      navigator.popUntil((route) => route.isFirst);
                     },
             ),
           ],
@@ -583,7 +586,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       'timestamp': DateTime.now(),
     });
 
-    print('Logged set $currentSet: ${workoutTime}s, $currentReps reps');
+    AppLogger.debug(
+      'Logged set $currentSet: ${workoutTime}s, $currentReps reps',
+      tag: 'WorkoutSession',
+    );
 
     if (currentSet < currentExercise.sets) {
       // Chuyển sang hiệp tiếp theo
@@ -1067,7 +1073,7 @@ class _WorkoutList extends StatelessWidget {
                       ? Colors.orange
                       : isCompleted
                       ? Colors.grey[800]
-                      : Colors.grey[900]?.withOpacity(0.5),
+                      : Colors.grey[900]?.withOpacityRatio(0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

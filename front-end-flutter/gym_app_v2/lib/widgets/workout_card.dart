@@ -1,6 +1,7 @@
 // Dùng ở: workout_screen tab "Kế hoạch" và "Chuyên gia". Card hiển thị workout chung.
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
+import '../core/extensions/color_extensions.dart';
 
 /// Màu theo planType để hiển thị badge & gradient khi thiếu ảnh
 Color _planTypeColor(String? planType) {
@@ -66,12 +67,12 @@ class WorkoutCard extends StatelessWidget {
           color: DesignTokens.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: DesignTokens.surfaceOutline.withOpacity(.25),
+            color: DesignTokens.surfaceOutline.withOpacityRatio(.25),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(.5),
+              color: Colors.black.withOpacityRatio(.5),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -101,8 +102,8 @@ class WorkoutCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              accent.withOpacity(.55),
-                              Colors.black.withOpacity(.85),
+                              accent.withOpacityRatio(.55),
+                              Colors.black.withOpacityRatio(.85),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -117,8 +118,8 @@ class WorkoutCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            accent.withOpacity(.55),
-                            Colors.black.withOpacity(.85),
+                            accent.withOpacityRatio(.55),
+                            Colors.black.withOpacityRatio(.85),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -126,7 +127,7 @@ class WorkoutCard extends StatelessWidget {
                       ),
                       child: Icon(
                         Icons.fitness_center,
-                        color: Colors.white.withOpacity(.4),
+                        color: Colors.white.withOpacityRatio(.4),
                         size: 48,
                       ),
                     ),
@@ -136,8 +137,8 @@ class WorkoutCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.black.withOpacity(0.06),
-                            Colors.black.withOpacity(0.60),
+                            Colors.black.withOpacityRatio(0.06),
+                            Colors.black.withOpacityRatio(0.60),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -156,11 +157,11 @@ class WorkoutCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: accent.withOpacity(.9),
+                          color: accent.withOpacityRatio(.9),
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: accent.withOpacity(.4),
+                              color: accent.withOpacityRatio(.4),
                               blurRadius: 6,
                               offset: const Offset(0, 3),
                             ),
@@ -235,13 +236,12 @@ class WorkoutCard extends StatelessWidget {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: DesignTokens.surfaceOutline.withOpacity(
-                                  .08,
-                                ),
+                                color: DesignTokens.surfaceOutline
+                                    .withOpacityRatio(.08),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: DesignTokens.surfaceOutline
-                                      .withOpacity(.35),
+                                      .withOpacityRatio(.35),
                                   width: 1,
                                 ),
                               ),

@@ -34,9 +34,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   Future<void> _finishOnboarding(BuildContext context) async {
+    final navigator = Navigator.of(context);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('seenOnboarding', true);
-    Navigator.pushReplacementNamed(context, '/welcome');
+    if (!mounted) return;
+    navigator.pushReplacementNamed('/welcome');
   }
 
   void _nextPage() {
@@ -95,9 +97,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     padding: const EdgeInsets.only(top: 16, right: 24),
                     child: GestureDetector(
                       onTap: () async {
+                        final navigator = Navigator.of(context);
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('seenOnboarding', true);
-                        Navigator.pushReplacementNamed(context, '/welcome');
+                        if (!mounted) return;
+                        navigator.pushReplacementNamed('/welcome');
                       },
                       child: const Text(
                         'Bỏ qua',

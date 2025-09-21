@@ -96,11 +96,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                 parsed = AppDateUtils.normalizeToLocalDate(parsed);
               }
             }
-            if (parsed == null) {
-              parsed = AppDateUtils.parseIsoOrDisplay(
-                result['updatedDate'] as String?,
-              );
-            }
+            parsed ??= AppDateUtils.parseIsoOrDisplay(
+              result['updatedDate'] as String?,
+            );
             if (parsed != null) {
               final original = _days[idxLocal];
               _days[idxLocal] = WorkoutDayModel(
@@ -139,10 +137,13 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       final plan = await _repo.getPlan(widget.planId);
       if (!mounted) return;
       if (plan != null) {
+        if (!mounted) return; // context safety
         setState(() {
           _planType = plan.planType != 'UNKNOWN' ? plan.planType : _planType;
           // Only override name/description if they weren't provided (defensive)
-          if (_planName.isEmpty) _planName = plan.name;
+          if (_planName.isEmpty) {
+            _planName = plan.name;
+          }
           if (_planDescription == null || _planDescription!.isEmpty) {
             _planDescription = plan.description;
           }
@@ -223,17 +224,17 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.07),
+                        color: Colors.white.withOpacityRatio(0.07),
                         width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.65),
+                          color: Colors.black.withOpacityRatio(0.65),
                           blurRadius: 28,
                           offset: const Offset(0, 18),
                         ),
                         BoxShadow(
-                          color: Colors.pinkAccent.withOpacity(0.1),
+                          color: Colors.pinkAccent.withOpacityRatio(0.1),
                           blurRadius: 36,
                           spreadRadius: -4,
                         ),
@@ -288,7 +289,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             Text(
                               'Loại kế hoạch',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(.9),
+                                color: Colors.white.withOpacityRatio(.9),
                                 fontSize: 13,
                                 letterSpacing: .2,
                                 fontWeight: FontWeight.w500,
@@ -333,9 +334,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                     onPressed: saving
                                         ? null
                                         : () async {
+                                            final navigator = Navigator.of(
+                                              context,
+                                            );
+                                            final scaffoldMessenger =
+                                                ScaffoldMessenger.of(context);
                                             if (!formKey.currentState!
-                                                .validate())
+                                                .validate()) {
                                               return;
+                                            }
                                             setStateDialog(() => saving = true);
                                             final patched = await _repo
                                                 .updatePlan(
@@ -350,9 +357,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                             setStateDialog(
                                               () => saving = false,
                                             );
+                                            if (!mounted) return;
                                             if (patched != null) {
-                                              Navigator.pop(
-                                                context,
+                                              navigator.pop(
                                                 _EditPlanResult(
                                                   nameController.text.trim(),
                                                   descController.text
@@ -366,7 +373,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                               );
                                             } else {
                                               AppSnackBar.showError(
-                                                context,
+                                                scaffoldMessenger.context,
                                                 'Cập nhật thất bại',
                                               );
                                             }
@@ -388,15 +395,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       },
     );
 
+    if (!mounted) return;
     if (result != null) {
+      final success = result;
       setState(() {
-        _planName = result.name;
-        _planDescription = result.description;
-        _planType = result.planType;
+        _planName = success.name;
+        _planDescription = success.description;
+        _planType = success.planType;
       });
-      if (mounted) {
-        AppSnackBar.showSuccess(context, 'Đã cập nhật kế hoạch');
-      }
+      AppSnackBar.showSuccess(context, 'Đã cập nhật kế hoạch');
     }
   }
 
@@ -408,7 +415,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       fillColor: const Color(0xFF1E1E1E),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+        borderSide: BorderSide(color: Colors.white.withOpacityRatio(0.12)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -494,8 +501,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _handlePop,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _handlePop();
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Column(
@@ -554,6 +565,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                 await _openEditPlanDialog();
                                 break;
                               case PlanAction.delete:
+                                final navigator = Navigator.of(context);
+                                final scaffold = ScaffoldMessenger.of(context);
                                 final confirmed = await showModalBottomSheet<bool>(
                                   context: context,
                                   backgroundColor: Colors.transparent,
@@ -565,27 +578,26 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                     onConfirm: () => Navigator.pop(ctx, true),
                                   ),
                                 );
-                                if (confirmed == true) {
-                                  final deleted = await _repo.deletePlan(
-                                    widget.planId,
+                                if (!mounted || confirmed != true) return;
+                                final deleted = await _repo.deletePlan(
+                                  widget.planId,
+                                );
+                                if (!mounted) return;
+                                if (deleted != null) {
+                                  AppSnackBar.showSuccess(
+                                    scaffold.context,
+                                    'Đã xoá kế hoạch',
                                   );
-                                  if (!mounted) return;
-                                  if (deleted != null) {
-                                    AppSnackBar.showSuccess(
-                                      context,
-                                      'Đã xoá kế hoạch',
-                                    );
-                                    Navigator.pop(context, {
-                                      'deleted': true,
-                                      'id': deleted.id,
-                                      'name': deleted.name,
-                                    });
-                                  } else {
-                                    AppSnackBar.showError(
-                                      context,
-                                      'Xoá thất bại',
-                                    );
-                                  }
+                                  navigator.pop({
+                                    'deleted': true,
+                                    'id': deleted.id,
+                                    'name': deleted.name,
+                                  });
+                                } else {
+                                  AppSnackBar.showError(
+                                    scaffold.context,
+                                    'Xoá thất bại',
+                                  );
                                 }
                                 break;
                             }
@@ -626,7 +638,9 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: Colors.pinkAccent.withOpacity(.55),
+                                  color: Colors.pinkAccent.withOpacityRatio(
+                                    .55,
+                                  ),
                                   width: 1,
                                 ),
                                 gradient: LinearGradient(
@@ -634,7 +648,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                                   end: Alignment.bottomRight,
                                   colors: [
                                     const Color(0xFF2A2A2A),
-                                    Colors.pinkAccent.withOpacity(.18),
+                                    Colors.pinkAccent.withOpacityRatio(.18),
                                   ],
                                 ),
                               ),
@@ -756,7 +770,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                       Container(
                         height: 320, // Tăng chiều cao một chút
                         decoration: BoxDecoration(
-                          color: Colors.grey[900]?.withOpacity(0.2),
+                          color: Colors.grey[900]?.withOpacityRatio(0.2),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: Colors.grey[700]!,
@@ -937,12 +951,12 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                   color: const Color(0xFF1F1F1F),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(.08),
+                    color: Colors.white.withOpacityRatio(.08),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(.6),
+                      color: Colors.black.withOpacityRatio(.6),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
@@ -1001,14 +1015,17 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: widget.selectedType == null
-                  ? Colors.white.withOpacity(.18)
-                  : activeColor.withOpacity(.85),
+                  ? Colors.white.withOpacityRatio(.18)
+                  : activeColor.withOpacityRatio(.85),
               width: 1.05,
             ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [const Color(0xFF242424), activeColor.withOpacity(.18)],
+              colors: [
+                const Color(0xFF242424),
+                activeColor.withOpacityRatio(.18),
+              ],
             ),
           ),
           child: Row(
@@ -1037,7 +1054,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                   height: 10,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: activeColor.withOpacity(.9),
+                    color: activeColor.withOpacityRatio(.9),
                   ),
                 ),
             ],
@@ -1071,7 +1088,7 @@ class _TypeMenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? color.withOpacity(.15) : Colors.transparent,
+          color: active ? color.withOpacityRatio(.15) : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -1085,7 +1102,9 @@ class _TypeMenuItem extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: active ? Colors.white : Colors.white.withOpacity(.8),
+                  color: active
+                      ? Colors.white
+                      : Colors.white.withOpacityRatio(.8),
                   fontSize: 13.6,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 ),

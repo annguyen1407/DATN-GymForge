@@ -133,8 +133,8 @@ class _SelectExerciseScreenState extends State<SelectExerciseScreen> {
                         compact: true,
                         showDescription: false,
                         onTap: () async {
-                          final created = await Navigator.push(
-                            context,
+                          final navigator = Navigator.of(context);
+                          final created = await navigator.push(
                             MaterialPageRoute(
                               builder: (_) => ConfigureExerciseScreen(
                                 workoutPlanId: widget.workoutPlanId,
@@ -144,8 +144,9 @@ class _SelectExerciseScreenState extends State<SelectExerciseScreen> {
                               ),
                             ),
                           );
-                          if (created != null) {
-                            if (mounted) Navigator.pop(context, created);
+                          if (!mounted) return;
+                          if (created != null && mounted) {
+                            navigator.pop(created);
                           }
                         },
                       );

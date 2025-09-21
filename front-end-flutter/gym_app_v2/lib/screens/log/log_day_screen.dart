@@ -890,7 +890,7 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
                                             ),
                                           ),
                                         );
-                                      }).toList(),
+                                      }),
                                     const Divider(color: Colors.grey),
                                     Row(
                                       mainAxisAlignment:

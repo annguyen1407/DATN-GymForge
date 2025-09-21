@@ -1,5 +1,6 @@
 // ...existing code...
 import 'package:flutter/material.dart';
+import '../../../core/logging/app_logger.dart';
 import '../../../services/api_service.dart';
 import 'verify_email_screen.dart';
 import '../../../widgets/app_button.dart';
@@ -75,12 +76,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "role": "GYMER",
     };
     final result = await ApiService.signup(body);
-    print('Signup response:');
-    print(result);
+    if (!mounted) return; // context safety
+    AppLogger.info('Signup response:');
+    AppLogger.debug('$result', tag: 'Signup');
     if (result != null && result['status'] == 201) {
       setState(() {
         _loading = false;
       });
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => VerifyEmailScreen(email: email),
@@ -88,11 +91,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     } else if (result != null && result['status'] == 409) {
+      if (!mounted) return;
       setState(() {
         _error = 'Email hoặc tên đăng nhập đã tồn tại!';
         _loading = false;
       });
     } else {
+      if (!mounted) return;
       setState(() {
         _error = 'Đăng ký thất bại!';
         _loading = false;

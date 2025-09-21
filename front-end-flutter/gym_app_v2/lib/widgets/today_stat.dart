@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 /// TodayStat: widget thống kê ngắn gọn trong ngày (gộp từ TodayStats & StatsCard cũ)
@@ -44,19 +45,19 @@ class TodayStat extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             DesignTokens.surface,
-            DesignTokens.surfaceAlt.withOpacity(.95),
+            DesignTokens.surfaceAlt.withOpacityRatio(.95),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: DesignTokens.surfaceOutline.withOpacity(.5),
+          color: DesignTokens.surfaceOutline.withOpacityRatio(.5),
           width: 0.6,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.4),
+            color: Colors.black.withOpacityRatio(.4),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -70,7 +71,7 @@ class TodayStat extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  DesignTokens.warning.withOpacity(.85),
+                  DesignTokens.warning.withOpacityRatio(.85),
                   DesignTokens.warning,
                 ],
                 begin: Alignment.topLeft,
@@ -79,7 +80,7 @@ class TodayStat extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: DesignTokens.warning.withOpacity(0.45),
+                  color: DesignTokens.warning.withOpacityRatio(0.45),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                 ),
@@ -120,7 +121,7 @@ class TodayStat extends StatelessWidget {
                   _buildStatRow(
                     icon: Icons.restaurant,
                     color: Colors.orangeAccent,
-                    value: '${caloriesIntake} cal',
+                    value: '$caloriesIntake cal',
                     label: 'Calo đã nạp',
                     compact: compact,
                   ),

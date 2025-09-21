@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/exercise_model.dart';
+import '../core/extensions/color_extensions.dart';
 
 /// ExerciseSimpleCard: dùng chung cho danh sách bài tập (xem) và chọn thêm.
 /// - Hiển thị tên, specs (sets x reps), rest, weight nếu có, mô tả ngắn & tags nhóm cơ.
@@ -111,7 +112,7 @@ class ExerciseSimpleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.pinkAccent.withOpacity(0.12),
+        color: Colors.pinkAccent.withOpacityRatio(0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

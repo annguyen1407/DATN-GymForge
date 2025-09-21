@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import 'app_button.dart';
 import '../theme/design_tokens.dart';
 
 /// A reusable destructive confirmation bottom sheet used across screens.
-/// Return value convention: show it with showModalBottomSheet<bool>,
+/// Return value convention: show it with `showModalBottomSheet<bool>`,
 /// and pass `onConfirm: () => Navigator.pop(context, true)` so caller gets true.
 class DestructiveConfirmSheet extends StatelessWidget {
   final String title;
@@ -48,7 +49,7 @@ class DestructiveConfirmSheet extends StatelessWidget {
               height: 5,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withOpacityRatio(0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

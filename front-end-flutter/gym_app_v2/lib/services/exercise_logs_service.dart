@@ -133,17 +133,24 @@ class ExerciseLogsService {
       double intensity = 1.0;
       if (targetWeight > 0) {
         intensity = targetWeight == 0 ? 1 : (w / targetWeight);
-        if (intensity > maxIntensityMultiplier)
+        if (intensity > maxIntensityMultiplier) {
           intensity = maxIntensityMultiplier;
-        if (intensity < 0) intensity = 0;
+        }
+        if (intensity < 0) {
+          intensity = 0;
+        }
       }
       final load = reps * (w > 0 ? w : repValue) * intensity;
       achievedLoad += load;
     }
 
-    if (targetLoad <= 0) return 0;
+    if (targetLoad <= 0) {
+      return 0;
+    }
     double volumePercent = achievedLoad / targetLoad * 100;
-    if (!allowOver100 && volumePercent > 100) volumePercent = 100;
+    if (!allowOver100 && volumePercent > 100) {
+      volumePercent = 100;
+    }
     final setsPercent = loggedSets.isEmpty
         ? 0
         : (loggedSets.length / exercise.sets * 100).clamp(0, 100);

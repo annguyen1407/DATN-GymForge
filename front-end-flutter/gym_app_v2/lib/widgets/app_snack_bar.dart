@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 /// Unified styled snackbar helper with variants.
@@ -127,12 +128,12 @@ class _SnackContent extends StatelessWidget {
         DesignTokens.spaceS + 4,
       ),
       decoration: BoxDecoration(
-        color: bg.withOpacity(0.94),
+        color: bg.withOpacityRatio(0.94),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border.withOpacity(0.7), width: 1),
+        border: Border.all(color: border.withOpacityRatio(0.7), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withOpacityRatio(0.35),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),

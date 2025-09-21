@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 /// Unified reusable button system for the app's dark + purple accent theme.
@@ -73,8 +74,7 @@ class AppButton extends StatelessWidget {
     required this.overrideColor,
     required this.padding,
     required this.animationDuration,
-    Key? key,
-  }) : super(key: key);
+  });
 
   // Factory conveniences
   factory AppButton.primary({
@@ -405,7 +405,7 @@ class _ButtonSpec {
     const danger = DesignTokens.danger; // align with global semantic
     const surfaceDark = DesignTokens.surface; // closest mapping
     const surfaceDarker = DesignTokens.surfaceAlt; // deeper layer
-    final outlineColor = DesignTokens.surfaceOutline.withOpacity(0.55);
+    final outlineColor = DesignTokens.surfaceOutline.withOpacityRatio(0.55);
 
     double heightPad(AppButtonSize s) {
       switch (s) {
@@ -492,14 +492,14 @@ class _ButtonSpec {
 
     // Defaults
     Color fg = Colors.white;
-    Color? fgDisabled = Colors.white.withOpacity(0.45);
+    Color? fgDisabled = Colors.white.withOpacityRatio(0.45);
     Color? bg;
     Color? bgDisabled;
     Gradient? gradient;
     Gradient? disabledGradient;
     List<BoxShadow>? shadows;
     Border? border;
-    Color? splashColor = Colors.white.withOpacity(0.08);
+    Color? splashColor = Colors.white.withOpacityRatio(0.08);
 
     switch (v) {
       case AppButtonVariant.primary:
@@ -507,7 +507,7 @@ class _ButtonSpec {
         bgDisabled = surfaceDark;
         shadows = [
           BoxShadow(
-            color: (overrideColor ?? accent).withOpacity(0.38),
+            color: (overrideColor ?? accent).withOpacityRatio(0.38),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -516,10 +516,10 @@ class _ButtonSpec {
       case AppButtonVariant.secondary:
         bg = surfaceDark;
         bgDisabled = surfaceDarker;
-        fg = Colors.white.withOpacity(0.9);
+        fg = Colors.white.withOpacityRatio(0.9);
         shadows = [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withOpacityRatio(0.4),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -527,23 +527,23 @@ class _ButtonSpec {
         break;
       case AppButtonVariant.outline:
         bg = surfaceDarker;
-        bgDisabled = surfaceDarker.withOpacity(0.8);
-        fg = Colors.white.withOpacity(0.9);
+        bgDisabled = surfaceDarker.withOpacityRatio(0.8);
+        fg = Colors.white.withOpacityRatio(0.9);
         border = Border.all(color: outlineColor, width: 1);
         break;
       case AppButtonVariant.text:
         bg = Colors.transparent;
         bgDisabled = Colors.transparent;
         fg = overrideColor ?? accent;
-        splashColor = (overrideColor ?? accent).withOpacity(.15);
+        splashColor = (overrideColor ?? accent).withOpacityRatio(.15);
         break;
       case AppButtonVariant.danger:
         bg = danger;
-        bgDisabled = danger.withOpacity(.5);
+        bgDisabled = danger.withOpacityRatio(.5);
         fg = Colors.white;
         shadows = [
           BoxShadow(
-            color: danger.withOpacity(0.35),
+            color: danger.withOpacityRatio(0.35),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -560,8 +560,8 @@ class _ButtonSpec {
         );
         disabledGradient = LinearGradient(
           colors: [
-            DesignTokens.brandGradientStart.withOpacity(.4),
-            DesignTokens.brandGradientEnd.withOpacity(.4),
+            DesignTokens.brandGradientStart.withOpacityRatio(.4),
+            DesignTokens.brandGradientEnd.withOpacityRatio(.4),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -569,7 +569,7 @@ class _ButtonSpec {
         fg = Colors.white;
         shadows = [
           BoxShadow(
-            color: accentAlt.withOpacity(0.35),
+            color: accentAlt.withOpacityRatio(0.35),
             blurRadius: 22,
             spreadRadius: 1,
             offset: const Offset(0, 8),
@@ -577,16 +577,19 @@ class _ButtonSpec {
         ];
         break;
       case AppButtonVariant.subtle:
-        bg = Colors.white.withOpacity(0.06);
-        bgDisabled = Colors.white.withOpacity(0.04);
-        fg = Colors.white.withOpacity(0.85);
-        border = Border.all(color: Colors.white.withOpacity(0.08), width: 1);
+        bg = Colors.white.withOpacityRatio(0.06);
+        bgDisabled = Colors.white.withOpacityRatio(0.04);
+        fg = Colors.white.withOpacityRatio(0.85);
+        border = Border.all(
+          color: Colors.white.withOpacityRatio(0.08),
+          width: 1,
+        );
         break;
     }
 
     return _ButtonSpec(
       bg: bg,
-      bgDisabled: bgDisabled ?? bg?.withOpacity(.55),
+      bgDisabled: bgDisabled ?? bg?.withOpacityRatio(.55),
       fg: fg,
       fgDisabled: fgDisabled,
       gradient: gradient,

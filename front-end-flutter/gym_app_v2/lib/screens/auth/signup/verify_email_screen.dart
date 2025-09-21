@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import '../../../services/api_service.dart';
 import 'verify_success_screen.dart';
@@ -192,14 +193,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withOpacityRatio(0.3),
                           blurRadius: 16,
                           offset: Offset(0, 8),
                         ),
                       ],
                       border: Border.all(
                         width: 2,
-                        color: Colors.purpleAccent.withOpacity(0.5),
+                        color: Colors.purpleAccent.withOpacityRatio(0.5),
                       ),
                     ),
                     child: Column(
@@ -253,7 +254,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.12),
+                                    color: Colors.black.withOpacityRatio(0.12),
                                     blurRadius: 4,
                                     offset: Offset(0, 2),
                                   ),

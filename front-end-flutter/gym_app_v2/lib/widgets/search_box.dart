@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 enum SearchBoxVariant { filled, elevated, outlined }
@@ -84,7 +85,7 @@ class _SearchBoxState extends State<SearchBox> {
           borderRadius: BorderRadius.circular(widget.borderRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(_focused ? 0.7 : 0.5),
+              color: Colors.black.withOpacityRatio(_focused ? 0.7 : 0.5),
               blurRadius: _focused ? 10 : 6,
               offset: Offset(0, _focused ? 4 : 3),
             ),
@@ -98,7 +99,7 @@ class _SearchBoxState extends State<SearchBox> {
           border: Border.all(
             color: _focused
                 ? DesignTokens.brand
-                : DesignTokens.surfaceOutline.withOpacity(.35),
+                : DesignTokens.surfaceOutline.withOpacityRatio(.35),
             width: 1.2,
           ),
         );

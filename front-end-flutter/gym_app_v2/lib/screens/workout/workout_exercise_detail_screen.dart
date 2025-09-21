@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 // import '../../services/api_service.dart'; // replaced by repository abstraction
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/day_actions_menu.dart';
@@ -115,6 +116,7 @@ class _WorkoutExerciseDetailScreenState
           cancelLabel: 'Huỷ',
           disablePast: true,
         );
+        if (!mounted) return;
         if (picked == null) return;
         showDialog(
           context: context,
@@ -158,6 +160,7 @@ class _WorkoutExerciseDetailScreenState
             onConfirm: () => Navigator.pop(ctx, true),
           ),
         );
+        if (!mounted) return;
         if (confirmed != true) return;
         try {
           showDialog(
@@ -229,10 +232,11 @@ class _WorkoutExerciseDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         _popWithResult();
-        return false; // chặn pop mặc định vì đã tự xử lý
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -270,8 +274,8 @@ class _WorkoutExerciseDetailScreenState
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withOpacityRatio(0.3),
+                    Colors.black.withOpacityRatio(0.8),
                   ],
                 ),
               ),
@@ -614,7 +618,7 @@ class _WorkoutExerciseDetailScreenState
       height: 80,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacity(0.6),
+        color: Colors.grey[800]?.withOpacityRatio(0.6),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 
 /// Generic 3-dots popup actions menu to unify styling across Plan / Day / Exercise.
 ///
@@ -40,12 +41,14 @@ class AppActionsMenu<T extends Object> extends StatelessWidget {
       color: backgroundColor ?? const Color(0xFF1E1E1E),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.white.withOpacity(0.06), width: 1),
+        side: BorderSide(color: Colors.white.withOpacityRatio(0.06), width: 1),
       ),
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.4),
+      shadowColor: Colors.black.withOpacityRatio(0.4),
       icon: _buildIconButton(context),
-      onSelected: onSelected,
+      onSelected: (v) {
+        onSelected(v);
+      },
       itemBuilder: (ctx) => _buildEntries(),
     );
   }
@@ -59,7 +62,7 @@ class AppActionsMenu<T extends Object> extends StatelessWidget {
       } else {
         entries.add(
           PopupMenuItem<T>(
-            value: item.value!,
+            value: item.value as T,
             child: Row(
               children: [
                 if (item.icon != null)
@@ -88,9 +91,12 @@ class AppActionsMenu<T extends Object> extends StatelessWidget {
   Widget _buildIconButton(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withOpacityRatio(0.08),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        border: Border.all(
+          color: Colors.white.withOpacityRatio(0.15),
+          width: 1,
+        ),
       ),
       padding: iconPadding,
       child: Icon(Icons.more_vert, color: Colors.white, size: iconSize),
@@ -104,8 +110,11 @@ class AppActionsMenu<T extends Object> extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.08),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        color: Colors.white.withOpacityRatio(0.08),
+        border: Border.all(
+          color: Colors.white.withOpacityRatio(0.15),
+          width: 1,
+        ),
       ),
       child: const SizedBox(
         width: 18,

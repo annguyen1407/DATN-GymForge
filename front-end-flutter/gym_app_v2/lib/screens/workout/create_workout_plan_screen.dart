@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -41,7 +42,9 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       k == null ? 'Chọn loại kế hoạch' : (_planTypeVN[k] ?? k);
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     // Validation thủ công trước call API
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
@@ -59,8 +62,9 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       return;
     }
     // days optional validation
-    if (!_formKey.currentState!.validate())
+    if (!_formKey.currentState!.validate()) {
       return; // still respect field validators
+    }
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
@@ -96,7 +100,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: Colors.grey.shade900.withOpacity(.95),
+        backgroundColor: Colors.grey.shade900.withOpacityRatio(.95),
       ),
     );
   }
@@ -210,17 +214,17 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                           ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.07),
+                            color: Colors.white.withOpacityRatio(0.07),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.65),
+                              color: Colors.black.withOpacityRatio(0.65),
                               blurRadius: 28,
                               offset: const Offset(0, 18),
                             ),
                             BoxShadow(
-                              color: Colors.pinkAccent.withOpacity(0.1),
+                              color: Colors.pinkAccent.withOpacityRatio(0.1),
                               blurRadius: 36,
                               spreadRadius: -4,
                             ),
@@ -270,7 +274,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                             Text(
                               'Loại kế hoạch',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(.9),
+                                color: Colors.white.withOpacityRatio(.9),
                                 fontSize: 13,
                                 letterSpacing: .2,
                                 fontWeight: FontWeight.w500,
@@ -290,7 +294,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                             Text(
                               'Mô tả chi tiết',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(.72),
+                                color: Colors.white.withOpacityRatio(.72),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1,
@@ -313,7 +317,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                               child: Text(
                                 'Nhấn Lưu kế hoạch để hoàn tất',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(.45),
+                                  color: Colors.white.withOpacityRatio(.45),
                                   fontSize: 12,
                                   letterSpacing: .3,
                                 ),
@@ -388,12 +392,12 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                   color: const Color(0xFF222222),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(.08),
+                    color: Colors.white.withOpacityRatio(.08),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(.6),
+                      color: Colors.black.withOpacityRatio(.6),
                       blurRadius: 24,
                       offset: const Offset(0, 14),
                     ),
@@ -459,8 +463,8 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: hasSelection
-                  ? activeColor!.withOpacity(.9)
-                  : Colors.white.withOpacity(.14),
+                  ? activeColor!.withOpacityRatio(.9)
+                  : Colors.white.withOpacityRatio(.14),
               width: 1.05,
             ),
             gradient: hasSelection
@@ -469,7 +473,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFF242424),
-                      activeColor!.withOpacity(.20),
+                      activeColor!.withOpacityRatio(.20),
                     ],
                   )
                 : const LinearGradient(
@@ -483,7 +487,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
               Icon(
                 Icons.category_rounded,
                 color: hasSelection
-                    ? activeColor!.withOpacity(.95)
+                    ? activeColor!.withOpacityRatio(.95)
                     : Colors.white60,
                 size: 20,
               ),
@@ -506,7 +510,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                 child: Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: hasSelection
-                      ? activeColor!.withOpacity(.95)
+                      ? activeColor!.withOpacityRatio(.95)
                       : Colors.white38,
                   size: 22,
                 ),
@@ -538,7 +542,7 @@ class _TypeMenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? color.withOpacity(.15) : Colors.transparent,
+          color: active ? color.withOpacityRatio(.15) : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -552,7 +556,9 @@ class _TypeMenuItem extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: active ? Colors.white : Colors.white.withOpacity(.8),
+                  color: active
+                      ? Colors.white
+                      : Colors.white.withOpacityRatio(.8),
                   fontSize: 13.6,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -633,7 +639,7 @@ class _GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E).withOpacity(.85),
+        color: const Color(0xFF1E1E1E).withOpacityRatio(.85),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10, width: 1),
         boxShadow: const [

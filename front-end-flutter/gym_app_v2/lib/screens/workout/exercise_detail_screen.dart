@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
@@ -264,14 +265,14 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: invalid
-                ? Colors.redAccent.withOpacity(0.6)
+                ? Colors.redAccent.withOpacityRatio(0.6)
                 : Colors.grey[800]!,
             width: invalid ? 1.2 : 1,
           ),
           boxShadow: [
             if (!invalid)
               BoxShadow(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withOpacityRatio(0.35),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
@@ -383,8 +384,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.25),
-                    Colors.black.withOpacity(0.85),
+                    Colors.black.withOpacityRatio(0.25),
+                    Colors.black.withOpacityRatio(0.85),
                   ],
                 ),
               ),
@@ -405,16 +406,16 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withOpacityRatio(0.4),
                       width: 2,
                     ),
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withOpacityRatio(0.15),
                   ),
                   child: Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.92),
+                      color: Colors.white.withOpacityRatio(0.92),
                     ),
                     child: const Icon(
                       Icons.play_arrow,
@@ -524,10 +525,10 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                         margin: const EdgeInsets.only(bottom: 20),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.12),
+                          color: Colors.redAccent.withOpacityRatio(0.12),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: Colors.redAccent.withOpacity(0.4),
+                            color: Colors.redAccent.withOpacityRatio(0.4),
                             width: 1,
                           ),
                         ),
@@ -558,10 +559,10 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                         margin: const EdgeInsets.only(bottom: 20),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.12),
+                          color: Colors.redAccent.withOpacityRatio(0.12),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: Colors.redAccent.withOpacity(0.4),
+                            color: Colors.redAccent.withOpacityRatio(0.4),
                             width: 1,
                           ),
                         ),
@@ -789,13 +790,13 @@ class _BottomBar extends StatelessWidget {
         bottom: 16 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B0C0E).withOpacity(0.96),
+        color: const Color(0xFF0B0C0E).withOpacityRatio(0.96),
         border: const Border(
           top: BorderSide(color: Colors.white10, width: 0.6),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.7),
+            color: Colors.black.withOpacityRatio(0.7),
             blurRadius: 14,
             offset: const Offset(0, -3),
           ),
@@ -830,7 +831,7 @@ class _MuscleTag extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF6B6B).withOpacity(0.45),
+              color: const Color(0xFFFF6B6B).withOpacityRatio(0.45),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),
@@ -860,9 +861,12 @@ class _MuscleTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.10),
+        color: Colors.white.withOpacityRatio(0.10),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.18), width: 0.8),
+        border: Border.all(
+          color: Colors.white.withOpacityRatio(0.18),
+          width: 0.8,
+        ),
       ),
       child: Text(
         text,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 import 'package:flutter/services.dart';
 // import 'package:health/health.dart';
@@ -30,8 +32,9 @@ class _UserScreenState extends State<UserScreen> {
     if (user != null) {
       // In ra terminal khi fetchProfile thành công
       // ignore: avoid_print
-      print(
-        '[UserScreen] fetchProfile thành công: ${user.name} (${user.email})',
+      AppLogger.info(
+        'fetchProfile thành công: ${user.name} (${user.email})',
+        tag: 'UserScreen',
       );
     }
     setState(() {
@@ -191,7 +194,7 @@ class _UserStat extends StatelessWidget {
     return Column(
       children: [
         CircleAvatar(
-          backgroundColor: color.withOpacity(0.15),
+          backgroundColor: color.withOpacityRatio(0.15),
           child: Icon(icon, color: color),
         ),
         const SizedBox(height: 6),

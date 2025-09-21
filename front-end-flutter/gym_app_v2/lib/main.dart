@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'services/api_service.dart';
+import 'core/logging/app_logger.dart';
 // Import các màn hình chính của app
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/welcome/welcome_screen.dart';
@@ -20,7 +21,7 @@ const String kAccessTokenKey = 'access_token';
 const String kRefreshTokenKey = 'refresh_token';
 
 /// Entry point của ứng dụng
-final GlobalKey<_MyAppState> myAppKey = GlobalKey<_MyAppState>();
+final GlobalKey<MyAppState> myAppKey = GlobalKey<MyAppState>();
 void main() {
   runApp(MyApp(key: myAppKey));
 }
@@ -30,14 +31,14 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<MyApp> createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> {
   // Cho phép gọi từ nơi khác để hủy timer refresh token
   void cancelRefreshTimer() {
     _refreshTimer?.cancel();
-    print('Đã hủy timer refresh token');
+    AppLogger.info('Đã hủy timer refresh token', tag: 'App');
   }
 
   Timer? _refreshTimer;
@@ -103,7 +104,7 @@ class _MyAppState extends State<MyApp> {
           });
           _refreshTimer?.cancel();
         } else {
-          print('Vào MainScreen, bắt đầu refresh token');
+          AppLogger.info('Vào MainScreen, bắt đầu refresh token', tag: 'App');
           setState(() {
             _home = const MainScreen();
             _loading = false;

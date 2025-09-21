@@ -1,5 +1,6 @@
 // Dùng ở: log_screen, workout_screen. Hiển thị icon tròn có badge cho category/action nhanh.
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 /// A reusable widget that displays a circular icon with an optional count badge and a label below.
@@ -51,7 +52,7 @@ class CategoryIcon extends StatelessWidget {
             // Nền tròn với icon ở giữa
             CircleAvatar(
               radius: 28,
-              backgroundColor: color.withOpacity(
+              backgroundColor: color.withOpacityRatio(
                 0.15,
               ), // giữ sắc độ theo màu truyền vào (category accent)
               child: Icon(icon, color: color, size: 28),
@@ -69,7 +70,7 @@ class CategoryIcon extends StatelessWidget {
                     border: Border.all(color: DesignTokens.surface, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: DesignTokens.brand.withOpacity(0.35),
+                        color: DesignTokens.brand.withOpacityRatio(0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),

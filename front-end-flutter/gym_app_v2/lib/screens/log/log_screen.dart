@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../widgets/today_stat.dart';
 import '../../repositories/exercise_log_repository.dart';
+import '../../services/api_constants.dart';
 import '../../core/auth/token_manager.dart';
 import '../../services/log_out_service.dart';
 import '../../widgets/category_icon.dart';
@@ -14,10 +16,10 @@ class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
 
   @override
-  _LogScreenState createState() => _LogScreenState();
+  LogScreenState createState() => LogScreenState();
 }
 
-class _LogScreenState extends State<LogScreen>
+class LogScreenState extends State<LogScreen>
     with SingleTickerProviderStateMixin {
   // State variable to track the selected tab
   String _selectedTab = 'Lịch sử';
@@ -42,7 +44,7 @@ class _LogScreenState extends State<LogScreen>
   DailyExerciseLogSummary? _dailySummary;
   bool _loadingSummary = false;
   String? _summaryError;
-  final _repo = ExerciseLogRepository(baseUrl: 'http://localhost:3000');
+  final _repo = ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
   String? _userId;
   String? _accessToken;
   bool _authResolving = true; // while resolving token & user id
@@ -128,6 +130,12 @@ class _LogScreenState extends State<LogScreen>
       );
       setState(() {
         _dailySummary = res;
+        if (res != null) {
+          // Update weight/height from latest daily summary if provided
+          if (res.weight != null) _weight = res.weight;
+          // Only overwrite height if provided and > 0 to avoid wiping manual input
+          if (res.height != null && res.height! > 0) _height = res.height;
+        }
       });
     } catch (e) {
       setState(() {
@@ -504,7 +512,7 @@ class _LogScreenState extends State<LogScreen>
               const SizedBox(height: 16),
               // Conditionally show LogWorkoutTimeCard or TableCalendar
               _showWorkoutTimeCard
-                  ? const LogWorkoutTimeCard()
+                  ? LogWorkoutTimeCard(userId: _userId, token: _accessToken)
                   : TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
@@ -540,7 +548,7 @@ class _LogScreenState extends State<LogScreen>
                           shape: BoxShape.circle,
                         ),
                         todayDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withOpacityRatio(0.3),
                           shape: BoxShape.circle,
                         ),
                         outsideTextStyle: const TextStyle(

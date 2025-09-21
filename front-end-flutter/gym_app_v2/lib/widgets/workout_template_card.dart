@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
+import '../core/extensions/color_extensions.dart';
 import 'app_button.dart';
 
 /// Clean rebuilt WorkoutTemplateCard. Previous file was corrupted with duplicates.
@@ -35,7 +36,7 @@ class WorkoutTemplateCard extends StatelessWidget {
       color: DesignTokens.surfaceAlt,
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
-        color: DesignTokens.surfaceOutline.withOpacity(.35),
+        color: DesignTokens.surfaceOutline.withOpacityRatio(.35),
         width: 1,
       ),
     ),
@@ -105,7 +106,7 @@ class WorkoutTemplateCard extends StatelessWidget {
         color: DesignTokens.surfaceAlt,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: DesignTokens.surfaceOutline.withOpacity(.35),
+          color: DesignTokens.surfaceOutline.withOpacityRatio(.35),
           width: 1,
         ),
       ),
@@ -116,7 +117,7 @@ class WorkoutTemplateCard extends StatelessWidget {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: DesignTokens.overlayMedium.withOpacity(
+                  color: DesignTokens.overlayMedium.withOpacityRatio(
                     showAccept ? 0.75 : 0.45,
                   ),
                   borderRadius: BorderRadius.circular(18),
@@ -136,7 +137,7 @@ class WorkoutTemplateCard extends StatelessWidget {
                   color: _tagColor(tag!),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: DesignTokens.surfaceOutline.withOpacity(.25),
+                    color: DesignTokens.surfaceOutline.withOpacityRatio(.25),
                     width: 1,
                   ),
                 ),
@@ -240,7 +241,7 @@ class WorkoutTemplateCard extends StatelessWidget {
     ),
     child: Icon(
       Icons.image_not_supported_outlined,
-      color: Colors.white.withOpacity(.55),
+      color: Colors.white.withOpacityRatio(.55),
       size: (width ?? 64) * .5,
     ),
   );
