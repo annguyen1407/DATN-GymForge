@@ -39,7 +39,7 @@ class PlanCard extends StatelessWidget {
         effectivePlanTypeChip = _SmallChip(
           label: localized,
           icon: Icons.label_important,
-          color: color.withOpacity(.95),
+          color: color.withValues(alpha: .95),
         );
       }
     }
@@ -53,7 +53,7 @@ class PlanCard extends StatelessWidget {
           border: Border.all(color: Colors.grey[850]!, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(.55),
+              color: Colors.black.withValues(alpha: .55),
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
@@ -68,8 +68,8 @@ class PlanCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      planTypeColor.withOpacity(.60),
-                      Colors.black.withOpacity(.92),
+                      planTypeColor.withValues(alpha: .60),
+                      Colors.black.withValues(alpha: .92),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -107,12 +107,12 @@ class PlanCard extends StatelessWidget {
                         _SmallChip(
                           label: 'Ngày thứ ${plan['dayNumber']}',
                           icon: Icons.today,
-                          color: planTypeColor.withOpacity(.90),
+                          color: planTypeColor.withValues(alpha: .90),
                         ),
                       _SmallChip(
                         label: '$exercisesCount bài tập',
                         icon: Icons.fitness_center,
-                        color: planTypeColor.withOpacity(.85),
+                        color: planTypeColor.withValues(alpha: .85),
                       ),
                     ],
                   ),
@@ -137,7 +137,7 @@ class PlanCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    planTypeColor.withOpacity(.95),
+                                    planTypeColor.withValues(alpha: .95),
                                     const Color(0xFF8854FF),
                                   ],
                                   begin: Alignment.centerLeft,
@@ -158,7 +158,7 @@ class PlanCard extends StatelessWidget {
                                     return LinearGradient(
                                       colors: [
                                         Colors.transparent,
-                                        Colors.white.withOpacity(.55),
+                                        Colors.white.withValues(alpha: .55),
                                         Colors.transparent,
                                       ],
                                       begin: Alignment.centerLeft,
@@ -208,8 +208,8 @@ class PlanCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withOpacity(.025),
-                        Colors.white.withOpacity(.02),
+                        Colors.white.withValues(alpha: .025),
+                        Colors.white.withValues(alpha: .02),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -262,15 +262,15 @@ class _SmallChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(.55), width: 1),
+        border: Border.all(color: color.withValues(alpha: .55), width: 1),
         gradient: LinearGradient(
-          colors: [bg.withOpacity(.70), bg.withOpacity(.55)],
+          colors: [bg.withValues(alpha: .70), bg.withValues(alpha: .55)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(.18),
+            color: color.withValues(alpha: .18),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -281,7 +281,7 @@ class _SmallChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: textColor.withOpacity(.92)),
+            Icon(icon, size: 13, color: textColor.withValues(alpha: .92)),
             const SizedBox(width: 4),
             Text(
               label,

@@ -136,7 +136,16 @@ class MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Gym App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.black,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
       ),
       // Hiển thị loading khi đang kiểm tra trạng thái, hoặc hiển thị màn hình phù hợp
       home: _loading

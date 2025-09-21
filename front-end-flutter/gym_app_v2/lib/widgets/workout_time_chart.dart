@@ -47,8 +47,9 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
   Future<void> _loadWeek() async {
     final userId = widget.userId;
     final token = widget.token;
-    if (userId == null || token == null)
+    if (userId == null || token == null) {
       return; // unauthenticated => keep empty chart
+    }
     try {
       final repo =
           widget.repo ?? ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
@@ -138,10 +139,9 @@ class _WorkoutTimeChartState extends State<WorkoutTimeChart>
     String best = 'Mon';
     double max = 0;
     for (final d in currentWeekWorkouts) {
-      final v = d['sets'] as double;
-      if (v > max) {
-        max = v;
-        best = d['day'] as String;
+      if (d['sets'] > max) {
+        max = d['sets'];
+        best = d['day'];
       }
     }
     return best;

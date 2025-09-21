@@ -111,9 +111,9 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.15),
-                  Colors.black.withOpacity(0.55),
-                  Colors.black.withOpacity(0.85),
+                  Colors.black.withValues(alpha: 0.15),
+                  Colors.black.withValues(alpha: 0.55),
+                  Colors.black.withValues(alpha: 0.85),
                 ],
               ),
             ),
@@ -138,17 +138,17 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                         width: 68,
                         height: 68,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.4),
+                            color: Colors.white.withValues(alpha: 0.4),
                             width: 2,
                           ),
                         ),
                         child: Container(
                           margin: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -208,9 +208,12 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -341,9 +344,12 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -394,7 +400,10 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFF141414),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,13 +454,17 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           bottom: 14 + MediaQuery.of(context).padding.bottom,
         ),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.85),
+          // TODO: Replace deprecated withOpacity after confirming extension resolution across all files.
+          color: Colors.black.withValues(alpha: 0.85),
           border: Border(
-            top: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
+            top: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.6),
+              color: Colors.black.withValues(alpha: 0.6),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),

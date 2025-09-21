@@ -17,7 +17,7 @@ class PillTabBar extends StatelessWidget implements PreferredSizeWidget {
   final Color labelColor;
   final Color unselectedLabelColor;
 
-  PillTabBar({
+  const PillTabBar({
     super.key,
     required this.controller,
     this.tabs,
@@ -70,7 +70,7 @@ class PillTabBar extends StatelessWidget implements PreferredSizeWidget {
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           dividerColor: Colors.transparent,
           indicator: BoxDecoration(
-            color: indicatorColor.withOpacity(indicatorOpacity),
+            color: indicatorColor.withValues(alpha: indicatorOpacity),
             borderRadius: BorderRadius.circular(borderRadius),
           ),
           indicatorPadding: const EdgeInsets.symmetric(
