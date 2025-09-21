@@ -59,6 +59,7 @@ describe('WorkoutPlansService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
     },
     exercise: {
       findUnique: jest.fn(),
@@ -235,6 +236,7 @@ describe('WorkoutPlansService', () => {
       mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
       mockPrismaService.workoutDay.findFirst.mockResolvedValue(null);
       mockPrismaService.workoutDay.create.mockResolvedValue({ id: 'day-id', workoutPlanId: 'workout-plan-id', dayNumber: 1 });
+      mockPrismaService.workoutDay.count.mockResolvedValue(1);
       (mockPrismaService as any).exercise.findUnique.mockResolvedValue({ id: 'exercise-id' });
       mockPrismaService.workoutExercise.create.mockResolvedValue(mockWorkoutExercise);
 

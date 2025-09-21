@@ -409,7 +409,9 @@ export class WorkoutPlansService {
         workoutPlanId: dto.workoutPlanId,
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
-      },
+        status: (dto as any).status ? String((dto as any).status).toUpperCase() as any : undefined,
+        completedAt: (dto as any).completedAt ? new Date((dto as any).completedAt) : undefined,
+      } as any,
     });
 
     // Keep WorkoutPlan.days in sync with actual number of days
@@ -434,12 +436,17 @@ export class WorkoutPlansService {
     const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
     if (!day) throw new NotFoundException('Workout day not found');
 
+    const normalizedStatus = (dto as any).status ? String((dto as any).status).toUpperCase() : undefined;
+    const completedAt = (dto as any).completedAt ? new Date((dto as any).completedAt) : undefined;
+
     return this.prisma.workoutDay.update({
       where: { id: dayId },
       data: {
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
-      },
+        status: normalizedStatus as any,
+        completedAt: normalizedStatus === 'PENDING' ? null : completedAt,
+      } as any,
     });
   }
 
@@ -681,6 +688,8 @@ export class WorkoutPlansService {
         workoutPlanId: day.workoutPlanId,
         dayNumber: day.dayNumber,
         date: (day as any).date ?? null,
+        status: (day as any).status ?? 'PENDING',
+        completedAt: (day as any).completedAt ?? null,
       },
       stats,
     };

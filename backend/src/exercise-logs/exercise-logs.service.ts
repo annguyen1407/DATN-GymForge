@@ -11,6 +11,7 @@ import {
   ExercisePerformanceDto,
 } from './dto/exercise-statistics.dto';
 
+
 @Injectable()
 export class ExerciseLogsService {
   constructor(private prisma: PrismaService) {}
@@ -105,7 +106,49 @@ export class ExerciseLogsService {
         caloriesBurned: createExerciseLogDto.totalCaloriesBurned,
         dayNumber: createExerciseLogDto.dayNumber,
       },
+
     });
+
+    // Auto-mark workout day as completed when all exercises in that day have logs for this user/date
+    try {
+      const we = await this.prisma.workoutExercise.findUnique({
+        where: { id: createExerciseLogDto.workoutExerciseId },
+        select: { workoutDayId: true },
+      });
+
+      const dayId = we?.workoutDayId;
+      if (dayId) {
+        const totalExercises = await this.prisma.workoutExercise.count({
+          where: { workoutDayId: dayId },
+        });
+
+        if (totalExercises > 0) {
+          const completed = await this.prisma.workoutExerciseLog.groupBy({
+            by: ['workoutExerciseId'],
+            where: {
+              logId: log.id,
+              workoutExercise: { workoutDayId: dayId },
+            },
+            _count: { _all: true },
+          });
+
+          const distinctCompleted = completed.length;
+
+          if (distinctCompleted >= totalExercises) {
+            await this.prisma.workoutDay.update({
+              where: { id: dayId },
+              data: { 
+                status: 'COMPLETED' as any,
+                completedAt: new Date(createExerciseLogDto.date), 
+              }
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Non-fatal: logging should not fail if status update fails
+    }
+
 
     return this.findExerciseLogById(exerciseLog.id);
   }
@@ -205,7 +248,7 @@ export class ExerciseLogsService {
 
   async getDailyStats(userId: string, date: string): Promise<DailyExerciseStatsDto> {
     const targetDate = new Date(date);
-    
+
     const logs = await this.prisma.log.findMany({
       where: {
         userId,
@@ -253,14 +296,14 @@ export class ExerciseLogsService {
 
     const totalExercises = exerciseLogs.length;
     const totalSets = exerciseLogs.reduce((sum, log) => sum + log.setsLog.length, 0);
-    const totalReps = exerciseLogs.reduce((sum, log) => 
+    const totalReps = exerciseLogs.reduce((sum, log) =>
       sum + log.setsLog.reduce((setSum, set) => setSum + (set.reps || 0), 0), 0);
     const totalCaloriesBurned = logs.reduce((sum, log) => sum + (log.caloriesBurned || 0), 0);
-    
-    const allWeights = exerciseLogs.flatMap(log => 
+
+    const allWeights = exerciseLogs.flatMap(log =>
       log.setsLog.map(set => set.weight).filter(weight => weight !== null && weight !== undefined)
     );
-    const averageWeight = allWeights.length > 0 ? 
+    const averageWeight = allWeights.length > 0 ?
       allWeights.reduce((sum, weight) => sum + weight, 0) / allWeights.length : 0;
 
     const workoutPlansCompleted = [

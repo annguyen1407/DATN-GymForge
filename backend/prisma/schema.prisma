@@ -69,6 +69,14 @@ enum PlanStatus {
   COMPLETED
 }
 
+// Status for workout days
+enum DayStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+}
+
+
 enum FitnessGoal {
   LOSE_WEIGHT
   BUILD_MUSCLE
@@ -334,12 +342,15 @@ model WorkoutDay {
   workoutPlanId String        @db.Uuid
   dayNumber     Int?
   date          DateTime?     @db.Date
+  status        DayStatus?    @default(PENDING)
+  completedAt   DateTime?
 
   workoutPlan   WorkoutPlan   @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
   exercises     WorkoutExercise[]
 
   @@index([workoutPlanId])
   @@index([dayNumber])
+  @@index([status])
   @@map("workout_days")
 }
 

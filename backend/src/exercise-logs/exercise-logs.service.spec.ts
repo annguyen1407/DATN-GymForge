@@ -31,6 +31,10 @@ describe('ExerciseLogsService', () => {
     },
     workoutExercise: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+    workoutDay: {
+      update: jest.fn(),
     },
     setsLog: {
       createMany: jest.fn(),
@@ -99,6 +103,8 @@ describe('ExerciseLogsService', () => {
         ...mockExerciseLog,
         setsLog: [],
       });
+      mockPrismaService.workoutExercise.findMany.mockResolvedValue([]);
+      mockPrismaService.workoutExerciseLog.findMany.mockResolvedValue([]);
 
       const createDto = {
         userId: 'user-id',

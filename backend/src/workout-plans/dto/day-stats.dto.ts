@@ -23,6 +23,12 @@ export class DayMetaDto {
 
   @ApiProperty({ nullable: true, description: 'Scheduled calendar date if provided' })
   date!: string | Date | null;
+
+  @ApiProperty({ enum: ['PENDING', 'COMPLETED', 'SKIPPED'], required: false })
+  status?: 'PENDING' | 'COMPLETED' | 'SKIPPED';
+
+  @ApiProperty({ nullable: true, required: false, description: 'Timestamp when the day was completed' })
+  completedAt?: string | Date | null;
 }
 
 export class PlannedFieldsDto {
