@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/logging/app_logger.dart';
 import '../../widgets/app_button.dart';
 import '../../services/user_service.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -561,9 +562,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           "expType": expType,
           "profilePicture": null, // luôn truyền null cho avatar
         };
-        print('PATCH profile body: $body');
+        AppLogger.debug('PATCH profile body: $body', tag: 'ProfileSetup');
         final success = await UserService.updateProfile(context, body);
-        print('PATCH profile result: $success');
+        if (!mounted) return; // context may be disposed
+        AppLogger.info('PATCH profile result: $success', tag: 'ProfileSetup');
         if (success) {
           Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
         } else {

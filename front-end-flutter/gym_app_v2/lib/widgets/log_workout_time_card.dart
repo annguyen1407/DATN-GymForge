@@ -1,11 +1,18 @@
 import 'app_snack_bar.dart';
 // Dùng ở: logscreen. Biểu đồ thời gian tập luyện.
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
+import '../core/logging/app_logger.dart';
+import '../repositories/exercise_log_repository.dart';
+import '../services/api_constants.dart';
 
 /// LogWorkoutTimeCard: Biểu đồ thống kê thời gian tập luyện theo tuần
 class LogWorkoutTimeCard extends StatefulWidget {
-  const LogWorkoutTimeCard({super.key});
+  final String? userId;
+  final String? token;
+  final ExerciseLogRepository? repo;
+  const LogWorkoutTimeCard({super.key, this.userId, this.token, this.repo});
 
   @override
   State<LogWorkoutTimeCard> createState() => _LogWorkoutTimeCardState();
@@ -13,17 +20,17 @@ class LogWorkoutTimeCard extends StatefulWidget {
 
 class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     with TickerProviderStateMixin {
-  int currentWeekIndex = 32; // Start with current week (8/8/2025)
-  bool isLoading = false;
+  int currentWeekIndex = 0; // 0 = current, -1 previous weeks
+  bool isLoading = false; // navigation state
+  // _apiLoading reserved for future loading overlay; removed to keep analyzer clean.
   late AnimationController _animationController;
   late Animation<double> _animation;
+  WeeklyExerciseStats? _weekly;
+  DateTime _displayedWeekStart = _mondayOf(DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    // Set current week index based on today's date
-    currentWeekIndex = _getCurrentWeekIndex();
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -33,22 +40,38 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       curve: Curves.easeOutCubic,
     );
     _animationController.forward();
+    _loadWeek();
   }
 
-  // Tính toán week index dựa trên ngày hiện tại
-  int _getCurrentWeekIndex() {
-    final now = DateTime.now(); // 8/8/2025 = Friday
+  static DateTime _mondayOf(DateTime d) =>
+      d.subtract(Duration(days: d.weekday - 1));
 
-    // 8/8/2025 nằm trong tuần 4-10 Aug (week 32)
-    // Kiểm tra: 4/8 = Monday, 8/8 = Friday
-    if (now.year == 2025 && now.month == 8 && now.day >= 4 && now.day <= 10) {
-      return 32;
+  Future<void> _loadWeek() async {
+    final userId = widget.userId;
+    final token = widget.token;
+    if (userId == null || token == null) return; // not logged in yet
+    // no-op loading state (placeholder omitted to avoid unused warnings)
+    try {
+      final repo =
+          widget.repo ?? ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
+      final stats = await repo.fetchWeeklyStats(
+        userId: userId,
+        weekStart: _displayedWeekStart,
+        token: token,
+      );
+      if (!mounted) return;
+      setState(() => _weekly = stats);
+    } catch (e, st) {
+      AppLogger.error(
+        'Load weekly stats failed: $e',
+        tag: 'WeeklyChart',
+        error: e,
+        stackTrace: st,
+      );
+      if (mounted) AppSnackBar.showError(context, 'Weekly stats error');
+    } finally {
+      // ignore - placeholder
     }
-
-    // Fallback calculation cho các ngày khác
-    final baseDate = DateTime(2025, 1, 6); // Monday of week 1
-    final diffInDays = now.difference(baseDate).inDays;
-    return 1 + (diffInDays / 7).floor();
   }
 
   @override
@@ -57,162 +80,79 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     super.dispose();
   }
 
-  // Mock data cho một số tuần - các tuần khác sẽ trống
-  final Map<int, Map<String, dynamic>> mockWeeksData = {
-    // Tuần xa (để test)
-    0: {
-      'dateRange': '28 Dec - 3 Jan 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 1.8, 'active': false, 'date': '30 Dec'},
-        {'day': 'Tue', 'hours': 2.5, 'active': false, 'date': '31 Dec'},
-        {'day': 'Wed', 'hours': 1.2, 'active': false, 'date': '1 Jan'},
-        {'day': 'Thu', 'hours': 3.0, 'active': false, 'date': '2 Jan'},
-        {'day': 'Fri', 'hours': 2.2, 'active': false, 'date': '3 Jan'},
-        {'day': 'Sat', 'hours': 1.8, 'active': false, 'date': '4 Jan'},
-        {'day': 'Sun', 'hours': 0.5, 'active': false, 'date': '28 Dec'},
-      ],
-    },
-    1: {
-      'dateRange': '4 Jan - 10 Jan 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 2.2, 'active': false, 'date': '6 Jan'},
-        {'day': 'Tue', 'hours': 3.0, 'active': false, 'date': '7 Jan'},
-        {'day': 'Wed', 'hours': 2.8, 'active': false, 'date': '8 Jan'},
-        {'day': 'Thu', 'hours': 1.8, 'active': false, 'date': '9 Jan'},
-        {'day': 'Fri', 'hours': 2.5, 'active': false, 'date': '10 Jan'},
-        {'day': 'Sat', 'hours': 1.2, 'active': false, 'date': '11 Jan'},
-        {'day': 'Sun', 'hours': 1.5, 'active': false, 'date': '5 Jan'},
-      ],
-    },
-
-    // Tuần xung quanh tuần hiện tại (week 32: 4-10 Aug 2025)
-    29: {
-      'dateRange': '14 Jul - 20 Jul 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 2.5, 'active': false, 'date': '14 Jul'},
-        {'day': 'Tue', 'hours': 1.8, 'active': false, 'date': '15 Jul'},
-        {'day': 'Wed', 'hours': 3.2, 'active': false, 'date': '16 Jul'},
-        {'day': 'Thu', 'hours': 2.0, 'active': false, 'date': '17 Jul'},
-        {'day': 'Fri', 'hours': 2.8, 'active': false, 'date': '18 Jul'},
-        {'day': 'Sat', 'hours': 1.5, 'active': false, 'date': '19 Jul'},
-        {'day': 'Sun', 'hours': 1.0, 'active': false, 'date': '20 Jul'},
-      ],
-    },
-    30: {
-      'dateRange': '21 Jul - 27 Jul 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 2.0, 'active': false, 'date': '21 Jul'},
-        {'day': 'Tue', 'hours': 2.5, 'active': false, 'date': '22 Jul'},
-        {'day': 'Wed', 'hours': 1.5, 'active': false, 'date': '23 Jul'},
-        {'day': 'Thu', 'hours': 3.0, 'active': false, 'date': '24 Jul'},
-        {'day': 'Fri', 'hours': 2.2, 'active': false, 'date': '25 Jul'},
-        {'day': 'Sat', 'hours': 1.8, 'active': false, 'date': '26 Jul'},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': '27 Jul'},
-      ],
-    },
-    31: {
-      'dateRange': '28 Jul - 3 Aug 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 2.8, 'active': false, 'date': '28/07/2025'},
-        {'day': 'Tue', 'hours': 2.0, 'active': false, 'date': '29/07/2025'},
-        {'day': 'Wed', 'hours': 1.8, 'active': false, 'date': '30/07/2025'},
-        {'day': 'Thu', 'hours': 2.5, 'active': false, 'date': '31/07/2025'},
-        {'day': 'Fri', 'hours': 3.2, 'active': false, 'date': '01/08/2025'},
-        {'day': 'Sat', 'hours': 1.0, 'active': false, 'date': '02/08/2025'},
-        {'day': 'Sun', 'hours': 1.2, 'active': false, 'date': '03/08/2025'},
-      ],
-    },
-
-    // Tuần hiện tại (8/8/2025 = Friday)
-    32: {
-      'dateRange': '4 Aug - 10 Aug 2025',
-      'data': [
-        {
-          'day': 'Mon',
-          'hours': 2.0,
-          'active': false,
-          'date': '04/08/2025',
-        }, // Thứ 2 đầu tiên
-        {'day': 'Tue', 'hours': 2.8, 'active': false, 'date': '05/08/2025'},
-        {'day': 'Wed', 'hours': 1.8, 'active': false, 'date': '06/08/2025'},
-        {'day': 'Thu', 'hours': 2.5, 'active': false, 'date': '07/08/2025'},
-        {
-          'day': 'Fri',
-          'hours': 2.2,
-          'active': false,
-          'date': '08/08/2025',
-        }, // Hôm nay 8/8/2025 = Friday
-        {
-          'day': 'Sat',
-          'hours': 0.0,
-          'active': false,
-          'date': '09/08/2025',
-        }, // Chưa diễn ra
-        {
-          'day': 'Sun',
-          'hours': 1.5,
-          'active': false,
-          'date': '10/08/2025',
-        }, // Chủ nhật cuối cùng
-      ],
-    },
-
-    // Tuần sau
-    33: {
-      'dateRange': '11 Aug - 17 Aug 2025',
-      'data': [
-        {
-          'day': 'Mon',
-          'hours': 0.0,
-          'active': false,
-          'date': '11/08/2025',
-        }, // Tuần tương lai
-        {'day': 'Tue', 'hours': 0.0, 'active': false, 'date': '12/08/2025'},
-        {'day': 'Wed', 'hours': 0.0, 'active': false, 'date': '13/08/2025'},
-        {'day': 'Thu', 'hours': 0.0, 'active': false, 'date': '14/08/2025'},
-        {'day': 'Fri', 'hours': 0.0, 'active': false, 'date': '15/08/2025'},
-        {'day': 'Sat', 'hours': 0.0, 'active': false, 'date': '16/08/2025'},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': '17/08/2025'},
-      ],
-    },
-    34: {
-      'dateRange': '18 Aug - 24 Aug 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 0.0, 'active': false, 'date': '18 Aug'},
-        {'day': 'Tue', 'hours': 0.0, 'active': false, 'date': '19 Aug'},
-        {'day': 'Wed', 'hours': 0.0, 'active': false, 'date': '20 Aug'},
-        {'day': 'Thu', 'hours': 0.0, 'active': false, 'date': '21 Aug'},
-        {'day': 'Fri', 'hours': 0.0, 'active': false, 'date': '22 Aug'},
-        {'day': 'Sat', 'hours': 0.0, 'active': false, 'date': '23 Aug'},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': '24 Aug'},
-      ],
-    },
-    35: {
-      'dateRange': '25 Aug - 31 Aug 2025',
-      'data': [
-        {'day': 'Mon', 'hours': 0.0, 'active': false, 'date': '25 Aug'},
-        {'day': 'Tue', 'hours': 0.0, 'active': false, 'date': '26 Aug'},
-        {'day': 'Wed', 'hours': 0.0, 'active': false, 'date': '27 Aug'},
-        {'day': 'Thu', 'hours': 0.0, 'active': false, 'date': '28 Aug'},
-        {'day': 'Fri', 'hours': 0.0, 'active': false, 'date': '29 Aug'},
-        {'day': 'Sat', 'hours': 0.0, 'active': false, 'date': '30 Aug'},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': '31 Aug'},
-      ],
-    },
-  };
+  // mockWeeksData removed.
 
   // Generate date range for any week index
-  String _generateDateRange(int weekIndex) {
-    if (mockWeeksData.containsKey(weekIndex)) {
-      return mockWeeksData[weekIndex]!['dateRange'];
+
+  Map<String, dynamic> get currentWeekData {
+    final startDate = _displayedWeekStart;
+    final endDate = startDate.add(const Duration(days: 6));
+    final today = DateTime.now();
+
+    final setsMap = <int, WeeklyDailyStat>{};
+    for (final d in _weekly?.dailyStats ?? const <WeeklyDailyStat>[]) {
+      if (d.date != null) {
+        final idx = d.date!.weekday - 1;
+        if (idx >= 0 && idx < 7) setsMap[idx] = d;
+      }
     }
 
-    // Generate date range based on week index
-    final baseDate = DateTime(2025, 1, 4); // Base date for week 1
-    final weekStart = baseDate.add(Duration(days: (weekIndex - 1) * 7));
-    final weekEnd = weekStart.add(const Duration(days: 6));
+    final weekDays = <Map<String, dynamic>>[];
+    for (int i = 0; i < 7; i++) {
+      final dayDate = startDate.add(Duration(days: i));
+      final abbrev = _weekdayAbbrev(dayDate.weekday);
+      final stat = setsMap[i];
+      final active = _isSameDate(dayDate, today);
+      weekDays.add({
+        'day': abbrev,
+        'sets': (stat?.totalSets ?? 0).toDouble(),
+        'active': active,
+        'date': _formatDayDate(dayDate),
+        'calories': stat?.totalCaloriesBurned ?? 0,
+        'workoutTime': stat?.totalWorkoutTime ?? 0,
+      });
+    }
 
-    final months = [
+    return {
+      'dateRange': _formatDateRange(startDate, endDate),
+      'data': weekDays,
+    };
+  }
+
+  // Utilities for dynamic week building
+  // Legacy helper _resolveWeekStartDate removed; weekStart now tracked directly.
+
+  // Removed date range parsing helpers (not needed with direct week tracking)
+
+  String _weekdayAbbrev(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'Mon';
+      case DateTime.tuesday:
+        return 'Tue';
+      case DateTime.wednesday:
+        return 'Wed';
+      case DateTime.thursday:
+        return 'Thu';
+      case DateTime.friday:
+        return 'Fri';
+      case DateTime.saturday:
+        return 'Sat';
+      case DateTime.sunday:
+        return 'Sun';
+      default:
+        return 'Mon';
+    }
+  }
+
+  bool _isSameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _formatDayDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  String _formatDateRange(DateTime start, DateTime end) {
+    const months = [
       'Jan',
       'Feb',
       'Mar',
@@ -226,103 +166,29 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       'Nov',
       'Dec',
     ];
-
-    return '${weekStart.day} ${months[weekStart.month - 1]} - ${weekEnd.day} ${months[weekEnd.month - 1]} ${weekEnd.year}';
-  }
-
-  Map<String, dynamic> get currentWeekData {
-    if (mockWeeksData.containsKey(currentWeekIndex)) {
-      return _addTodayHighlight(mockWeeksData[currentWeekIndex]!);
-    }
-
-    // Return empty week data with today highlighted if it's current week
-    final weekData = {
-      'dateRange': _generateDateRange(currentWeekIndex),
-      'data': [
-        {'day': 'Mon', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Tue', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Wed', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Thu', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Fri', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Sat', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': ''},
-      ],
-    };
-
-    return _addTodayHighlight(weekData);
-  }
-
-  // Thêm highlight cho ngày hôm nay nếu đang xem tuần hiện tại
-  Map<String, dynamic> _addTodayHighlight(Map<String, dynamic> weekData) {
-    final now = DateTime.now(); // 8/8/2025 = Friday
-    final currentWeek = _getCurrentWeekIndex();
-
-    // Chỉ highlight nếu đang xem tuần hiện tại
-    if (currentWeekIndex != currentWeek) {
-      return weekData;
-    }
-
-    // Mapping cho thứ tự mới: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-    // 8/8/2025 = Friday = weekday 5 -> index 4 (Friday ở vị trí thứ 5 trong array)
-    int todayIndex;
-    switch (now.weekday) {
-      case 1: // Monday
-        todayIndex = 0;
-        break;
-      case 2: // Tuesday
-        todayIndex = 1;
-        break;
-      case 3: // Wednesday
-        todayIndex = 2;
-        break;
-      case 4: // Thursday
-        todayIndex = 3;
-        break;
-      case 5: // Friday
-        todayIndex = 4;
-        break;
-      case 6: // Saturday
-        todayIndex = 5;
-        break;
-      case 7: // Sunday
-        todayIndex = 6;
-        break;
-      default:
-        todayIndex = 0;
-    }
-
-    final data = List<Map<String, dynamic>>.from(weekData['data']);
-
-    // Reset all active flags first
-    for (var day in data) {
-      day['active'] = false;
-    }
-
-    // Set today as active (8/8 = Friday = index 4)
-    if (todayIndex < data.length) {
-      data[todayIndex]['active'] = true;
-    }
-
-    return {'dateRange': weekData['dateRange'], 'data': data};
+    return '${start.day} ${months[start.month - 1]} - ${end.day} ${months[end.month - 1]} ${end.year}';
   }
 
   List<Map<String, dynamic>> get currentWeekWorkouts =>
       List<Map<String, dynamic>>.from(currentWeekData['data']);
 
-  double get totalHours => currentWeekWorkouts
-      .map((day) => day['hours'] as double)
-      .reduce((a, b) => a + b);
+  double get _totalSets => currentWeekWorkouts
+      .map((day) => (day['sets'] as double))
+      .fold(0.0, (a, b) => a + b);
 
-  double get averageHours => totalHours / 7;
+  double get _averageSets => _totalSets / 7;
 
-  String get bestDay {
-    final maxHours = currentWeekWorkouts
-        .map((day) => day['hours'] as double)
-        .reduce((a, b) => a > b ? a : b);
-
-    return currentWeekWorkouts.firstWhere(
-      (day) => day['hours'] == maxHours,
-    )['day'];
+  String get _bestDay {
+    double maxSets = 0;
+    String best = 'Mon';
+    for (final d in currentWeekWorkouts) {
+      final s = d['sets'] as double;
+      if (s > maxSets) {
+        maxSets = s;
+        best = d['day'] as String;
+      }
+    }
+    return best;
   }
 
   void _navigateWeek(bool isNext) async {
@@ -332,28 +198,26 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       isLoading = true;
     });
 
-    // Reset animation
     _animationController.reset();
-
-    // Simulate API call delay
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    setState(() {
-      if (isNext) {
-        currentWeekIndex++;
-      } else {
-        currentWeekIndex--;
-      }
-      isLoading = false;
-    });
-
-    // Start animation
-    _animationController.forward();
+    if (isNext) {
+      _displayedWeekStart = _displayedWeekStart.add(const Duration(days: 7));
+      currentWeekIndex++;
+    } else {
+      _displayedWeekStart = _displayedWeekStart.subtract(
+        const Duration(days: 7),
+      );
+      currentWeekIndex--;
+    }
+    await _loadWeek();
+    if (mounted) {
+      setState(() => isLoading = false);
+      _animationController.forward();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Column(
       // padding: const EdgeInsets.all(24),
       // decoration: BoxDecoration(
       //   gradient: LinearGradient(
@@ -371,16 +235,14 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       //     ),
       //   ],
       // ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPeriodSelector(),
-          const SizedBox(height: 24),
-          _buildWeeklyChart(),
-          const SizedBox(height: 20),
-          _buildSummaryStats(),
-        ],
-      ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPeriodSelector(),
+        const SizedBox(height: 24),
+        _buildWeeklyChart(),
+        const SizedBox(height: 20),
+        _buildSummaryStats(),
+      ],
     );
   }
 
@@ -416,7 +278,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
         color: DesignTokens.surfaceMuted,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: DesignTokens.surfaceOutline.withOpacity(.4),
+          color: DesignTokens.surfaceOutline.withOpacityRatio(.4),
           width: 0.5,
         ),
       ),
@@ -429,14 +291,14 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation(
-                    Colors.white.withOpacity(0.5),
+                    Colors.white.withOpacityRatio(0.5),
                   ),
                 ),
               )
             : Icon(
                 icon,
                 color: isLoading
-                    ? DesignTokens.textSecondary.withOpacity(.3)
+                    ? DesignTokens.textSecondary.withOpacityRatio(.3)
                     : DesignTokens.textSecondary,
                 size: 18,
               ),
@@ -460,9 +322,11 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             builder: (context, child) {
               return _buildBarItem(
                 data['day'] as String,
-                data['hours'] as double,
+                data['sets'] as double,
                 data['active'] as bool,
                 index,
+                calories: data['calories'] as int,
+                workoutTime: data['workoutTime'] as int,
               );
             },
           );
@@ -471,17 +335,33 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     );
   }
 
-  Widget _buildBarItem(String day, double hours, bool isActive, int index) {
+  Widget _buildBarItem(
+    String day,
+    double sets,
+    bool isActive,
+    int index, {
+    required int calories,
+    required int workoutTime,
+  }) {
     final maxHeight = 70.0;
-    final animatedHours = hours * _animation.value;
-    final barHeight = (animatedHours / 3.5) * maxHeight;
+    final maxSets = currentWeekWorkouts
+        .map((d) => d['sets'] as double)
+        .fold<double>(0, (p, c) => c > p ? c : p);
+    final norm = maxSets <= 0 ? 0 : (sets / maxSets);
+    final animated = norm * _animation.value;
+    final barHeight = animated * maxHeight;
 
     return GestureDetector(
       onTap: () {
-        // Show detail popup with specific date
         final dayData = currentWeekWorkouts[index];
         final specificDate = dayData['date'] ?? day;
-        _showDayDetail(day, hours, specificDate);
+        _showDayDetail(
+          day: day,
+          sets: sets,
+          calories: calories,
+          workoutTime: workoutTime,
+          specificDate: specificDate,
+        );
       },
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200 + (index * 50)),
@@ -493,7 +373,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               width: 32,
               height: maxHeight,
               decoration: BoxDecoration(
-                color: DesignTokens.surfaceMuted.withOpacity(0.3),
+                color: DesignTokens.surfaceMuted.withOpacityRatio(0.3),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Align(
@@ -507,7 +387,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
                     gradient: isActive
                         ? LinearGradient(
                             colors: [
-                              DesignTokens.warning.withOpacity(.85),
+                              DesignTokens.warning.withOpacityRatio(.85),
                               DesignTokens.warning,
                             ],
                             begin: Alignment.topCenter,
@@ -528,7 +408,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
                             (isActive
                                     ? DesignTokens.warning
                                     : DesignTokens.brand)
-                                .withOpacity(0.4),
+                                .withOpacityRatio(0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -542,7 +422,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               day,
               style: TextStyle(
                 color: isActive
-                    ? DesignTokens.warning.withOpacity(.85)
+                    ? DesignTokens.warning.withOpacityRatio(.85)
                     : DesignTokens.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -550,11 +430,11 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
             ),
             const SizedBox(height: 2),
             Text(
-              '${hours.toStringAsFixed(1)}h',
+              sets == 0 ? '0' : sets.toStringAsFixed(0),
               style: TextStyle(
                 color: isActive
-                    ? DesignTokens.warning.withOpacity(.7)
-                    : DesignTokens.textSecondary.withOpacity(.4),
+                    ? DesignTokens.warning.withOpacityRatio(.7)
+                    : DesignTokens.textSecondary.withOpacityRatio(.4),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -565,13 +445,17 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     );
   }
 
-  void _showDayDetail(String day, double hours, String specificDate) {
-    // Don't show detail for empty days
-    if (hours == 0) {
+  void _showDayDetail({
+    required String day,
+    required double sets,
+    required int calories,
+    required int workoutTime,
+    required String specificDate,
+  }) {
+    if (sets == 0) {
       AppSnackBar.showInfo(context, 'No workout data for $specificDate');
       return;
     }
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -611,23 +495,23 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
               children: [
                 Expanded(
                   child: _buildDetailItem(
-                    'Số giờ tập',
-                    '${hours.toStringAsFixed(1)}h',
-                    Icons.schedule,
+                    'Sets',
+                    sets.toStringAsFixed(0),
+                    Icons.fitness_center,
                   ),
                 ),
                 Expanded(
                   child: _buildDetailItem(
                     'Calo đốt',
-                    '${(hours * 300).toInt()}',
+                    calories.toString(),
                     Icons.local_fire_department,
                   ),
                 ),
                 Expanded(
                   child: _buildDetailItem(
-                    'Workout Sets',
-                    '${(hours * 3).toInt()}',
-                    Icons.fitness_center,
+                    'Thời gian',
+                    _formatDuration(workoutTime),
+                    Icons.schedule,
                   ),
                 ),
               ],
@@ -637,6 +521,15 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
         ),
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0m';
+    final m = (seconds / 60).floor();
+    final s = seconds % 60;
+    if (m == 0) return '${s}s';
+    if (s == 0) return '${m}m';
+    return '${m}m ${s}s';
   }
 
   Widget _buildDetailItem(String label, String value, IconData icon) {
@@ -675,20 +568,20 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
-            'Total Hours',
-            '${totalHours.toStringAsFixed(1)}h',
+            'Total Sets',
+            _totalSets.toStringAsFixed(0),
             Icons.schedule_rounded,
             DesignTokens.brand,
           ),
           _buildStatItem(
             'Avg/Day',
-            '${averageHours.toStringAsFixed(1)}h',
+            _averageSets.toStringAsFixed(1),
             Icons.trending_up_rounded,
             DesignTokens.success,
           ),
           _buildStatItem(
             'Best Day',
-            bestDay,
+            _bestDay,
             Icons.star_rounded,
             DesignTokens.warning,
           ),
@@ -711,10 +604,10 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: DesignTokens.surfaceMuted.withOpacity(0.5),
+          color: DesignTokens.surfaceMuted.withOpacityRatio(0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: DesignTokens.surfaceOutline.withOpacity(.4),
+            color: DesignTokens.surfaceOutline.withOpacityRatio(.4),
             width: 0.5,
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../repositories/muscle_groups_repository.dart';
 import '../../../models/muscle_group_model.dart';
 import 'select_exercise_screen.dart';
+import '../../../widgets/exercise_group_card.dart';
 
 class SelectMuscleGroupScreen extends StatefulWidget {
   final String workoutPlanId;
@@ -127,16 +128,18 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    // Higher ratio => less height (width / height)
-                    childAspectRatio: 1.55,
+                    childAspectRatio: 2.9, // match exercise_screen look
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) {
                     final mg = items[i];
-                    return GestureDetector(
+                    return ExerciseGroupCard(
+                      name: mg.name,
+                      count: mg.exercisesCount,
+                      highlight: mg.id == '_ALL_',
                       onTap: () async {
-                        final created = await Navigator.push(
-                          context,
+                        final navigator = Navigator.of(context);
+                        final created = await navigator.push(
                           MaterialPageRoute(
                             builder: (_) => SelectExerciseScreen(
                               muscleGroup: mg,
@@ -147,84 +150,11 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                             ),
                           ),
                         );
-                        if (created != null) {
-                          if (mounted) Navigator.pop(context, created);
+                        if (!mounted) return;
+                        if (created != null && mounted) {
+                          navigator.pop(created);
                         }
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[900],
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.grey[800]!,
-                            width: 0.8,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.10),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: mg.id == '_ALL_'
-                                        ? Colors.pinkAccent.withOpacity(0.16)
-                                        : Colors.deepPurple.withOpacity(0.24),
-                                    borderRadius: BorderRadius.circular(9),
-                                  ),
-                                  child: Icon(
-                                    mg.id == '_ALL_'
-                                        ? Icons.all_inclusive
-                                        : Icons.fitness_center,
-                                    color: mg.id == '_ALL_'
-                                        ? Colors.pinkAccent
-                                        : Colors.deepPurpleAccent,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    mg.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              '${mg.exercisesCount} bài tập',
-                              style: TextStyle(
-                                color: Colors.deepPurpleAccent.shade100,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     );
                   },
                 );

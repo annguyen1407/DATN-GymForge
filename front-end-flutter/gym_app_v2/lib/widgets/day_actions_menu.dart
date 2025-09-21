@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 
 enum DayAction { edit, delete }
 
@@ -24,15 +25,18 @@ class DayActionsMenu extends StatelessWidget {
       color: backgroundColor ?? const Color(0xFF1E1E1E),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.white.withOpacity(0.06), width: 1),
+        side: BorderSide(color: Colors.white.withOpacityRatio(0.06), width: 1),
       ),
       elevation: 6,
-      shadowColor: Colors.black.withOpacity(0.4),
+      shadowColor: Colors.black.withOpacityRatio(0.4),
       icon: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withOpacityRatio(0.08),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+          border: Border.all(
+            color: Colors.white.withOpacityRatio(0.15),
+            width: 1,
+          ),
         ),
         padding: const EdgeInsets.all(6),
         child: const Icon(Icons.more_vert, color: Colors.white, size: 18),

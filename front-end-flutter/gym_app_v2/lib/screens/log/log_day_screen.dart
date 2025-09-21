@@ -1,26 +1,36 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_button.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'plan_details_page.dart';
+import 'log_workoutday_screen.dart'; // contains WorkoutLogScreen
+import '../../widgets/log_plan_card.dart';
 
-/// WorkoutDetailsPage: Displays detailed workout information for a selected date with tabs
-class WorkoutDetailsPage extends StatefulWidget {
+/// LogOfDayScreen: Displays detailed workout information for a selected date with tabs
+class LogOfDayScreen extends StatefulWidget {
   final DateTime selectedDate;
   final List<Map<String, dynamic>> workouts; // existing workouts list
   final void Function(Map<String, dynamic>)? onWorkoutAdded;
+  final double? weight;
+  final double? height;
+  final String? note;
+  final List<Map<String, dynamic>>?
+  rawWorkoutExerciseLogs; // passed from daily summary for plan tab parsing
 
-  const WorkoutDetailsPage({
+  const LogOfDayScreen({
     super.key,
     required this.selectedDate,
     required this.workouts,
     this.onWorkoutAdded,
+    this.weight,
+    this.height,
+    this.note,
+    this.rawWorkoutExerciseLogs,
   });
 
   @override
-  State<WorkoutDetailsPage> createState() => _WorkoutDetailsPageState();
+  State<LogOfDayScreen> createState() => _LogOfDayScreenState();
 }
 
-class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
+class _LogOfDayScreenState extends State<LogOfDayScreen>
     with SingleTickerProviderStateMixin {
   // Controllers & state referenced in bottom sheets (keep minimal subset to satisfy existing usages)
   final TextEditingController _bodyWeightController = TextEditingController();
@@ -33,13 +43,9 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
   final TextEditingController _repsController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
 
-  final Map<String, dynamic> _bodyMetrics = {
-    'weight': 70.0,
-    'height': 175.0,
-    'bmi': 70.0 / (1.75 * 1.75),
-  };
+  late Map<String, dynamic> _bodyMetrics;
 
-  final List<String> _notes = [];
+  late List<String> _notes;
   final List<Map<String, dynamic>> _nutritionData = [
     {'meal': 'Breakfast', 'foods': <Map<String, dynamic>>[]},
     {'meal': 'Lunch', 'foods': <Map<String, dynamic>>[]},
@@ -53,18 +59,32 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
 
   // UI state for tabs / plans (restored minimal fields)
   late TabController _tabController;
-  final List<Map<String, dynamic>> _planData = [];
+  final List<Map<String, dynamic>> _planData =
+      []; // legacy placeholder structure for UI (will be filled from parsed groups)
+  // (Optional) store parsed groups later if needed
 
   @override
   void initState() {
     super.initState();
     // Fix: TabController length must match number of tabs (4) and use proper vsync
     _tabController = TabController(length: 4, vsync: this);
+    final w = widget.weight ?? 70.0;
+    final h = widget.height ?? 175.0;
+    _bodyMetrics = {'weight': w, 'height': h, 'bmi': _calculateBMI(w, h)};
+    _notes = [];
+    if (widget.note != null && widget.note!.trim().isNotEmpty) {
+      _notes.add(widget.note!.trim());
+    }
+    _buildPlanDataFromRawLogs();
   }
 
   @override
-  void didUpdateWidget(covariant WorkoutDetailsPage oldWidget) {
+  void didUpdateWidget(covariant LogOfDayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.rawWorkoutExerciseLogs != widget.rawWorkoutExerciseLogs) {
+      _planData.clear();
+      _buildPlanDataFromRawLogs();
+    }
   }
 
   @override
@@ -80,6 +100,161 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
     _repsController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  void _buildPlanDataFromRawLogs() {
+    final raw = widget.rawWorkoutExerciseLogs;
+    if (raw == null || raw.isEmpty) return;
+    try {
+      // Use repository parser (import extension) – replicate lightweight logic here to avoid tight coupling.
+      // Since we can't import repository directly without circular concerns, re-implement minimal grouping inline.
+      final Map<String, List<Map<String, dynamic>>> bucket = {};
+      final Map<String, Map<String, dynamic>> meta = {};
+      for (final item in raw) {
+        final workoutExercise =
+            item['workoutExercise'] as Map<String, dynamic>?;
+        final dayId = workoutExercise?['workoutDayId']?.toString() ?? 'unknown';
+        final int? dayNumber = () {
+          final candidates = [
+            item['dayNumber'],
+            workoutExercise?['dayNumber'],
+            workoutExercise?['day_number'],
+            workoutExercise?['DayNumber'],
+          ];
+          for (final c in candidates) {
+            if (c is num) return c.toInt();
+            if (c is String) {
+              final parsed = int.tryParse(c);
+              if (parsed != null) return parsed;
+            }
+          }
+          return null;
+        }();
+        final planObj =
+            workoutExercise?['workoutPlan'] as Map<String, dynamic>?;
+        final planName =
+            planObj?['name']?.toString() ??
+            workoutExercise?['planName']?.toString() ??
+            'Kế hoạch';
+        final planType =
+            planObj?['planType']?.toString() ?? planObj?['type']?.toString();
+        final progressPercent = () {
+          final v = item['progressPercent'];
+          if (v is num) return v.toDouble();
+          return 0.0;
+        }();
+        bucket.putIfAbsent(dayId, () => []);
+        bucket[dayId]!.add({
+          'id': item['id'],
+          'name': item['exerciseName'] ?? item['name'] ?? 'Bài tập',
+          'progress': (progressPercent / 100).clamp(
+            0.0,
+            1.0,
+          ), // normalize 0..1 for UI
+          'description': '',
+        });
+        meta.putIfAbsent(
+          dayId,
+          () => {
+            'planName': planName,
+            'planType': planType,
+            'dayNumber': dayNumber,
+          },
+        );
+      }
+      bucket.forEach((dayId, exercises) {
+        final m = meta[dayId] ?? {};
+        final avgProgress = exercises.isEmpty
+            ? 0.0
+            : exercises
+                      .map((e) => (e['progress'] as double))
+                      .fold(0.0, (p, v) => p + v) /
+                  exercises.length;
+        // debug print removed after validation
+        _planData.add({
+          'workoutDayId': dayId,
+          'name': (m['planName'] ?? 'Kế hoạch').toString(),
+          'planType': m['planType'],
+          'dayNumber': m['dayNumber'],
+          'progress': avgProgress, // 0..1 for UI
+          'exercises': exercises,
+        });
+      });
+    } catch (_) {
+      // swallow errors, keep empty plan data
+    }
+  }
+
+  Color _planTypeColor(String? type) {
+    if (type == null) return const Color(0xFF8854FF);
+    switch (type.toLowerCase()) {
+      case 'strength':
+      case 'power':
+        return Colors.redAccent;
+      case 'hypertrophy':
+        return Colors.orangeAccent;
+      case 'endurance':
+      case 'cardio':
+        return Colors.lightBlueAccent;
+      case 'flexibility':
+      case 'mobility':
+        return Colors.tealAccent;
+      case 'weight_loss':
+        return Colors.pinkAccent;
+      default:
+        return const Color(0xFF8854FF);
+    }
+  }
+
+  // Removed _buildPlanTitle (inlined usage within _PlanCard)
+
+  Widget _buildPlanTypeChip(dynamic planTypeRaw) {
+    final t = planTypeRaw?.toString();
+    if (t == null || t.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final color = _planTypeColor(t);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        border: Border.all(color: color, width: 1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        t,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayNumberBadge(dynamic dayNumberRaw) {
+    int? dn;
+    if (dayNumberRaw is int) dn = dayNumberRaw;
+    if (dayNumberRaw is String) dn = int.tryParse(dayNumberRaw);
+    if (dn == null) return const SizedBox.shrink();
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF8854FF), width: 1),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        'D$dn',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
   }
 
   // Function to show modal for adjusting body metrics
@@ -439,27 +614,88 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        // Show only the date as requested
         title: Text(
-          'Workouts on ${widget.selectedDate.day}/${widget.selectedDate.month}/${widget.selectedDate.year}',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          _formatDate(widget.selectedDate),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicatorColor: const Color(0xFF8854FF),
-          indicatorWeight: 3,
-          dividerColor: Colors.transparent,
-          tabs: const [
-            Tab(text: 'Ghi chú'),
-            Tab(text: 'Kế hoạch'),
-            Tab(text: 'Cơ thể'),
-            Tab(text: 'Dinh dưỡng'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight + 12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: false,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white60,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              dividerColor: Colors.transparent,
+              indicator: BoxDecoration(
+                color: const Color(0xFF8854FF).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              // keep slight vertical padding for pill breathing space
+              indicatorPadding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 6,
+              ),
+              labelPadding: EdgeInsets.zero,
+              tabs: const [
+                Tab(
+                  child: Center(
+                    child: Text(
+                      'Ghi chú',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Tab(
+                  child: Center(
+                    child: Text(
+                      'Kế hoạch',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Tab(
+                  child: Center(
+                    child: Text(
+                      'Cơ thể',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Tab(
+                  child: Center(
+                    child: Text(
+                      'Dinh dưỡng',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       body: SafeArea(
@@ -570,12 +806,16 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final plan = _planData[index];
-                          return GestureDetector(
+                          return PlanCard(
+                            plan: plan,
+                            planTypeColor: _planTypeColor(
+                              plan['planType']?.toString(),
+                            ),
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => PlanDetailsPage(
+                                  builder: (context) => WorkoutLogScreen(
                                     planName: plan['name'],
                                     exercises: List<Map<String, dynamic>>.from(
                                       plan['exercises'],
@@ -584,52 +824,8 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                                 ),
                               );
                             },
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          plan['name'],
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Tiến độ: ${(plan['progress'] * 100).toStringAsFixed(0)}%',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.asset(
-                                      'assets/images/workout.jpeg', // Replace with your image asset path
-                                      width: 120,
-                                      height: 70,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            dayBadge: _buildDayNumberBadge(plan['dayNumber']),
+                            planTypeChip: _buildPlanTypeChip(plan['planType']),
                           );
                         },
                       ),
@@ -890,7 +1086,7 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                                             ),
                                           ),
                                         );
-                                      }).toList(),
+                                      }),
                                     const Divider(color: Colors.grey),
                                     Row(
                                       mainAxisAlignment:
@@ -953,5 +1149,15 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
     );
   }
 
+  String _formatDate(DateTime d) {
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    final yyyy = d.year.toString();
+    return '$dd/$mm/$yyyy';
+  }
+
   // Function to show modal for adding a new workout
 }
+
+/// Reusable styled plan card widget
+// PlanCard & helper chip extracted to widgets/plan_card.dart

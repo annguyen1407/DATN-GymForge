@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/log_out_service.dart';
 import '../../main.dart' show kTokenRefreshInterval;
 import 'package:flutter/material.dart';
+import '../core/logging/app_logger.dart';
 import 'user/user_screen.dart';
 import 'home/home_screen.dart';
 import 'workout/workout_screen.dart';
@@ -44,9 +45,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _startPeriodicTokenRefresh() {
-    print('Khởi động timer refresh token (MainScreen)');
+    AppLogger.info('Khởi động timer refresh token', tag: 'MainScreen');
     _refreshTimer = Timer.periodic(kTokenRefreshInterval, (_) async {
-      print('Đang thực hiện refresh token (MainScreen) lúc: ${DateTime.now()}');
+      AppLogger.debug(
+        'Thực hiện refresh token lúc ${DateTime.now()}',
+        tag: 'MainScreen',
+      );
       final prefs = await SharedPreferences.getInstance();
       String? accessToken = prefs.getString('access_token');
       final refreshToken = await _secureStorage.read(key: 'refresh_token');

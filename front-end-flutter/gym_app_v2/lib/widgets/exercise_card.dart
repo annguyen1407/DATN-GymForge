@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
+import '../core/extensions/color_extensions.dart';
 
 /// ExerciseCard: Widget hiển thị thông tin một bài tập trong danh sách
 class ExerciseCard extends StatelessWidget {
@@ -22,10 +23,10 @@ class ExerciseCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: DesignTokens.surfaceAlt.withOpacity(0.5),
+          color: DesignTokens.surfaceAlt.withOpacityRatio(0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: DesignTokens.surfaceOutline.withOpacity(.4),
+            color: DesignTokens.surfaceOutline.withOpacityRatio(.4),
             width: 0.5,
           ),
         ),
@@ -81,7 +82,7 @@ class ExerciseCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: DesignTokens.brand.withOpacity(0.45),
+                            color: DesignTokens.brand.withOpacityRatio(0.45),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -134,7 +135,7 @@ class ExerciseCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: DesignTokens.surfaceMuted.withOpacity(0.6),
+        color: DesignTokens.surfaceMuted.withOpacityRatio(0.6),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

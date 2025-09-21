@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../theme/design_tokens.dart';
 
 /// AddActionButton: Unified "+" action entry point used across the app.
@@ -19,35 +20,31 @@ class AddActionButton extends StatelessWidget {
   final bool enabled;
 
   const AddActionButton.circle({
-    Key? key,
-    required VoidCallback? onPressed,
+    super.key,
+    required this.onPressed,
     this.loading = false,
     this.tooltip,
-  }) : onPressed = onPressed,
-       label = null,
+  }) : label = null,
        style = AddActionButtonStyle.circle,
-       enabled = onPressed != null && !loading,
-       super(key: key);
+       enabled = onPressed != null && !loading;
 
   const AddActionButton.pill({
-    Key? key,
+    super.key,
     required this.onPressed,
     this.label,
     this.loading = false,
     this.tooltip,
   }) : style = AddActionButtonStyle.pill,
-       enabled = onPressed != null && !loading,
-       super(key: key);
+       enabled = onPressed != null && !loading;
 
   const AddActionButton.outlinePill({
-    Key? key,
+    super.key,
     required this.onPressed,
     this.label,
     this.loading = false,
     this.tooltip,
   }) : style = AddActionButtonStyle.outlinePill,
-       enabled = onPressed != null && !loading,
-       super(key: key);
+       enabled = onPressed != null && !loading;
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +87,7 @@ class AddActionButton extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: DesignTokens.brand.withOpacity(.35),
+                      color: DesignTokens.brand.withOpacityRatio(.35),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -136,7 +133,7 @@ class AddActionButton extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: DesignTokens.brand.withOpacity(0.3),
+                      color: DesignTokens.brand.withOpacityRatio(0.3),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),

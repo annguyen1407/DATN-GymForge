@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -17,7 +18,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _daysCtrl = TextEditingController(); // new
+  // Days input removed: API will receive days = 0 by default
   String? _selectedPlanType; // new
   bool _submitting = false;
   final _repo = WorkoutPlansRepository();
@@ -41,7 +42,9 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       k == null ? 'Chọn loại kế hoạch' : (_planTypeVN[k] ?? k);
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
     // Validation thủ công trước call API
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
@@ -59,22 +62,13 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       return;
     }
     // days optional validation
-    if (_daysCtrl.text.trim().isNotEmpty) {
-      final n = int.tryParse(_daysCtrl.text.trim());
-      if (n == null || n <= 0 || n > 365) {
-        _showSnackSafe(ScaffoldMessenger.of(context), 'Số ngày không hợp lệ');
-        return;
-      }
-    }
-    if (!_formKey.currentState!.validate())
+    if (!_formKey.currentState!.validate()) {
       return; // still respect field validators
+    }
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
     try {
-      final int? days = _daysCtrl.text.trim().isEmpty
-          ? null
-          : int.tryParse(_daysCtrl.text.trim());
       final plan = await _repo.createPlan(
         userId: widget.userId,
         name: _nameCtrl.text.trim(),
@@ -82,7 +76,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
             ? null
             : _descCtrl.text.trim(),
         planType: _selectedPlanType,
-        days: days,
+        days: 0,
       );
       if (!mounted) return; // widget still active?
       if (plan != null) {
@@ -106,7 +100,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: Colors.grey.shade900.withOpacity(.95),
+        backgroundColor: Colors.grey.shade900.withOpacityRatio(.95),
       ),
     );
   }
@@ -124,7 +118,6 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
-    _daysCtrl.dispose();
     super.dispose();
   }
 
@@ -221,17 +214,17 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                           ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.07),
+                            color: Colors.white.withOpacityRatio(0.07),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.65),
+                              color: Colors.black.withOpacityRatio(0.65),
                               blurRadius: 28,
                               offset: const Offset(0, 18),
                             ),
                             BoxShadow(
-                              color: Colors.pinkAccent.withOpacity(0.1),
+                              color: Colors.pinkAccent.withOpacityRatio(0.1),
                               blurRadius: 36,
                               spreadRadius: -4,
                             ),
@@ -281,7 +274,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                             Text(
                               'Loại kế hoạch',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(.9),
+                                color: Colors.white.withOpacityRatio(.9),
                                 fontSize: 13,
                                 letterSpacing: .2,
                                 fontWeight: FontWeight.w500,
@@ -297,36 +290,11 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                                   setState(() => _selectedPlanType = t),
                             ),
                             const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _daysCtrl,
-                              enabled: !_submitting,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              style: const TextStyle(color: Colors.white),
-                              decoration: inputDecoration(
-                                'Số ngày',
-                                prefixIcon: const Icon(
-                                  Icons.calendar_today,
-                                  color: Colors.white70,
-                                  size: 20,
-                                ),
-                              ),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return null;
-                                final n = int.tryParse(v.trim());
-                                if (n == null) return 'Không hợp lệ';
-                                if (n <= 0) return 'Phải > 0';
-                                if (n > 365) return 'Quá dài (<=365)';
-                                return null;
-                              },
-                            ),
                             const SizedBox(height: 18),
                             Text(
                               'Mô tả chi tiết',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(.72),
+                                color: Colors.white.withOpacityRatio(.72),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1,
@@ -349,7 +317,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                               child: Text(
                                 'Nhấn Lưu kế hoạch để hoàn tất',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(.45),
+                                  color: Colors.white.withOpacityRatio(.45),
                                   fontSize: 12,
                                   letterSpacing: .3,
                                 ),
@@ -424,12 +392,12 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                   color: const Color(0xFF222222),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(.08),
+                    color: Colors.white.withOpacityRatio(.08),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(.6),
+                      color: Colors.black.withOpacityRatio(.6),
                       blurRadius: 24,
                       offset: const Offset(0, 14),
                     ),
@@ -495,8 +463,8 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: hasSelection
-                  ? activeColor!.withOpacity(.9)
-                  : Colors.white.withOpacity(.14),
+                  ? activeColor!.withOpacityRatio(.9)
+                  : Colors.white.withOpacityRatio(.14),
               width: 1.05,
             ),
             gradient: hasSelection
@@ -505,7 +473,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFF242424),
-                      activeColor!.withOpacity(.20),
+                      activeColor!.withOpacityRatio(.20),
                     ],
                   )
                 : const LinearGradient(
@@ -519,7 +487,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
               Icon(
                 Icons.category_rounded,
                 color: hasSelection
-                    ? activeColor!.withOpacity(.95)
+                    ? activeColor!.withOpacityRatio(.95)
                     : Colors.white60,
                 size: 20,
               ),
@@ -542,7 +510,7 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
                 child: Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: hasSelection
-                      ? activeColor!.withOpacity(.95)
+                      ? activeColor!.withOpacityRatio(.95)
                       : Colors.white38,
                   size: 22,
                 ),
@@ -574,7 +542,7 @@ class _TypeMenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? color.withOpacity(.15) : Colors.transparent,
+          color: active ? color.withOpacityRatio(.15) : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -588,7 +556,9 @@ class _TypeMenuItem extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: active ? Colors.white : Colors.white.withOpacity(.8),
+                  color: active
+                      ? Colors.white
+                      : Colors.white.withOpacityRatio(.8),
                   fontSize: 13.6,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -669,7 +639,7 @@ class _GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E).withOpacity(.85),
+        color: const Color(0xFF1E1E1E).withOpacityRatio(.85),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10, width: 1),
         boxShadow: const [

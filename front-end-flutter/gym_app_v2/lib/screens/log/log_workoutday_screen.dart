@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
-import '../../widgets/stats_card.dart';
+import '../../widgets/today_stat.dart';
 import 'log_exercise_detail_screen.dart';
 
-/// PlanDetailsPage: Displays details of a workout plan, including exercises and completion gauges
-class PlanDetailsPage extends StatelessWidget {
+/// WorkoutLogScreen: Displays details of a workout plan/day log including exercises and completion gauges
+class WorkoutLogScreen extends StatelessWidget {
   final String planName;
   final List<Map<String, dynamic>> exercises;
 
-  const PlanDetailsPage({
+  const WorkoutLogScreen({
     required this.planName,
     required this.exercises,
     super.key,
@@ -74,7 +74,14 @@ class PlanDetailsPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      StatsCard(),
+                      const TodayStat(
+                        workoutSets: 6,
+                        exercisesCount: 18,
+                        calories: 660,
+                        points: 300,
+                        compact: true,
+                        padding: EdgeInsets.all(20),
+                      ),
                       const SizedBox(height: 16),
                       Center(
                         child: LinearPercentIndicator(

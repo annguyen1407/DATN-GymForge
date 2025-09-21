@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../models/workout_plan_model.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -150,7 +151,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white.withOpacity(.9),
+                                  color: Colors.white.withOpacityRatio(.9),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -168,7 +169,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                         AnimatedCrossFade(
                           firstChild: _DescriptionCard(
                             text: plan.description!.length > 110
-                                ? plan.description!.substring(0, 110) + '...'
+                                ? '${plan.description!.substring(0, 110)}...'
                                 : plan.description!,
                           ),
                           secondChild: _DescriptionCard(
@@ -189,7 +190,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white.withOpacity(.95),
+                              color: Colors.white.withOpacityRatio(.95),
                             ),
                           ),
                           Text(
@@ -197,7 +198,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white.withOpacity(.55),
+                              color: Colors.white.withOpacityRatio(.55),
                             ),
                           ),
                         ],
@@ -216,7 +217,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                             colors: [Color(0xFF19191D), Color(0xFF141416)],
                           ),
                           border: Border.all(
-                            color: Colors.white.withOpacity(.04),
+                            color: Colors.white.withOpacityRatio(.04),
                           ),
                         ),
                         child: _loadingExercises
@@ -226,7 +227,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                                 child: Text(
                                   'Chưa có bài tập',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(.65),
+                                    color: Colors.white.withOpacityRatio(.65),
                                   ),
                                 ),
                               )
@@ -271,15 +272,15 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.10),
+                      color: Colors.white.withOpacityRatio(.10),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(.25),
+                        color: Colors.white.withOpacityRatio(.25),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(.55),
+                          color: Colors.black.withOpacityRatio(.55),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -360,7 +361,7 @@ class _Header extends StatelessWidget {
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.purpleAccent.withOpacity(.08),
+                color: Colors.purpleAccent.withOpacityRatio(.08),
               ),
             ),
           ),
@@ -372,7 +373,7 @@ class _Header extends StatelessWidget {
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blueAccent.withOpacity(.07),
+                color: Colors.blueAccent.withOpacityRatio(.07),
               ),
             ),
           ),
@@ -453,7 +454,7 @@ class _TypeBadge extends StatelessWidget {
         base = Colors.grey.shade600;
     }
     return _BaseBadge(
-      gradient: [base.withOpacity(.85), base.withOpacity(.55)],
+      gradient: [base.withOpacityRatio(.85), base.withOpacityRatio(.55)],
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -491,7 +492,7 @@ class _DaysBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withOpacity(.92),
+              color: Colors.white.withOpacityRatio(.92),
               letterSpacing: .4,
             ),
           ),
@@ -516,10 +517,10 @@ class _BaseBadge extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: gradient,
         ),
-        border: Border.all(color: Colors.white.withOpacity(.08), width: 1),
+        border: Border.all(color: Colors.white.withOpacityRatio(.08), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.45),
+            color: Colors.black.withOpacityRatio(.45),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -547,7 +548,7 @@ class _ExercisesBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withOpacity(.92),
+              color: Colors.white.withOpacityRatio(.92),
               letterSpacing: .4,
             ),
           ),
@@ -576,10 +577,10 @@ class _DescriptionCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF19191D), Color(0xFF141416)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(.05)),
+        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.55),
+            color: Colors.black.withOpacityRatio(.55),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -590,7 +591,7 @@ class _DescriptionCard extends StatelessWidget {
         style: TextStyle(
           fontSize: 14.5,
           height: 1.55,
-          color: Colors.white.withOpacity(.84),
+          color: Colors.white.withOpacityRatio(.84),
           letterSpacing: .25,
         ),
       ),
@@ -608,7 +609,7 @@ class _ErrorInline extends StatelessWidget {
         Icon(
           Icons.error_outline,
           size: 44,
-          color: Colors.redAccent.withOpacity(.9),
+          color: Colors.redAccent.withOpacityRatio(.9),
         ),
         const SizedBox(height: 12),
         const Text(
@@ -640,7 +641,7 @@ class _ExerciseCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1C1C21), Color(0xFF141417)],
         ),
-        border: Border.all(color: Colors.white.withOpacity(.05)),
+        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
       ),
       child: Row(
         children: [
@@ -654,7 +655,7 @@ class _ExerciseCard extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF2A2A30), Color(0xFF1A1A1D)],
               ),
-              border: Border.all(color: Colors.white.withOpacity(.07)),
+              border: Border.all(color: Colors.white.withOpacityRatio(.07)),
             ),
             child: const Icon(Icons.fitness_center, color: Colors.white70),
           ),
@@ -680,7 +681,7 @@ class _ExerciseCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(.62),
+                        color: Colors.white.withOpacityRatio(.62),
                         fontSize: 12.5,
                         height: 1.3,
                       ),

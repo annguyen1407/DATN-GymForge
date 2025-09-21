@@ -5,11 +5,12 @@ import '../../widgets/app_button.dart';
 /// Hiển thị video demo, thông tin chi tiết và các thông số của bài tập
 class ExerciseDetailScreen extends StatefulWidget {
   final String exerciseName; // Tên bài tập (VD: "Barbell Bench Press")
-  final String author; // Tác giả (VD: "Tao bởi ban")
-  final String calories; // Calories (VD: "200 calories")
+  final String author; // Tác giả (VD: "Tao bởi bạn")
+  final String calories; // Ví dụ: "200 cal"
   final String description; // Mô tả bài tập
-  final String backgroundImage; // Hình nền/video
+  final String backgroundImage; // Hình nền/video (local asset path)
   final List<ExerciseSpec> specs; // Thông số bài tập
+  final List<String> equipment; // Danh sách dụng cụ
 
   const ExerciseDetailScreen({
     required this.exerciseName,
@@ -18,6 +19,7 @@ class ExerciseDetailScreen extends StatefulWidget {
     required this.description,
     required this.backgroundImage,
     required this.specs,
+    this.equipment = const [],
     super.key,
   });
 
@@ -26,309 +28,450 @@ class ExerciseDetailScreen extends StatefulWidget {
 }
 
 class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
+  bool _descExpanded = false;
+
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header với video/hình nền và thông tin bài tập
-            SizedBox(
-              height: 500, // Cao hơn để chứa nhiều thông tin
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  // Hình nền/Video
-                  Positioned.fill(
-                    child: widget.backgroundImage.isNotEmpty
-                        ? Image.asset(
-                            widget.backgroundImage,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(color: Colors.grey[800]),
-                          )
-                        : Container(color: Colors.grey[800]),
-                  ),
-                  // Overlay gradient
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.8),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // App bar
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.more_vert,
-                            color: Colors.white,
-                          ),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Play button ở giữa image - nhỏ hơn và dịch lên trên
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 80, // Dịch lên trên bằng cách tăng bottom
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          // TODO: Play video
-                        },
-                        child: Container(
-                          width: 80, // Giảm từ 100 xuống 80
-                          height: 80, // Giảm từ 100 xuống 80
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
-                              width: 2,
-                            ),
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(
-                              6,
-                            ), // Giảm từ 8 xuống 6
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow,
-                              color: Colors.black,
-                              size: 40, // Giảm từ 50 xuống 40
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Thông tin bài tập ở dưới
-                  Positioned(
-                    bottom: 20,
-                    left: 20,
-                    right: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.exerciseName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.person,
-                              color: Colors.white70,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.author,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            const Icon(
-                              Icons.local_fire_department,
-                              color: Colors.orange,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.calories,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          widget.description,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: Expand/collapse description
-                          },
-                          child: const Text(
-                            'Read More...',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                stretch: true,
+                expandedHeight: 360,
+                backgroundColor: Colors.black,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                    onPressed: () {},
                   ),
                 ],
+                flexibleSpace: FlexibleSpaceBar(
+                  stretchModes: const [
+                    StretchMode.zoomBackground,
+                    StretchMode.fadeTitle,
+                  ],
+                  background: _buildHeroHeader(),
+                ),
               ),
-            ),
-            // Equipment section
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Dụng cụ tập luyện',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildMetaRow(),
+                      const SizedBox(height: 20),
+                      _buildDescription(),
+                      const SizedBox(height: 28),
+                      if (widget.equipment.isNotEmpty) _buildEquipmentSection(),
+                      const SizedBox(height: 28),
+                      _buildSpecsSection(),
+                      SizedBox(height: media.padding.bottom + 100),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  // Align equipment to left
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _buildEquipmentItem('Barbell'),
-                  ),
-                ],
+                ),
               ),
-            ),
-            // Specifications section - cố định không scroll
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Tùy chỉnh',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Danh sách thông số cố định - không scroll
-                  ...widget.specs.map((spec) => _buildCompactSpecItem(spec)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20), // Padding dưới cùng
-          ],
-        ),
+            ],
+          ),
+          _buildBottomBar(context),
+        ],
       ),
     );
   }
 
-  /// Widget hiển thị equipment
-  Widget _buildEquipmentItem(String name) {
+  Widget _buildHeroHeader() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Background image
+        Positioned.fill(
+          child: widget.backgroundImage.isNotEmpty
+              ? Image.asset(
+                  widget.backgroundImage,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: Colors.grey[850]),
+                )
+              : Container(color: Colors.grey[850]),
+        ),
+        // Gradient overlay
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.15),
+                  Colors.black.withOpacity(0.55),
+                  Colors.black.withOpacity(0.85),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Play button and title area
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.4),
+                            width: 2,
+                          ),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.black,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        widget.exerciseName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          height: 1.15,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    _metaChip(Icons.person, widget.author),
+                    _metaChip(
+                      Icons.local_fire_department,
+                      widget.calories,
+                      iconColor: Colors.orangeAccent,
+                    ),
+                    if (widget.equipment.isNotEmpty)
+                      _metaChip(
+                        Icons.fitness_center,
+                        '${widget.equipment.length} dụng cụ',
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _metaChip(
+    IconData icon,
+    String label, {
+    Color iconColor = Colors.white70,
+  }) {
     return Container(
-      width: 80,
-      height: 80,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.fitness_center, color: Colors.white70, size: 24),
-          const SizedBox(height: 4),
+          Icon(icon, color: iconColor, size: 16),
+          const SizedBox(width: 6),
           Text(
-            name,
+            label,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  /// Widget hiển thị từng thông số - có thể config được
-  Widget _buildCompactSpecItem(ExerciseSpec spec) {
-    return GestureDetector(
-      onTap: () {
-        // TODO: Mở dialog để chỉnh sửa thông số
-        _showConfigDialog(spec);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.grey[900]?.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[700]!, width: 0.5),
+  Widget _buildMetaRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Thông số bài tập',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        AppButton.text(
+          label: 'Chia sẻ',
+          onPressed: () {},
+          fullWidth: false,
+          size: AppButtonSize.small,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescription() {
+    final maxLines = _descExpanded ? null : 4;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Mô tả',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        AnimatedCrossFade(
+          firstChild: Text(
+            widget.description,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+          secondChild: Text(
+            widget.description,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          crossFadeState: _descExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => setState(() => _descExpanded = !_descExpanded),
+          child: Text(
+            _descExpanded ? 'Thu gọn' : 'Xem thêm...',
+            style: const TextStyle(
+              color: Color(0xFF8854FF),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEquipmentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dụng cụ tập luyện',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (context, index) {
+              final name = widget.equipment[index];
+              return _equipmentChip(name);
+            },
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemCount: widget.equipment.length,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _equipmentChip(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.fitness_center, color: Colors.white70, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tùy chỉnh',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: widget.specs.map((s) => _specCard(s)).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _specCard(ExerciseSpec spec) {
+    return GestureDetector(
+      onTap: () => _showConfigDialog(spec),
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141414),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               spec.name,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
+                color: Colors.white70,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
               ),
             ),
+            const SizedBox(height: 6),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   spec.value,
                   style: const TextStyle(
-                    color: Colors.orange, // Đổi màu để nhấn mạnh có thể config
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFFFB020),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.4,
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.edit, // Đổi icon thành edit để rõ là có thể config
-                  color: Colors.orange,
-                  size: 18,
-                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.edit, color: Color(0xFFFFB020), size: 16),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 14,
+          bottom: 14 + MediaQuery.of(context).padding.bottom,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.85),
+          border: Border(
+            top: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.6),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: AppButton.primary(
+                label: 'Bắt đầu tập',
+                onPressed: () {},
+                size: AppButtonSize.large,
+              ),
+            ),
+            const SizedBox(width: 12),
+            AppButton.outline(
+              label: 'Ghi log',
+              onPressed: () {},
+              fullWidth: false,
+              size: AppButtonSize.large,
             ),
           ],
         ),

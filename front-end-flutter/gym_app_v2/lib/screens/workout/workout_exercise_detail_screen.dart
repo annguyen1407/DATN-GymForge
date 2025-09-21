@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 // import '../../services/api_service.dart'; // replaced by repository abstraction
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/day_actions_menu.dart';
@@ -94,6 +95,14 @@ class _WorkoutExerciseDetailScreenState
     switch (action) {
       case DayAction.edit:
         if (!mounted) return;
+        // Nếu chưa có ngày (placeholder) -> không cho chỉnh sửa (cần backend set trước hoặc tạo mới).
+        if (_displayDate == 'Chưa có ngày') {
+          AppSnackBar.showWarning(
+            context,
+            'Ngày này chưa được thiết lập. Hãy đặt ngày ở backend hoặc tạo ngày trước.',
+          );
+          return;
+        }
         final initial =
             AppDateUtils.parseIsoOrDisplay(_displayDate) ?? DateTime.now();
         final picked = await AppDatePicker.show(
@@ -107,6 +116,7 @@ class _WorkoutExerciseDetailScreenState
           cancelLabel: 'Huỷ',
           disablePast: true,
         );
+        if (!mounted) return;
         if (picked == null) return;
         showDialog(
           context: context,
@@ -150,6 +160,7 @@ class _WorkoutExerciseDetailScreenState
             onConfirm: () => Navigator.pop(ctx, true),
           ),
         );
+        if (!mounted) return;
         if (confirmed != true) return;
         try {
           showDialog(
@@ -194,7 +205,8 @@ class _WorkoutExerciseDetailScreenState
       changed
           ? {
               'updatedDate': _displayDate,
-              if (_updatedDateIso != null) 'updatedDateIso': _updatedDateIso,
+              if (_updatedDateIso != null && _displayDate != 'Chưa có ngày')
+                'updatedDateIso': _updatedDateIso,
               'id': widget.workoutDayId,
             }
           : null,
@@ -206,16 +218,25 @@ class _WorkoutExerciseDetailScreenState
   late final String _initialDate = _displayDate; // giữ lại để so sánh khi pop
 
   String _initDisplay(String raw) {
-    final dt = AppDateUtils.parseIsoOrDisplay(raw) ?? DateTime.now();
+    // Một số workout day có thể chưa có date (null ở backend -> truyền xuống thành chuỗi rỗng hoặc 'null').
+    // Trước đây fallback về ngày hiện tại gây hiểu lầm. Ta hiển thị placeholder thay vì ngày hôm nay.
+    if (raw.trim().isEmpty || raw.toLowerCase() == 'null') {
+      return 'Chưa có ngày';
+    }
+    final dt = AppDateUtils.parseIsoOrDisplay(raw);
+    if (dt == null) {
+      return 'Chưa có ngày';
+    }
     return AppDateUtils.formatDdMMyyyy(dt);
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         _popWithResult();
-        return false; // chặn pop mặc định vì đã tự xử lý
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -253,8 +274,8 @@ class _WorkoutExerciseDetailScreenState
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.3),
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withOpacityRatio(0.3),
+                    Colors.black.withOpacityRatio(0.8),
                   ],
                 ),
               ),
@@ -538,12 +559,22 @@ class _WorkoutExerciseDetailScreenState
                       workoutTitle: widget.dayTitle,
                       exercises: _exercises,
                       currentExerciseIndex: 0,
+                      workoutPlanId: widget.workoutPlanId,
+                      dayNumber: widget.dayNumber,
+                      workoutDayDate: _parseWorkoutDayDate(widget.date),
+                      workoutDayId: widget.workoutDayId,
                     ),
                   ),
                 );
               },
       ),
     );
+  }
+
+  DateTime _parseWorkoutDayDate(String raw) {
+    // raw có thể ISO hoặc dd/MM/yyyy (đang hiển thị). Reuse AppDateUtils nếu cần.
+    final parsed = AppDateUtils.parseIsoOrDisplay(raw) ?? DateTime.now();
+    return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
   Widget _buildFab() {
@@ -587,7 +618,7 @@ class _WorkoutExerciseDetailScreenState
       height: 80,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacity(0.6),
+        color: Colors.grey[800]?.withOpacityRatio(0.6),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

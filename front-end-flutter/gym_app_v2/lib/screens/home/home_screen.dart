@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/discover_button.dart';
-import '../../widgets/today_stats.dart';
-import '../../widgets/workout_time_chart.dart';
+import '../../widgets/today_stat.dart';
 
 class HomeScreen extends StatelessWidget {
   final String userName;
@@ -40,7 +40,7 @@ class HomeScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.orange.withOpacity(0.3),
+                              color: Colors.orange.withOpacityRatio(0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -156,21 +156,16 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const TodayStats(),
-                const SizedBox(height: 24),
-                // Thời gian tập luyện
-                const Text(
-                  'Thời gian tập luyện',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                  ),
+                const TodayStat(
+                  workoutSets: 6, // TODO: bind real data
+                  exercisesCount: 24, // placeholder exercises count
+                  calories: 660,
+                  points: 300,
+                  compact: false,
                 ),
-                const SizedBox(height: 16),
-                const WorkoutTimeChart(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
+                // (Đã bỏ phần biểu đồ thời gian tập luyện theo yêu cầu)
+                const SizedBox(height: 8),
               ],
             ),
           ),

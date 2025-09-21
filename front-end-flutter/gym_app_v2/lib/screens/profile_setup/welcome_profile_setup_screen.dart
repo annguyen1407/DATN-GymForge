@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 
 class WelcomeProfileSetupScreen extends StatelessWidget {
@@ -15,7 +16,7 @@ class WelcomeProfileSetupScreen extends StatelessWidget {
             'assets/images/onboarding_1.png', // Đặt tên file ảnh nền đúng với assets của bạn
             fit: BoxFit.cover,
           ),
-          Container(color: Colors.black.withOpacity(0.5)),
+          Container(color: Colors.black.withOpacityRatio(0.5)),
           SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,

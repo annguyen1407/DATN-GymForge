@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import 'coach_detail_screen.dart';
 
@@ -237,7 +238,7 @@ class CoachesScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey[900]!.withOpacity(0.5),
+          color: Colors.grey[900]!.withOpacityRatio(0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[800]!, width: 0.5),
         ),
