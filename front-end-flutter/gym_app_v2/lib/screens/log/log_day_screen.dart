@@ -3,6 +3,7 @@ import '../../widgets/app_button.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'log_workoutday_screen.dart'; // contains WorkoutLogScreen
 import '../../widgets/log_plan_card.dart';
+import '../../widgets/pill_tab_bar.dart';
 
 /// LogOfDayScreen: Displays detailed workout information for a selected date with tabs
 class LogOfDayScreen extends StatefulWidget {
@@ -627,75 +628,9 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(kTextTabBarHeight + 12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: false,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              labelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-              dividerColor: Colors.transparent,
-              indicator: BoxDecoration(
-                color: const Color(0xFF8854FF).withOpacity(0.18),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              // keep slight vertical padding for pill breathing space
-              indicatorPadding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 6,
-              ),
-              labelPadding: EdgeInsets.zero,
-              tabs: const [
-                Tab(
-                  child: Center(
-                    child: Text(
-                      'Ghi chú',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                Tab(
-                  child: Center(
-                    child: Text(
-                      'Kế hoạch',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                Tab(
-                  child: Center(
-                    child: Text(
-                      'Cơ thể',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                Tab(
-                  child: Center(
-                    child: Text(
-                      'Dinh dưỡng',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        bottom: PillTabBar(
+          controller: _tabController,
+          labels: const ['Ghi chú', 'Kế hoạch', 'Cơ thể', 'Dinh dưỡng'],
         ),
       ),
       body: SafeArea(
