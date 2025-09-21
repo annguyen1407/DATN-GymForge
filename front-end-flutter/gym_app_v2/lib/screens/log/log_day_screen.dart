@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_button.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'plan_details_page.dart';
+import 'log_workoutday_screen.dart'; // contains WorkoutLogScreen
 
-/// WorkoutDetailsPage: Displays detailed workout information for a selected date with tabs
-class WorkoutDetailsPage extends StatefulWidget {
+/// LogOfDayScreen: Displays detailed workout information for a selected date with tabs
+class LogOfDayScreen extends StatefulWidget {
   final DateTime selectedDate;
   final List<Map<String, dynamic>> workouts; // existing workouts list
   final void Function(Map<String, dynamic>)? onWorkoutAdded;
 
-  const WorkoutDetailsPage({
+  const LogOfDayScreen({
     super.key,
     required this.selectedDate,
     required this.workouts,
@@ -17,10 +17,10 @@ class WorkoutDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<WorkoutDetailsPage> createState() => _WorkoutDetailsPageState();
+  State<LogOfDayScreen> createState() => _LogOfDayScreenState();
 }
 
-class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
+class _LogOfDayScreenState extends State<LogOfDayScreen>
     with SingleTickerProviderStateMixin {
   // Controllers & state referenced in bottom sheets (keep minimal subset to satisfy existing usages)
   final TextEditingController _bodyWeightController = TextEditingController();
@@ -63,7 +63,7 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
   }
 
   @override
-  void didUpdateWidget(covariant WorkoutDetailsPage oldWidget) {
+  void didUpdateWidget(covariant LogOfDayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
   }
 
@@ -575,7 +575,7 @@ class _WorkoutDetailsPageState extends State<WorkoutDetailsPage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => PlanDetailsPage(
+                                  builder: (context) => WorkoutLogScreen(
                                     planName: plan['name'],
                                     exercises: List<Map<String, dynamic>>.from(
                                       plan['exercises'],

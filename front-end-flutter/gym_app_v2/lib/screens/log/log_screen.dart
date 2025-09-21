@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../widgets/app_button.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:fl_chart/fl_chart.dart'; // Added for line chart
-import '../../widgets/stats_card.dart';
+import '../../widgets/today_stat.dart';
+import '../../repositories/exercise_log_repository.dart';
+import '../../core/auth/token_manager.dart';
+import '../../services/log_out_service.dart';
 import '../../widgets/category_icon.dart';
 import '../../widgets/log_workout_time_card.dart';
-import 'workout_details_page.dart';
+import 'log_day_screen.dart'; // renamed class inside to LogOfDayScreen
 
 /// LogScreen: Tab "Log" hiển thị lịch sử tập luyện, thống kê, các nhóm workout đã hoàn thành
 class LogScreen extends StatefulWidget {
@@ -23,11 +25,11 @@ class _LogScreenState extends State<LogScreen>
   // TabController for TabBar
   late TabController _tabController;
 
-  // State variables for body metrics (placeholder values)
-  double _weight = 70.0; // kg
-  double _height = 175.0; // cm
-  final double _bodyFat = 20.0; // percentage
-  double _oneRepMax = 100.0; // kg
+  // State variables for body metrics (initially empty – will be populated from future API)
+  double? _weight; // kg
+  double? _height; // cm
+  double? _bodyFat; // percentage
+  double? _oneRepMax; // kg
 
   // Calendar state
   DateTime _focusedDay = DateTime.now();
@@ -36,57 +38,20 @@ class _LogScreenState extends State<LogScreen>
   // State for toggling between LogWorkoutTimeCard and TableCalendar
   bool _showWorkoutTimeCard = true;
 
-  // Mock workout data (replace with backend data)
-  final Map<DateTime, List<Map<String, dynamic>>> _workouts = {
-    DateTime(2025, 8, 1): [
-      {'name': 'Bench Press', 'sets': 3, 'reps': 10, 'weight': 80.0},
-      {'name': 'Squats', 'sets': 4, 'reps': 12, 'weight': 100.0},
-    ],
-    DateTime(2025, 8, 2): [
-      {'name': 'Deadlift', 'sets': 3, 'reps': 8, 'weight': 120.0},
-      {'name': 'Pull-Ups', 'sets': 3, 'reps': 15, 'weight': 0.0},
-    ],
-  };
+  // Daily summary + auth state
+  DailyExerciseLogSummary? _dailySummary;
+  bool _loadingSummary = false;
+  String? _summaryError;
+  final _repo = ExerciseLogRepository(baseUrl: 'http://localhost:3000');
+  String? _userId;
+  String? _accessToken;
+  bool _authResolving = true; // while resolving token & user id
 
-  // Mock historical data for Weight and 1RM (replace with backend data)
-  final List<Map<String, dynamic>> _bodyMetricsHistory = [
-    {
-      'week': 1,
-      'date': DateTime(2025, 8, 4),
-      'weight': 70.0,
-      'oneRepMax': 100.0,
-    },
-    {
-      'week': 2,
-      'date': DateTime(2025, 8, 11),
-      'weight': 69.5,
-      'oneRepMax': 102.0,
-    },
-    {
-      'week': 3,
-      'date': DateTime(2025, 8, 18),
-      'weight': 69.0,
-      'oneRepMax': 104.0,
-    },
-    {
-      'week': 4,
-      'date': DateTime(2025, 8, 25),
-      'weight': 68.8,
-      'oneRepMax': 105.0,
-    },
-    {
-      'week': 5,
-      'date': DateTime(2025, 9, 1),
-      'weight': 68.5,
-      'oneRepMax': 106.0,
-    },
-    {
-      'week': 6,
-      'date': DateTime(2025, 9, 8),
-      'weight': 68.0,
-      'oneRepMax': 108.0,
-    },
-  ];
+  // Workout data per day (start empty, to be filled via future API integration or user input)
+  final Map<DateTime, List<Map<String, dynamic>>> _workouts = {};
+
+  // Historical body metrics (empty until fetched)
+  final List<Map<String, dynamic>> _bodyMetricsHistory = [];
 
   @override
   void initState() {
@@ -101,6 +66,8 @@ class _LogScreenState extends State<LogScreen>
         });
       }
     });
+
+    _initAuthAndLoad();
   }
 
   @override
@@ -114,6 +81,70 @@ class _LogScreenState extends State<LogScreen>
     setState(() {
       _showWorkoutTimeCard = showWorkoutTimeCard;
     });
+  }
+
+  Future<void> _initAuthAndLoad() async {
+    try {
+      final tm = TokenManager.instance;
+      final token = await tm.getValidAccessToken();
+      final uid = await tm.getCurrentUserId();
+      if (!mounted) return;
+      if (token == null || uid == null) {
+        setState(() {
+          _authResolving = false;
+          _summaryError = 'Chưa đăng nhập hoặc token hết hạn';
+        });
+        return;
+      }
+      setState(() {
+        _accessToken = token;
+        _userId = uid;
+        _authResolving = false;
+      });
+      await _fetchDailySummary(DateTime.now());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _authResolving = false;
+        _summaryError = 'Lỗi khởi tạo auth: $e';
+      });
+    }
+  }
+
+  Future<void> _fetchDailySummary(DateTime date) async {
+    if (_accessToken == null || _userId == null) {
+      // If auth not ready, skip
+      return;
+    }
+    setState(() {
+      _loadingSummary = true;
+      _summaryError = null;
+    });
+    try {
+      final res = await _repo.fetchDailySummary(
+        userId: _userId!,
+        date: date,
+        token: _accessToken!,
+      );
+      setState(() {
+        _dailySummary = res;
+      });
+    } catch (e) {
+      setState(() {
+        _summaryError = e.toString();
+      });
+      // If unauthorized surfaced (status 401), attempt logout to force re-auth
+      final msg = e.toString();
+      if (msg.contains('401') && mounted) {
+        await LogoutService.logout(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingSummary = false;
+        });
+      }
+    }
   }
 
   // Function to handle new workout addition
@@ -331,7 +362,7 @@ class _LogScreenState extends State<LogScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Thống kê tổng quan
-        const StatsCard(),
+        _buildTodayStatSection(),
         const SizedBox(height: 24),
         // Danh sách nhóm workout đã hoàn thành
         const Text(
@@ -454,7 +485,7 @@ class _LogScreenState extends State<LogScreen>
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              'Tuần',
+                              'Tháng',
                               style: TextStyle(
                                 color: !_showWorkoutTimeCard
                                     ? Colors.white
@@ -485,10 +516,12 @@ class _LogScreenState extends State<LogScreen>
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
                         });
+                        // Refetch summary for chosen date
+                        _fetchDailySummary(selectedDay);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => WorkoutDetailsPage(
+                            builder: (context) => LogOfDayScreen(
                               selectedDate: selectedDay,
                               workouts: _workouts[selectedDay] ?? [],
                               onWorkoutAdded: (workout) =>
@@ -541,10 +574,88 @@ class _LogScreenState extends State<LogScreen>
     );
   }
 
+  Widget _buildTodayStatSection() {
+    if (_authResolving) {
+      return const Center(
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(strokeWidth: 3),
+        ),
+      );
+    }
+    if (_accessToken == null || _userId == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Bạn cần đăng nhập để xem thống kê',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          AppButton.primary(
+            label: 'Đăng nhập lại',
+            size: AppButtonSize.small,
+            onPressed: () async {
+              await LogoutService.logout(context);
+            },
+          ),
+        ],
+      );
+    }
+    if (_loadingSummary) {
+      return const Center(
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: CircularProgressIndicator(strokeWidth: 3),
+        ),
+      );
+    }
+    if (_summaryError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Load error: $_summaryError',
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          AppButton.outline(
+            label: 'Retry',
+            onPressed: () => _fetchDailySummary(_selectedDay ?? DateTime.now()),
+          ),
+        ],
+      );
+    }
+    final s = _dailySummary;
+    if (s == null) {
+      return const TodayStat(
+        workoutSets: 0,
+        exercisesCount: 0,
+        calories: 0,
+        caloriesIntake: 0,
+        circleLabel: 'Sessions',
+        compact: true,
+      );
+    }
+    return TodayStat(
+      workoutSets: s.sessions,
+      exercisesCount: s.totalExercises,
+      calories: s.caloriesBurned,
+      caloriesIntake: s.caloriesIntake,
+      points: null,
+      circleLabel: 'Sessions',
+      compact: true,
+    );
+  }
+
   // Content for "Chuyên sâu" tab
   Widget _buildInDepthContent() {
     // Calculate BMI: weight (kg) / (height (m) * height (m))
-    final double bmi = _weight / ((_height / 100) * (_height / 100));
+    final double? bmi = (_weight != null && _height != null && _height! > 0)
+        ? _weight! / ((_height! / 100) * (_height! / 100))
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,7 +674,7 @@ class _LogScreenState extends State<LogScreen>
           style: TextStyle(color: Colors.white54, fontSize: 13),
         ),
         const SizedBox(height: 16),
-        // Body Metrics Card
+        // Body Metrics Card (guard for empty state)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -584,195 +695,62 @@ class _LogScreenState extends State<LogScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              // Line Chart for Weight and 1RM
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                height: 200, // Adjust height as needed
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: true,
-                      horizontalInterval: 10, // Adjust based on data range
-                      verticalInterval: 1,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: Colors.white.withOpacity(0.1),
-                          strokeWidth: 1,
-                        );
-                      },
-                      getDrawingVerticalLine: (value) {
-                        return FlLine(
-                          color: Colors.white.withOpacity(0.1),
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
-                            );
-                          },
-                          interval: 10, // Adjust based on data range
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (value, meta) {
-                            final week = value.toInt();
-                            if (week >= 1 &&
-                                week <= _bodyMetricsHistory.length) {
-                              return Text(
-                                'W$week',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      topTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    minX: 1,
-                    maxX: _bodyMetricsHistory.length.toDouble(),
-                    minY:
-                        (_bodyMetricsHistory
-                                    .map((e) => (e['weight'] as double))
-                                    .reduce((a, b) => a < b ? a : b) -
-                                5)
-                            .floorToDouble(), // Adjust for padding
-                    maxY:
-                        (_bodyMetricsHistory
-                                    .map((e) => (e['oneRepMax'] as double))
-                                    .reduce((a, b) => a > b ? a : b) +
-                                5)
-                            .ceilToDouble(), // Adjust for padding
-                    lineBarsData: [
-                      // Weight Line
-                      LineChartBarData(
-                        spots: _bodyMetricsHistory
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => FlSpot(
-                                (entry.key + 1).toDouble(),
-                                entry.value['weight'] as double,
-                              ),
-                            )
-                            .toList(),
-                        isCurved: true,
-                        color: const Color(0xFF8854FF), // Purple for Weight
-                        barWidth: 2,
-                        dotData: FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: const Color(0xFF8854FF).withOpacity(0.2),
-                        ),
-                      ),
-                      // 1RM Line
-                      LineChartBarData(
-                        spots: _bodyMetricsHistory
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => FlSpot(
-                                (entry.key + 1).toDouble(),
-                                entry.value['oneRepMax'] as double,
-                              ),
-                            )
-                            .toList(),
-                        isCurved: true,
-                        color: Colors.orange.shade400, // Orange for 1RM
-                        barWidth: 2,
-                        dotData: FlDotData(show: true),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Colors.orange.shade400.withOpacity(0.2),
-                        ),
-                      ),
-                    ],
-                    lineTouchData: LineTouchData(
-                      touchTooltipData: LineTouchTooltipData(
-                        // tooltipBgColor: Colors.grey[800],
-                        getTooltipItems: (touchedSpots) {
-                          return touchedSpots.map((spot) {
-                            final week = spot.x.toInt();
-                            final value = spot.y.toStringAsFixed(1);
-                            final label = spot.barIndex == 0 ? 'Weight' : '1RM';
-                            return LineTooltipItem(
-                              '$label: $value kg\nWeek $week',
-                              const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            );
-                          }).toList();
-                        },
-                      ),
-                    ),
+              if (_bodyMetricsHistory.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'No body metrics yet',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
+                )
+              else ...[
+                // (Chart removed when we remove mock data; reintroduce when backend available)
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    // Legend placeholders if re-enabled later
+                  ],
                 ),
-              ),
-              // const SizedBox(height: 6),
-              // Legend for the chart
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildLegendItem('Weight', const Color(0xFF8854FF)),
-                  const SizedBox(width: 16),
-                  _buildLegendItem('1RM', Colors.orange.shade400),
-                ],
-              ),
+              ],
               const SizedBox(height: 12),
-              // Metrics Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildMetricItem(
-                    'Weight',
-                    '${_weight.toStringAsFixed(1)} kg',
-                  ),
-                  _buildMetricItem(
-                    'Height',
-                    '${_height.toStringAsFixed(1)} cm',
-                  ),
-                  _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
-                  _buildMetricItem(
-                    'Body Fat',
-                    '${_bodyFat.toStringAsFixed(1)}%',
-                  ),
-                  _buildMetricItem(
-                    '1RM',
-                    '${_oneRepMax.toStringAsFixed(1)} kg',
-                  ),
-                ],
-              ),
+              if (_weight != null ||
+                  _height != null ||
+                  _bodyFat != null ||
+                  _oneRepMax != null)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (_weight != null)
+                      _buildMetricItem(
+                        'Weight',
+                        '${_weight!.toStringAsFixed(1)} kg',
+                      ),
+                    if (_height != null)
+                      _buildMetricItem(
+                        'Height',
+                        '${_height!.toStringAsFixed(1)} cm',
+                      ),
+                    if (bmi != null)
+                      _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
+                    if (_bodyFat != null)
+                      _buildMetricItem(
+                        'Body Fat',
+                        '${_bodyFat!.toStringAsFixed(1)}%',
+                      ),
+                    if (_oneRepMax != null)
+                      _buildMetricItem(
+                        '1RM',
+                        '${_oneRepMax!.toStringAsFixed(1)} kg',
+                      ),
+                  ],
+                )
+              else
+                const Text(
+                  'No metrics recorded',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
               const SizedBox(height: 16),
               // Update Metrics Button (migrated to design system)
               AppButton.primary(
@@ -814,17 +792,4 @@ class _LogScreenState extends State<LogScreen>
   }
 
   // Helper method to build legend item
-  Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-      ],
-    );
-  }
 }

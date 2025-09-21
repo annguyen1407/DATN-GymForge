@@ -202,17 +202,129 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
   };
 
   // Generate date range for any week index
-  String _generateDateRange(int weekIndex) {
-    if (mockWeeksData.containsKey(weekIndex)) {
-      return mockWeeksData[weekIndex]!['dateRange'];
+
+  Map<String, dynamic> get currentWeekData {
+    // Determine start Monday for current index
+    final startDate = _resolveWeekStartDate(currentWeekIndex);
+    final endDate = startDate.add(const Duration(days: 6));
+    final isCurrentWeek = currentWeekIndex == _getCurrentWeekIndex();
+    final today = DateTime.now();
+
+    // Build hours map from mock (if available) keyed by weekday abbrev
+    final hoursMap = <String, double>{};
+    if (mockWeeksData.containsKey(currentWeekIndex)) {
+      final raw = mockWeeksData[currentWeekIndex]!['data'] as List<dynamic>;
+      for (final d in raw) {
+        if (d is Map<String, dynamic>) {
+          final wd = d['day'];
+          if (wd is String && d['hours'] is num) {
+            hoursMap[wd] = (d['hours'] as num).toDouble();
+          }
+        }
+      }
     }
 
-    // Generate date range based on week index
-    final baseDate = DateTime(2025, 1, 4); // Base date for week 1
-    final weekStart = baseDate.add(Duration(days: (weekIndex - 1) * 7));
-    final weekEnd = weekStart.add(const Duration(days: 6));
+    final weekDays = <Map<String, dynamic>>[];
+    for (int i = 0; i < 7; i++) {
+      final dayDate = startDate.add(Duration(days: i));
+      final abbrev = _weekdayAbbrev(dayDate.weekday);
+      final hours = hoursMap[abbrev] ?? 0.0;
+      final active = isCurrentWeek && _isSameDate(dayDate, today);
+      weekDays.add({
+        'day': abbrev,
+        'hours': hours,
+        'active': active,
+        'date': _formatDayDate(dayDate),
+      });
+    }
 
-    final months = [
+    return {
+      'dateRange': _formatDateRange(startDate, endDate),
+      'data': weekDays,
+    };
+  }
+
+  // Utilities for dynamic week building
+  DateTime _resolveWeekStartDate(int weekIndex) {
+    // If we have mock dateRange, parse its first date to ensure alignment
+    if (mockWeeksData.containsKey(weekIndex)) {
+      final dr = mockWeeksData[weekIndex]!['dateRange'] as String?;
+      final parsed = _parseDateRangeStart(dr);
+      if (parsed != null) return parsed;
+    }
+    // Reference: week 32 starts at 4 Aug 2025 (Monday) from existing mock
+    final referenceMonday = DateTime(2025, 8, 4);
+    final diffWeeks = weekIndex - 32;
+    return referenceMonday.add(Duration(days: diffWeeks * 7));
+  }
+
+  DateTime? _parseDateRangeStart(String? dateRange) {
+    if (dateRange == null) return null;
+    // Pattern e.g. '4 Aug - 10 Aug 2025'
+    final parts = dateRange.split(' - ');
+    if (parts.length != 2) return null;
+    final startPart = parts[0].trim(); // '4 Aug'
+    final endPart = parts[1].trim(); // '10 Aug 2025'
+    final endTokens = endPart.split(' ');
+    if (endTokens.length < 3) return null;
+    final year = int.tryParse(endTokens.last);
+    if (year == null) return null;
+    final startTokens = startPart.split(' ');
+    if (startTokens.length != 2) return null;
+    final startDay = int.tryParse(startTokens[0]);
+    final monthStr = startTokens[1];
+    final month = _monthFromAbbrev(monthStr);
+    if (startDay == null || month == null) return null;
+    return DateTime(year, month, startDay);
+  }
+
+  int? _monthFromAbbrev(String m) {
+    const map = {
+      'Jan': 1,
+      'Feb': 2,
+      'Mar': 3,
+      'Apr': 4,
+      'May': 5,
+      'Jun': 6,
+      'Jul': 7,
+      'Aug': 8,
+      'Sep': 9,
+      'Oct': 10,
+      'Nov': 11,
+      'Dec': 12,
+    };
+    return map[m];
+  }
+
+  String _weekdayAbbrev(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'Mon';
+      case DateTime.tuesday:
+        return 'Tue';
+      case DateTime.wednesday:
+        return 'Wed';
+      case DateTime.thursday:
+        return 'Thu';
+      case DateTime.friday:
+        return 'Fri';
+      case DateTime.saturday:
+        return 'Sat';
+      case DateTime.sunday:
+        return 'Sun';
+      default:
+        return 'Mon';
+    }
+  }
+
+  bool _isSameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _formatDayDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  String _formatDateRange(DateTime start, DateTime end) {
+    const months = [
       'Jan',
       'Feb',
       'Mar',
@@ -226,84 +338,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       'Nov',
       'Dec',
     ];
-
-    return '${weekStart.day} ${months[weekStart.month - 1]} - ${weekEnd.day} ${months[weekEnd.month - 1]} ${weekEnd.year}';
-  }
-
-  Map<String, dynamic> get currentWeekData {
-    if (mockWeeksData.containsKey(currentWeekIndex)) {
-      return _addTodayHighlight(mockWeeksData[currentWeekIndex]!);
-    }
-
-    // Return empty week data with today highlighted if it's current week
-    final weekData = {
-      'dateRange': _generateDateRange(currentWeekIndex),
-      'data': [
-        {'day': 'Mon', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Tue', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Wed', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Thu', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Fri', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Sat', 'hours': 0.0, 'active': false, 'date': ''},
-        {'day': 'Sun', 'hours': 0.0, 'active': false, 'date': ''},
-      ],
-    };
-
-    return _addTodayHighlight(weekData);
-  }
-
-  // Thêm highlight cho ngày hôm nay nếu đang xem tuần hiện tại
-  Map<String, dynamic> _addTodayHighlight(Map<String, dynamic> weekData) {
-    final now = DateTime.now(); // 8/8/2025 = Friday
-    final currentWeek = _getCurrentWeekIndex();
-
-    // Chỉ highlight nếu đang xem tuần hiện tại
-    if (currentWeekIndex != currentWeek) {
-      return weekData;
-    }
-
-    // Mapping cho thứ tự mới: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-    // 8/8/2025 = Friday = weekday 5 -> index 4 (Friday ở vị trí thứ 5 trong array)
-    int todayIndex;
-    switch (now.weekday) {
-      case 1: // Monday
-        todayIndex = 0;
-        break;
-      case 2: // Tuesday
-        todayIndex = 1;
-        break;
-      case 3: // Wednesday
-        todayIndex = 2;
-        break;
-      case 4: // Thursday
-        todayIndex = 3;
-        break;
-      case 5: // Friday
-        todayIndex = 4;
-        break;
-      case 6: // Saturday
-        todayIndex = 5;
-        break;
-      case 7: // Sunday
-        todayIndex = 6;
-        break;
-      default:
-        todayIndex = 0;
-    }
-
-    final data = List<Map<String, dynamic>>.from(weekData['data']);
-
-    // Reset all active flags first
-    for (var day in data) {
-      day['active'] = false;
-    }
-
-    // Set today as active (8/8 = Friday = index 4)
-    if (todayIndex < data.length) {
-      data[todayIndex]['active'] = true;
-    }
-
-    return {'dateRange': weekData['dateRange'], 'data': data};
+    return '${start.day} ${months[start.month - 1]} - ${end.day} ${months[end.month - 1]} ${end.year}';
   }
 
   List<Map<String, dynamic>> get currentWeekWorkouts =>
