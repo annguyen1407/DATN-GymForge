@@ -109,6 +109,7 @@ class _MainScreenState extends State<MainScreen> {
       UserScreen(),
     ];
     return Scaffold(
+      extendBody: true,
       body: tabs[_selectedIndex],
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
