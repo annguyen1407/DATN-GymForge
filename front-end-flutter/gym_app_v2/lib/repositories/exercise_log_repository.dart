@@ -15,6 +15,9 @@ class DailyExerciseLogSummary {
   final int? caloriesIntake;
   final double? weight; // body weight (kg) if logged that day
   final double? height; // body height (cm) if logged that day
+  final String? notes; // general note for that day (root 'notes')
+  final List<Map<String, dynamic>>
+  workoutExerciseLogsRaw; // raw logs for plan tab grouping
 
   const DailyExerciseLogSummary({
     required this.date,
@@ -25,6 +28,8 @@ class DailyExerciseLogSummary {
     required this.caloriesIntake,
     required this.weight,
     required this.height,
+    required this.notes,
+    required this.workoutExerciseLogsRaw,
   });
 }
 
@@ -128,70 +133,89 @@ class ExerciseLogRepository {
     final uri = Uri.parse(
       '$baseUrl/exercise-logs/user/$userId?startDate=$dateStr&endDate=$dateStr',
     );
+    try {
+      final resp = await _client.get(
+        uri,
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode != 200) {
+        AppLogger.warn(
+          'Daily summary failed status ${resp.statusCode}',
+          tag: 'ExerciseLogRepo',
+        );
+        return null;
+      }
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! List || decoded.isEmpty) return null;
+      final first = decoded.first as Map<String, dynamic>;
 
-    final resp = await _client.get(
-      uri,
-      headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
-    );
-    if (resp.statusCode != 200) {
-      // Throw để UI hiển thị lỗi thay vì âm thầm trả về null -> TodayStat = 0
-      throw Exception('Fetch daily summary failed (status ${resp.statusCode})');
-    }
-    final decoded = jsonDecode(resp.body);
-    if (decoded is! List || decoded.isEmpty) return null;
-    final first = decoded.first as Map<String, dynamic>;
+      final workoutExerciseLogs = (first['workoutExerciseLogs'] as List?) ?? [];
 
-    final workoutExerciseLogs = (first['workoutExerciseLogs'] as List?) ?? [];
+      final distinctDayIds = <String>{};
+      int workoutDayIdOccurrences = 0; // đếm cả trùng
+      // Root caloriesBurned (nếu backend đã tổng hợp). Nếu null -> sẽ cộng từ từng exercise.
+      int? aggregateCalories = first['caloriesBurned'] is num
+          ? (first['caloriesBurned'] as num).round()
+          : null;
+      final caloriesIntake = first['caloriesIntake'] is num
+          ? (first['caloriesIntake'] as num).round()
+          : null;
 
-    final distinctDayIds = <String>{};
-    int workoutDayIdOccurrences = 0; // đếm cả trùng
-    // Root caloriesBurned (nếu backend đã tổng hợp). Nếu null -> sẽ cộng từ từng exercise.
-    int? aggregateCalories = first['caloriesBurned'] is num
-        ? (first['caloriesBurned'] as num).round()
-        : null;
-    final caloriesIntake = first['caloriesIntake'] is num
-        ? (first['caloriesIntake'] as num).round()
-        : null;
+      int perExerciseCalories = 0;
 
-    int perExerciseCalories = 0;
-
-    for (final item in workoutExerciseLogs) {
-      if (item is Map<String, dynamic>) {
-        final workoutExercise =
-            item['workoutExercise'] as Map<String, dynamic>?;
-        final wid = workoutExercise?['workoutDayId'];
-        if (wid is String) {
-          distinctDayIds.add(wid);
-          workoutDayIdOccurrences++; // mỗi lần gặp tăng
-        }
-        // Tích luỹ per-exercise nếu có để fallback (hoặc đối chiếu)
-        if (item['caloriesBurned'] is num) {
-          perExerciseCalories += (item['caloriesBurned'] as num).round();
+      for (final item in workoutExerciseLogs) {
+        if (item is Map<String, dynamic>) {
+          final workoutExercise =
+              item['workoutExercise'] as Map<String, dynamic>?;
+          final wid = workoutExercise?['workoutDayId'];
+          if (wid is String) {
+            distinctDayIds.add(wid);
+            workoutDayIdOccurrences++; // mỗi lần gặp tăng
+          }
+          // Tích luỹ per-exercise nếu có để fallback (hoặc đối chiếu)
+          if (item['caloriesBurned'] is num) {
+            perExerciseCalories += (item['caloriesBurned'] as num).round();
+          }
         }
       }
-    }
 
-    // Nếu không có workoutDayId nào hợp lệ nhưng có logs, occurrences = 0; fallback: dùng length
-    if (workoutDayIdOccurrences == 0) {
-      workoutDayIdOccurrences = workoutExerciseLogs.length;
-    }
-    // Quyết định caloriesBurned: ưu tiên aggregate nếu có, nếu không có dùng per-exercise sum.
-    final caloriesBurned = aggregateCalories ?? perExerciseCalories;
+      // Nếu không có workoutDayId nào hợp lệ nhưng có logs, occurrences = 0; fallback: dùng length
+      if (workoutDayIdOccurrences == 0) {
+        workoutDayIdOccurrences = workoutExerciseLogs.length;
+      }
+      // Quyết định caloriesBurned: ưu tiên aggregate nếu có, nếu không có dùng per-exercise sum.
+      final caloriesBurned = aggregateCalories ?? perExerciseCalories;
 
-    return DailyExerciseLogSummary(
-      date: date,
-      sessions: workoutDayIdOccurrences,
-      uniqueSessions: distinctDayIds.length,
-      totalExercises: workoutExerciseLogs.length,
-      caloriesBurned: caloriesBurned,
-      caloriesIntake: caloriesIntake,
-      weight: first['weight'] is num ? (first['weight'] as num).toDouble() : null,
-      height: first['height'] is num ? (first['height'] as num).toDouble() : null,
-    );
+      return DailyExerciseLogSummary(
+        date: date,
+        sessions: workoutDayIdOccurrences,
+        uniqueSessions: distinctDayIds.length,
+        totalExercises: workoutExerciseLogs.length,
+        caloriesBurned: caloriesBurned,
+        caloriesIntake: caloriesIntake,
+        weight: first['weight'] is num
+            ? (first['weight'] as num).toDouble()
+            : null,
+        height: first['height'] is num
+            ? (first['height'] as num).toDouble()
+            : null,
+        notes: first['notes'] is String ? (first['notes'] as String) : null,
+        workoutExerciseLogsRaw: workoutExerciseLogs
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false),
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'Daily summary error: $e',
+        tag: 'ExerciseLogRepo',
+        error: e,
+        stackTrace: st,
+      );
+      return null;
+    }
   }
 
   String _fmt(DateTime d) => d.toIso8601String().substring(0, 10);
-
 }
 
 class WeeklyExerciseStats {
@@ -232,4 +256,111 @@ class WeeklyDailyStat {
     required this.averageWeight,
     required this.workoutPlansCompleted,
   });
+}
+
+/// Parsed exercise log item (minimal fields for plan tab)
+class WorkoutExerciseLogParsed {
+  final String? id;
+  final String? exerciseName;
+  final double? progressPercent; // 0..100
+  final int? targetSets;
+  final int? targetReps;
+  final double? targetWeight;
+  final Map<String, dynamic> raw;
+  const WorkoutExerciseLogParsed({
+    required this.id,
+    required this.exerciseName,
+    required this.progressPercent,
+    required this.targetSets,
+    required this.targetReps,
+    required this.targetWeight,
+    required this.raw,
+  });
+
+  factory WorkoutExerciseLogParsed.fromJson(Map<String, dynamic> json) {
+    return WorkoutExerciseLogParsed(
+      id: json['id']?.toString(),
+      exerciseName: json['exerciseName']?.toString(),
+      progressPercent: () {
+        final v = json['progressPercent'];
+        if (v is num) return v.toDouble();
+        return null;
+      }(),
+      targetSets: json['targetSets'] is num
+          ? (json['targetSets'] as num).toInt()
+          : null,
+      targetReps: json['targetReps'] is num
+          ? (json['targetReps'] as num).toInt()
+          : null,
+      targetWeight: json['targetWeight'] is num
+          ? (json['targetWeight'] as num).toDouble()
+          : null,
+      raw: json,
+    );
+  }
+}
+
+/// Grouped by workoutDayId for plan tab display
+class WorkoutPlanDayGroup {
+  final String workoutDayId;
+  final int? dayNumber;
+  final String? planName;
+  final String? planType;
+  final List<WorkoutExerciseLogParsed> exercises;
+  const WorkoutPlanDayGroup({
+    required this.workoutDayId,
+    required this.dayNumber,
+    required this.planName,
+    required this.planType,
+    required this.exercises,
+  });
+
+  double get averageProgress {
+    if (exercises.isEmpty) return 0;
+    final total = exercises.fold<double>(
+      0,
+      (p, e) => p + (e.progressPercent ?? 0),
+    );
+    return total / exercises.length; // still 0..100
+  }
+}
+
+/// Utility to group raw workoutExerciseLogs into plan/day groups.
+List<WorkoutPlanDayGroup> parseWorkoutLogsFromJson(
+  List<Map<String, dynamic>> raw,
+) {
+  final Map<String, List<WorkoutExerciseLogParsed>> bucket = {};
+  final Map<String, (int? dayNumber, String? planName, String? planType)> meta =
+      {};
+  for (final item in raw) {
+    final workoutExercise = item['workoutExercise'] as Map<String, dynamic>?;
+    final String dayId =
+        workoutExercise?['workoutDayId']?.toString() ?? 'unknown';
+    final int? dayNumber = (item['dayNumber'] is num)
+        ? (item['dayNumber'] as num).toInt()
+        : (workoutExercise?['dayNumber'] is num
+              ? (workoutExercise?['dayNumber'] as num).toInt()
+              : null);
+    final planObj = workoutExercise?['workoutPlan'] as Map<String, dynamic>?;
+    final planName =
+        planObj?['name']?.toString() ??
+        workoutExercise?['planName']?.toString();
+    final planType =
+        planObj?['planType']?.toString() ?? planObj?['type']?.toString();
+    bucket.putIfAbsent(dayId, () => []);
+    bucket[dayId]!.add(WorkoutExerciseLogParsed.fromJson(item));
+    meta.putIfAbsent(dayId, () => (dayNumber, planName, planType));
+  }
+  return bucket.entries
+      .map((e) {
+        final m = meta[e.key];
+        return WorkoutPlanDayGroup(
+          workoutDayId: e.key,
+          dayNumber: m?.$1,
+          planName: m?.$2,
+          planType: m?.$3,
+          exercises: e.value,
+        );
+      })
+      .toList(growable: false);
 }

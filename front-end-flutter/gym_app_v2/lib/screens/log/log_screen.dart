@@ -519,13 +519,18 @@ class LogScreenState extends State<LogScreen>
                       focusedDay: _focusedDay,
                       selectedDayPredicate: (day) =>
                           isSameDay(_selectedDay, day),
-                      onDaySelected: (selectedDay, focusedDay) {
+                      onDaySelected: (selectedDay, focusedDay) async {
                         setState(() {
                           _selectedDay = selectedDay;
                           _focusedDay = focusedDay;
+                          _loadingSummary =
+                              true; // show spinner in today stat section if visible
                         });
-                        // Refetch summary for chosen date
-                        _fetchDailySummary(selectedDay);
+                        try {
+                          await _fetchDailySummary(selectedDay);
+                        } catch (_) {}
+                        final summary = _dailySummary; // now most recent
+                        if (!mounted) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -534,6 +539,11 @@ class LogScreenState extends State<LogScreen>
                               workouts: _workouts[selectedDay] ?? [],
                               onWorkoutAdded: (workout) =>
                                   _addWorkout(selectedDay, workout),
+                              weight: summary?.weight,
+                              height: summary?.height,
+                              note: summary?.notes,
+                              rawWorkoutExerciseLogs:
+                                  summary?.workoutExerciseLogsRaw,
                             ),
                           ),
                         );
