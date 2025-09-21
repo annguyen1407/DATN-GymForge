@@ -94,6 +94,14 @@ class _WorkoutExerciseDetailScreenState
     switch (action) {
       case DayAction.edit:
         if (!mounted) return;
+        // Nếu chưa có ngày (placeholder) -> không cho chỉnh sửa (cần backend set trước hoặc tạo mới).
+        if (_displayDate == 'Chưa có ngày') {
+          AppSnackBar.showWarning(
+            context,
+            'Ngày này chưa được thiết lập. Hãy đặt ngày ở backend hoặc tạo ngày trước.',
+          );
+          return;
+        }
         final initial =
             AppDateUtils.parseIsoOrDisplay(_displayDate) ?? DateTime.now();
         final picked = await AppDatePicker.show(
@@ -194,7 +202,8 @@ class _WorkoutExerciseDetailScreenState
       changed
           ? {
               'updatedDate': _displayDate,
-              if (_updatedDateIso != null) 'updatedDateIso': _updatedDateIso,
+              if (_updatedDateIso != null && _displayDate != 'Chưa có ngày')
+                'updatedDateIso': _updatedDateIso,
               'id': widget.workoutDayId,
             }
           : null,
@@ -206,7 +215,15 @@ class _WorkoutExerciseDetailScreenState
   late final String _initialDate = _displayDate; // giữ lại để so sánh khi pop
 
   String _initDisplay(String raw) {
-    final dt = AppDateUtils.parseIsoOrDisplay(raw) ?? DateTime.now();
+    // Một số workout day có thể chưa có date (null ở backend -> truyền xuống thành chuỗi rỗng hoặc 'null').
+    // Trước đây fallback về ngày hiện tại gây hiểu lầm. Ta hiển thị placeholder thay vì ngày hôm nay.
+    if (raw.trim().isEmpty || raw.toLowerCase() == 'null') {
+      return 'Chưa có ngày';
+    }
+    final dt = AppDateUtils.parseIsoOrDisplay(raw);
+    if (dt == null) {
+      return 'Chưa có ngày';
+    }
     return AppDateUtils.formatDdMMyyyy(dt);
   }
 

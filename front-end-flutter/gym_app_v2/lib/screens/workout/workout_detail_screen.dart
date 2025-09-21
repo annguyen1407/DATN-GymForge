@@ -57,9 +57,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   Future<void> _openDayDetail(int idx) async {
     if (idx < 0 || idx >= _days.length) return;
     final day = _days[idx];
+    // Nếu day.date null => không tự sinh ngày (trước đây cộng offset gây hiển thị sai).
+    // Truyền chuỗi rỗng để màn chi tiết hiển thị 'Chưa có ngày'.
     final dateStr = day.date != null
         ? AppDateUtils.formatDdMMyyyy(day.date!)
-        : AppDateUtils.formatDdMMyyyy(DateTime.now().add(Duration(days: idx)));
+        : '';
     final result = await Navigator.push(
       context,
       MaterialPageRoute(

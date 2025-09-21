@@ -130,6 +130,12 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     return false;
   }
 
+  bool get _lockWeight {
+    // Khoá khi weight ban đầu = 0 (bodyweight) hoặc exercise defaultWeight = 0
+    final exDefault = _exercise?.defaultWeight ?? 0;
+    return (widget.initialWeight == 0) || exDefault == 0;
+  }
+
   void _bump(
     TextEditingController ctl,
     int delta, {
@@ -247,6 +253,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     String? suffix,
     int min = 0,
     int max = 9999,
+    bool disabled = false,
   }) {
     final invalid = _isInvalidForField(ctl, label);
     return Expanded(
@@ -287,13 +294,19 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
               children: [
                 _circleBtn(
                   Icons.remove,
-                  () => _bump(ctl, -1, min: min, max: max),
+                  disabled
+                      ? () => AppSnackBar.showInfo(
+                          context,
+                          'Bài tập bodyweight - không chỉnh được tạ',
+                        )
+                      : () => _bump(ctl, -1, min: min, max: max),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: ctl,
                     onChanged: (_) => setState(() {}),
+                    readOnly: disabled,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -314,7 +327,15 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                   ),
                   const SizedBox(width: 4),
                 ],
-                _circleBtn(Icons.add, () => _bump(ctl, 1, min: min, max: max)),
+                _circleBtn(
+                  Icons.add,
+                  disabled
+                      ? () => AppSnackBar.showInfo(
+                          context,
+                          'Bài tập bodyweight - không chỉnh được tạ',
+                        )
+                      : () => _bump(ctl, 1, min: min, max: max),
+                ),
               ],
             ),
             if (invalid)
@@ -637,6 +658,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                           min: 0,
                           max: 2000,
                           suffix: 'kg',
+                          disabled: _lockWeight,
                         ),
                         const SizedBox(width: 12),
                         _numberSegment(

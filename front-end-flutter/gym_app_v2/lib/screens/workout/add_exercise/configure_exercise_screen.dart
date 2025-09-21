@@ -81,6 +81,8 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
       _parseInt(_restCtl, fallback: 0) >= 0 &&
       _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0;
 
+  bool get _lockWeight => (widget.exercise.defaultWeight ?? 0) == 0;
+
   bool _isInvalidForField(TextEditingController ctl, String label) {
     if (label == 'Sets' || label == 'Reps') {
       return _parseInt(ctl, fallback: 0) <= 0;
@@ -148,6 +150,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
     String? suffix,
     int min = 0,
     int max = 999,
+    bool disabled = false,
   }) {
     final invalid = _isInvalidForField(ctl, label);
     return Expanded(
@@ -188,13 +191,19 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
               children: [
                 _circleBtn(
                   Icons.remove,
-                  () => _bump(ctl, -1, min: min, max: max),
+                  disabled
+                      ? () => AppSnackBar.showInfo(
+                          context,
+                          'Bài tập dạng bodyweight - không chỉnh được tạ',
+                        )
+                      : () => _bump(ctl, -1, min: min, max: max),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: ctl,
                     onChanged: (_) => setState(() {}),
+                    readOnly: disabled,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -215,7 +224,15 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                   ),
                   const SizedBox(width: 4),
                 ],
-                _circleBtn(Icons.add, () => _bump(ctl, 1, min: min, max: max)),
+                _circleBtn(
+                  Icons.add,
+                  disabled
+                      ? () => AppSnackBar.showInfo(
+                          context,
+                          'Bài tập dạng bodyweight - không chỉnh được tạ',
+                        )
+                      : () => _bump(ctl, 1, min: min, max: max),
+                ),
               ],
             ),
             if (invalid)
@@ -467,6 +484,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                             min: 0,
                             max: 2000,
                             suffix: 'kg',
+                            disabled: _lockWeight,
                           ),
                           const SizedBox(width: 12),
                           _numberSegment(

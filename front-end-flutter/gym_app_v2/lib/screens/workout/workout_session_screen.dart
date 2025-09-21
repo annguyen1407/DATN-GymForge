@@ -71,6 +71,8 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   /// Getter tiện lợi lấy bài tập hiện tại.
   ExerciseItem get _currentExercise => widget.exercises[currentExerciseIndex];
+  bool get _isBodyweight =>
+      _currentExercise.weight.round() == 0; // bài tập không dùng tạ
 
   /// Khởi động timer theo trạng thái hiện tại (nghỉ auto -> đếm ngược, tập -> đếm xuôi)
   void _startTimer() {
@@ -143,22 +145,25 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: weightController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Trọng lượng (kg)',
-                  labelStyle: TextStyle(color: Colors.white70),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.purple),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.purple),
+              if (!_isBodyweight) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: weightController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Trọng lượng (kg)',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.purple),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.purple),
+                    ),
                   ),
                 ),
-              ),
+              ],
+              // Bodyweight: không hiển thị field weight và cũng không cần note
             ],
           ),
           actions: [
@@ -177,8 +182,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                   if (newReps != null && newReps > 0) {
                     currentReps = newReps;
                   }
-                  if (newWeight != null && newWeight >= 0)
+                  if (!_isBodyweight && newWeight != null && newWeight >= 0) {
                     currentWeight = newWeight;
+                  }
                 });
                 Navigator.pop(context);
               },
@@ -383,8 +389,34 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     // Guard: cần workoutPlanId & dayNumber
     final planId = widget.workoutPlanId;
     final dayNum = widget.dayNumber;
-    // Validate exercise ids (workoutExerciseId) phải có
-    final missingIds = widget.exercises
+
+    // Chỉ upload những bài thực sự có log (user đã hoàn thành ít nhất 1 set).
+    // Điều này cho phép user "skip" bài tập bằng cách bấm Next mà không log set nào.
+    final loggedExerciseIndices = workoutData.keys.toSet();
+    final loggedExercises = <ExerciseItem>[];
+    for (int i = 0; i < widget.exercises.length; i++) {
+      if (loggedExerciseIndices.contains(i) &&
+          (workoutData[i]?.isNotEmpty ?? false)) {
+        loggedExercises.add(widget.exercises[i]);
+      }
+    }
+
+    if (loggedExercises.isEmpty) {
+      // Không có gì để upload -> thông báo và thoát
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không có bài tập nào được log.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Validate id chỉ trên các bài có log (bỏ qua bài skip).
+    final missingIds = loggedExercises
         .where((e) => (e.id == null || e.id!.isEmpty))
         .toList();
     if (missingIds.isNotEmpty) {
@@ -398,7 +430,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
         ),
       );
       debugPrint(
-        '[ExerciseLogs] Abort upload: missing workoutExerciseId for ${missingIds.length} exercises',
+        '[ExerciseLogs] Abort upload: missing workoutExerciseId for ${missingIds.length} logged exercises',
       );
       return;
     }
@@ -410,7 +442,8 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     try {
       final userId = await TokenManager.instance.getCurrentUserId();
       final payloads = await ExerciseLogsService.instance.buildPayloads(
-        exercises: widget.exercises,
+        // Chỉ truyền vào những bài có log
+        exercises: loggedExercises,
         workoutData: workoutData,
         workoutPlanId: planId,
         dayNumber: dayNum,
@@ -666,6 +699,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               currentReps: currentReps,
               canEdit: !isPlaying && hasStarted && !isResting,
               onEdit: _showEditSetDialog,
+              isBodyweight: _isBodyweight,
             ),
             _ControlBar(
               hasStarted: hasStarted,
@@ -800,11 +834,13 @@ class _ExerciseMetaBar extends StatelessWidget {
   final int currentReps;
   final bool canEdit;
   final VoidCallback onEdit;
+  final bool isBodyweight;
   const _ExerciseMetaBar({
     required this.currentWeight,
     required this.currentReps,
     required this.canEdit,
     required this.onEdit,
+    required this.isBodyweight,
   });
   @override
   Widget build(BuildContext context) {
@@ -813,16 +849,21 @@ class _ExerciseMetaBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            onTap: canEdit ? onEdit : null,
-            child: Text(
-              'Số tạ: $currentWeight kg',
-              style: TextStyle(
-                color: canEdit ? Colors.orange : Colors.white70,
-                fontSize: 14,
+          if (!isBodyweight)
+            GestureDetector(
+              onTap: (canEdit && !isBodyweight) ? onEdit : null,
+              child: Text(
+                'Số tạ: $currentWeight kg',
+                style: TextStyle(
+                  color: (canEdit && !isBodyweight)
+                      ? Colors.orange
+                      : Colors.white70,
+                  fontSize: 14,
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(width: 0), // giữ layout cân đối
           GestureDetector(
             onTap: canEdit ? onEdit : null,
             child: Row(
@@ -834,7 +875,7 @@ class _ExerciseMetaBar extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.orange, size: 16),
+                const Icon(Icons.chevron_right, color: Colors.orange, size: 16),
               ],
             ),
           ),
