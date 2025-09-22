@@ -27,6 +27,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
   late Animation<double> _animation;
   WeeklyExerciseStats? _weekly;
   DateTime _displayedWeekStart = _mondayOf(DateTime.now());
+  bool _initialFetchScheduled = false; // tránh gọi trùng lặp khi creds vừa có
 
   @override
   void initState() {
@@ -41,6 +42,20 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     );
     _animationController.forward();
     _loadWeek();
+  }
+
+  @override
+  void didUpdateWidget(covariant LogWorkoutTimeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final userId = widget.userId;
+    final token = widget.token;
+    if (userId != null && token != null) {
+      final changed = oldWidget.userId != userId || oldWidget.token != token;
+      if (changed) {
+        _initialFetchScheduled = true; // đánh dấu đã xử lý
+        _loadWeek();
+      }
+    }
   }
 
   static DateTime _mondayOf(DateTime d) =>
@@ -217,6 +232,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
 
   @override
   Widget build(BuildContext context) {
+    _maybeScheduleInitialFetch();
     return Column(
       // padding: const EdgeInsets.all(24),
       // decoration: BoxDecoration(
@@ -244,6 +260,19 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
         _buildSummaryStats(),
       ],
     );
+  }
+
+  void _maybeScheduleInitialFetch() {
+    if (_weekly != null) return; // đã có data
+    if (_initialFetchScheduled) return; // đã lên lịch
+    final userId = widget.userId;
+    final token = widget.token;
+    if (userId == null || token == null) return; // chưa có creds
+    _initialFetchScheduled = true;
+    // microtask để tránh setState trong build sync nếu _loadWeek setState nhanh
+    Future.microtask(() {
+      if (mounted) _loadWeek();
+    });
   }
 
   Widget _buildPeriodSelector() {
