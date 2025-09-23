@@ -100,6 +100,9 @@ export class ExerciseLogsService {
       });
     }
 
+    // Calculate total time (seconds) for this exercise from sets.times
+    const totalTimeSec = (sets || []).reduce((sum, s) => sum + (s.times || 0), 0);
+
     // Create workout exercise log (required)
     await this.prisma.workoutExerciseLog.create({
       data: {
@@ -109,8 +112,17 @@ export class ExerciseLogsService {
         progressPercent: createExerciseLogDto.progressPercent,
         caloriesBurned: createExerciseLogDto.totalCaloriesBurned,
         dayNumber: createExerciseLogDto.dayNumber,
+        totalTime: totalTimeSec,
       },
 
+    });
+
+    // Update total workout time on the day log
+    await this.prisma.log.update({
+      where: { id: log.id },
+      data: {
+        totalWorkoutTime: (log.totalWorkoutTime || 0) + totalTimeSec,
+      },
     });
 
     // Auto-mark workout day as completed when all exercises in that day have logs for this user/date
@@ -154,7 +166,9 @@ export class ExerciseLogsService {
     }
 
 
-    return this.findExerciseLogById(exerciseLog.id);
+    // Return created exercise log plus computed totalTime (seconds)
+    const created = await this.findExerciseLogById(exerciseLog.id);
+    return { ...created, totalTime: totalTimeSec } as any;
   }
 
   async findExerciseLogById(id: string) {
@@ -233,6 +247,21 @@ export class ExerciseLogsService {
       }
     }
 
+    // Recalculate and update the day's total workout time for this exercise log's parent Log
+    const parent = await this.prisma.exerciseLog.findUnique({
+      where: { id },
+      select: { workoutLogId: true },
+    });
+    if (parent?.workoutLogId) {
+      const allExerciseLogs = await this.prisma.exerciseLog.findMany({
+        where: { workoutLogId: parent.workoutLogId },
+        include: { setsLog: true },
+      });
+      const totalTimeSec = allExerciseLogs.reduce((sum, el) =>
+        sum + (el.setsLog?.reduce((s, st) => s + (st.times || 0), 0) || 0), 0);
+      await this.prisma.log.update({ where: { id: parent.workoutLogId }, data: { totalWorkoutTime: totalTimeSec } });
+    }
+
     return this.findExerciseLogById(id);
   }
 
@@ -305,6 +334,14 @@ export class ExerciseLogsService {
       sum + log.setsLog.reduce((setSum, set) => setSum + (set.reps || 0), 0), 0);
     const totalCaloriesBurned = logs.reduce((sum, log) => sum + (log.caloriesBurned || 0), 0);
 
+    // Total workout time (seconds): prefer aggregated field on Log, fallback to sum of workoutExerciseLogs.totalTime
+    const totalWorkoutTimeSec = logs.reduce((sum, lg: any) => {
+      const fromLog = lg.totalWorkoutTime ?? 0; // stored as seconds in DB
+      const fromEntries = (lg.workoutExerciseLogs || []).reduce((s: number, wel: any) => s + (wel.totalTime || 0), 0);
+      return sum + (fromLog || fromEntries);
+    }, 0);
+    const totalWorkoutTime = Math.round(totalWorkoutTimeSec / 60);
+
     const allWeights = exerciseLogs.flatMap(log =>
       log.setsLog.map(set => set.weight).filter(weight => weight !== null && weight !== undefined)
     );
@@ -326,7 +363,7 @@ export class ExerciseLogsService {
       totalReps,
       totalCaloriesBurned,
       totalCaloriesIntake: logs.reduce((sum, l) => sum + (l.caloriesIntake || 0), 0),
-      totalWorkoutTime: 0, // This would need additional tracking
+      totalWorkoutTime,
       averageWeight,
       workoutPlansCompleted,
     };
@@ -366,7 +403,7 @@ export class ExerciseLogsService {
       totalWorkoutDays,
       totalExercises,
       totalCaloriesBurned,
-      averageDailyWorkoutTime: totalWorkoutDays > 0 ? totalWorkoutTime / totalWorkoutDays : 0,
+      totalWorkoutTime,
       dailyStats,
     };
   }
@@ -404,6 +441,14 @@ export class ExerciseLogsService {
     const totalWorkoutDays = logs.length;
     const totalCaloriesBurned = logs.reduce((sum, log) => sum + (log.caloriesBurned || 0), 0);
 
+    // Compute total workout time (minutes) for the month
+    const totalWorkoutTimeSec = logs.reduce((sum, lg: any) => {
+      const fromLog = lg.totalWorkoutTime ?? 0;
+      const fromEntries = (lg.workoutExerciseLogs || []).reduce((s: number, wel: any) => s + (wel.totalTime || 0), 0);
+      return sum + (fromLog || fromEntries);
+    }, 0);
+    const totalWorkoutTime = Math.round(totalWorkoutTimeSec / 60);
+
     // Get exercise logs for the month
     const exerciseLogs = await this.prisma.exerciseLog.findMany({
       where: {
@@ -437,6 +482,7 @@ export class ExerciseLogsService {
       totalWorkoutDays,
       totalExercises,
       totalCaloriesBurned,
+      totalWorkoutTime,
       averageWeeklyFrequency: totalWorkoutDays / 4, // Approximate weeks in month
       mostPerformedExercises,
       weeklyStats,

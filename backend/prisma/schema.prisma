@@ -447,12 +447,11 @@ model Log {
   caloriesBurned      Float?                 @map("calo_burned")
   caloriesIntake      Float?                 @map("calo_input")
   notes               String?
-
+  totalWorkoutTime    Int?
 
   user                User                   @relation(fields: [userId], references: [id])
   workoutExerciseLogs WorkoutExerciseLog[]
   meals               Meal[]
-
 
   @@index([userId])
   @@index([dateLogged])
@@ -484,6 +483,7 @@ model WorkoutExerciseLog {
   progressPercent     Float?
   caloriesBurned      Float?    @map("calo_burned")
   dayNumber           Int?
+  totalTime           Int?
 
   log                 Log       @relation(fields: [logId], references: [id], onDelete: Cascade)
   workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)

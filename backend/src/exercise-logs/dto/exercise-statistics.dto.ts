@@ -45,8 +45,8 @@ export class WeeklyExerciseStatsDto {
   @ApiProperty({ description: 'Total calories burned in the week', example: 2250.5 })
   totalCaloriesBurned: number;
 
-  @ApiProperty({ description: 'Average daily workout time in minutes', example: 75 })
-  averageDailyWorkoutTime: number;
+  @ApiProperty({ description: 'Total workout time in minutes for the week', example: 320 })
+  totalWorkoutTime: number;
 
   @ApiProperty({ description: 'Daily statistics breakdown', type: [DailyExerciseStatsDto] })
   dailyStats: DailyExerciseStatsDto[];
@@ -64,6 +64,9 @@ export class MonthlyExerciseStatsDto {
 
   @ApiProperty({ description: 'Total calories burned in the month', example: 9500.5 })
   totalCaloriesBurned: number;
+
+  @ApiProperty({ description: 'Total workout time in minutes for the month', example: 1200 })
+  totalWorkoutTime: number;
 
   @ApiProperty({ description: 'Average weekly workout frequency', example: 4.5 })
   averageWeeklyFrequency: number;
