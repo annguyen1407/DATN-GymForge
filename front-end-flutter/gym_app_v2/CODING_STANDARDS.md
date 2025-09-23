@@ -1,172 +1,157 @@
-# GymForge Flutter Coding Standards
+# GymForge Flutter Coding Standards (Rút gọn đồng bộ)
 
-These standards codify the zero‑lint / zero‑warning baseline you requested. All new or modified code MUST adhere unless an explicit exception is documented in the PR / commit message.
+Cập nhật để đồng bộ với `DesignTokens`, Design System v2 và phạm vi đồ án (test chỉ ở mức roadmap, không bắt buộc hiện tại).
 
 ---
 ## 1. Analyzer & Lint Baseline
-- Target: **0 analyzer issues** (warnings & errors) on `flutter analyze`.
-- No re‑introducing previously fixed patterns (e.g. `use_build_context_synchronously`, deprecated API usage, `avoid_print`).
-- Add `// ignore_for_file:` only with justification and never for broad suppression (avoid wildcard ignores).
+- Mục tiêu: **0 analyzer issues** (`flutter analyze`).
+- Không re-introduce lỗi đã fix (`use_build_context_synchronously`, deprecated API, `avoid_print`).
+- `// ignore_for_file:` chỉ dùng khi có lý do rõ ràng, ghi chú ngắn.
 
-### Quick Pre‑Commit Checklist
-1. `flutter analyze` → 0 issues.
-2. No accidental `print(`.
-3. No direct `withOpacity(...)` calls (must use extension – see §2).
-4. After each `await` in a `State` method, guard context usage with `if (!mounted) return;`.
-5. No duplicate widget/model classes.
-6. Add `const` where possible (widget trees, constructors with immutable fields).
+Checklist nhanh trước commit:
+1. `flutter analyze` = 0 warning/error.
+2. Không còn `print(` / `debugPrint(` (trừ trong `AppLogger`).
+3. Không gọi trực tiếp `withOpacity()` → dùng extension (xem §2).
+4. Sau mỗi `await` trong `State`: `if (!mounted) return;` trước `setState` / Navigator.
+5. Thêm `const` tối đa vào widget tree.
+6. Không duplicate model / widget.
 
 ---
-## 2. Color & Opacity Handling
-We replaced deprecated opacity patterns and to centralize alpha math.
-
-Use the provided extension methods (in `core/extensions/color_extensions.dart`):
-- `color.withOpacityRatio(0.3)` instead of `color.withOpacity(0.3)`
-- `color.mulAlpha(0.8)` to multiply existing alpha.
-
-DO NOT import or recreate shim/legacy `theme/color_extensions.dart`.
+## 2. Color & Opacity
+Sử dụng tokens + extension để tránh scatter logic.
+- Màu: lấy từ `DesignTokens` (không hard-code màu brand, surface...).
+- Opacity: `color.withOpacityRatio(x)` hoặc `color.mulAlpha(f)` thay vì `withOpacity()` trực tiếp.
+- Không tạo file tokens song song khác.
 
 ---
 ## 3. Logging Policy
-All diagnostic output MUST go through `AppLogger` (in `core/logging/app_logger.dart`).
-
-Allowed levels: `debug`, `info`, `warn`, `error`.
-
-Example:
+Tất cả log qua `AppLogger` (`core/logging/app_logger.dart`).
 ```dart
 AppLogger.debug('Loaded ${items.length} items', tag: 'ExerciseRepo');
 AppLogger.error('Failed to fetch plan', tag: 'PlanRepo', error: e, stackTrace: st);
 ```
-
-Prohibited:
-- `print()` / `debugPrint()` directly in app code (except inside `AppLogger`).
-- Ad-hoc logging wrappers without prior discussion.
-
-Tagging: Always set a short `tag` (feature/module) unless trivially obvious.
+Cấm: `print`, `debugPrint` (trừ nội bộ logger), wrapper tuỳ ý.
 
 ---
 ## 4. Async Context Safety
-Common source of `use_build_context_synchronously` warnings.
-
-Rules:
-- Cache `navigator = Navigator.of(context);` and `messenger = ScaffoldMessenger.of(context);` BEFORE `await` if reused after.
-- After any `await` inside a `State` object, before calling `setState`, Navigator, or Messenger: `if (!mounted) return;`.
-- For dialogs / sheets returning values: check `if (!mounted) return;` before applying result.
-- Prefer `PopScope` over legacy `WillPopScope` in new code.
+- Cache `navigator = Navigator.of(context)` nếu dùng sau `await` nhiều lần.
+- Sau `await` trong State: kiểm `if (!mounted) return;`.
+- Không show dialog/sheet trong `build()`.
+- Dùng `PopScope` thay cho `WillPopScope` ở code mới.
 
 ---
-## 5. Widget & State Naming
-- Public widgets should not expose private `State` types inconsistently.
-- Keep filenames snake_case matching class base name (`exercise_detail_screen.dart` → `ExerciseDetailScreen`).
-- Avoid “Temp”, “Test”, “Copy” suffixes; ensure removed artifacts are fully deleted (no dead code).
+## 5. Naming & Files
+- File snake_case, class PascalCase.
+- Không dùng hậu tố tạm như `Temp`, `Copy` (nếu tạm → TODO deadline xóa).
+- Widget public không khai báo State private mismatch.
 
 ---
 ## 6. Avoid Duplication
-- Reuse existing buttons (`AppButton`), menus (`AppActionsMenu`, `PlanActionsMenu`, etc.), and cards where feasible.
-- Before adding a new variant, confirm existing ones can't be parameterized.
-- Delete unused placeholder / re-export files once migration complete.
+- Button → `AppButton`; FAB / plus → `AddActionButton`.
+- Không tạo ElevatedButton style riêng trừ khi bắt buộc (khi đó cân nhắc mở rộng AppButton).
+- Xoá file placeholder khi đã migrate.
 
 ---
 ## 7. Null Safety & Defensive Code
-- Avoid unnecessary `!` (null assertion). Use early returns, pattern matching, or `if (x == null) return;`.
-- Use `??=` and `??` idiomatically (e.g., `parsed ??= ...`).
-- For generics in popup menus, ensure explicit `<T>` and safe casts (`value: item.value as T`).
+- Tránh lạm dụng `!`; ưu tiên early return.
+- Sử dụng pattern matching / `if (x == null) return;` thay vì ép kiểu.
+- Khi parse JSON: kiểm tra kiểu trước cast.
 
 ---
 ## 8. Styling & Readability
-- Prefer expression-bodied functions only when single, short, & clear.
-- Keep line length humane (~100–110 chars). Wrap long parameter lists vertically.
-- Order imports: SDK, packages, local (grouped, separated by blank lines). Run `dart format` before commit.
-- Use trailing commas for multi-line widget constructors to enable formatter-friendly diffs.
+- Line length mục tiêu: ≤ 110 chars.
+- Import order: SDK → packages → local (cách nhau dòng trống).
+- Dùng trailing commas để formatter tối ưu.
+- Expression-bodied function chỉ khi cực ngắn & rõ ràng.
 
 ---
 ## 9. UI Consistency
-- Shadows, gradients, semi-transparent surfaces: follow existing token patterns (see `DesignTokens`). Extract a new token only if used ≥3 times.
-- Do not introduce arbitrary color literals when a token exists.
-- Maintain accessible contrast; semi-transparent overlays must not reduce text legibility below AA (subjective check for now).
+- Không hard-code màu/spacing nếu token có sẵn.
+- Bóng / gradient / opacity theo token & variant (không tự tuỳ biến mỗi nơi một kiểu).
+- Text tương phản: đảm bảo đọc được trên nền dark (tránh tím brand nhỏ trên gradient tím).
 
 ---
 ## 10. Error Handling
-- Catch at repository/service boundaries; surface clean domain results upward.
-- Log with `AppLogger.error` including `error` & `stackTrace`.
-- Show user feedback with `AppSnackBar.showError` (no raw `SnackBar` unless specialized UI needed).
+- Bắt lỗi tại boundary repository/service → log bằng `AppLogger.error`.
+- Feedback user dùng `AppSnackBar.showError`.
+- Không propagate exception raw lên UI (trừ debug có kiểm soát).
 
 ---
 ## 11. Performance Guidelines
-- Avoid heavy computation in `build()`; pre-compute in `initState()` or memoize.
-- Use `const` constructors & widgets where immutable to reduce rebuild cost.
-- Large lists: prepare for `ListView.builder` / pagination – no giant `Column` with > ~50 children.
-- Debounce rapid search/filter actions (future enhancement: add a shared debounce util).
+- Không tính toán nặng trong `build()`.
+- Dùng `const` constructors khi có thể.
+- Danh sách dài → `ListView.builder`, tránh 1 `Column` chứa quá nhiều phần tử.
+- Dự kiến debounce search (có thể thêm util sau – không bắt buộc).
 
 ---
 ## 12. State & Lifecycle
-- Dispose controllers / animation controllers in `dispose()`.
-- When creating AnimationControllers: always provide a `vsync` (TickerProvider mixins already in place) and dispose.
-- Do not trigger async side-effects in `build()`; use `initState`, `didChangeDependencies`, or explicit user actions.
+- Dispose controllers / animations.
+- Không trigger network trong `build()`.
+- Khởi tạo fetch trong `initState` hoặc hành động explicit.
 
 ---
 ## 13. API & Services
-- Keep HTTP logic in services/repositories (no direct `http` calls in widgets).
-- Always wrap network calls with try/catch and log failures.
-- Return typed models or well-defined maps; avoid ambiguous `dynamic`.
+- Mọi HTTP request đi qua Repository/Service + `ApiClient`.
+- Model parse qua `fromJson` (không xử lý JSON trong widget).
+- Trả về model rõ ràng thay vì `dynamic`.
 
 ---
-## 14. Tests (Roadmap — enforce once added)
-Pending introduction of test suite:
-- Add unit tests for calculation-heavy services (`ExerciseLogsService`).
-- Snapshot / golden tests for key widgets later (optional).
-- Once tests exist, pre-commit hook will run `flutter test --coverage` (future task).
+## 14. Testing (Roadmap – Không bắt buộc hiện tại)
+- Ưu tiên (khi thêm sau này): logic tính toán `ExerciseLogsService`, `workout_completion.dart`.
+- Golden test cho 1–2 widget chủ chốt (button / card) nếu mở rộng.
 
 ---
 ## 15. Git & Commit Hygiene
-- Each commit should keep analyzer green (no “fix analyzer” follow-up commits unless unavoidable).
-- Use descriptive English commit messages; prefix optional: `feat:`, `fix:`, `refactor:`, `cleanup:`.
-- Delete feature branches after merge to avoid drift.
+- Mỗi commit giữ analyzer xanh.
+- Commit message: tiếng Anh ngắn gọn + prefix (`feat:`, `fix:`, `refactor:`, `chore:` ...).
+- Xoá branch sau merge để tránh drift.
 
 ---
-## 16. Adding New Dependencies
-- Justify in PR/commit body: why not stdlib? why not existing package in repo?
-- Prefer lightweight, maintained packages with null-safety.
-- Avoid adding for trivial utilities (e.g., simple debouncer can be in-house).
+## 16. Dependencies
+- Thêm package mới: cần lý do (thiếu tính năng trong stdlib? giảm thời gian?).
+- Ưu tiên nhẹ, null-safe, maintained.
+- Tránh thêm chỉ để tiết kiệm vài dòng code trivial.
 
 ---
-## 17. Accessibility / UX (Lightweight Baseline)
-- Interactive hit targets ≥ 40x40 logical pixels where practical.
-- Provide semantic labels for icon-only important actions (future improvement: semantics pass).
+## 17. Accessibility / UX
+- Hit target ≥ 40x40 (circle / icon actions quan trọng).
+- Disabled state dùng opacity token (không đổi text sang màu ngẫu nhiên).
+- Tránh text nhỏ < 12sp (trừ label phụ / meta cực nhỏ – cân nhắc).
 
 ---
 ## 18. Dark Theme Fidelity
-- All new surfaces must align to existing elevation hierarchy (surface / surfaceAlt / overlays) and avoid pure black unless intentionally contrasting.
+- Giữ hệ surface: `bg` → `surface` → `surfaceAlt` → `surfaceMuted` (tầng). Không xen màu xám lạ.
+- Viền mờ dùng `surfaceOutline` hoặc opacity trắng thấp.
 
 ---
 ## 19. Deletion Policy
-When deprecating a file:
-1. Migrate imports.
-2. Run search to confirm zero references.
-3. Delete file same commit; do not leave stale shims unless temporary (and document with TODO + removal date).
+1. Migrate usages.
+2. Tìm kiếm chắc không còn import.
+3. Xoá cùng commit (không để mồ côi).
 
 ---
-## 20. TODO & Comment Discipline
-- Use `// TODO(username - date): description` if adding.
-- Remove resolved TODOs promptly.
-- Avoid narrative comments describing obvious code; focus on intent or non-trivial reasoning.
+## 20. TODO & Comments
+- Format: `// TODO(username - yyyy-mm-dd): mệnh đề cụ thể`.
+- Xoá TODO khi hoàn thành (đừng để mốc đã quá hạn lâu).
+- Comment mô tả mục đích / bẫy, không lặp lại hiển nhiên.
 
 ---
-## 21. Future Enhancements (Not Yet Enforced)
-- Introduce DI container for services (simplify testability).
-- Introduce result/either type for service returns instead of nullable maps.
-- Central debounce/ throttle helper.
-- Add offline queue & retry strategy wrapper.
+## 21. Future Enhancements (Khuyến nghị)
+- Hợp nhất cơ chế refresh token (loại bỏ timer trùng lặp nếu còn).
+- Introduce Result/Either type thay vì trả `null`.
+- Debounce helper chung.
+- Simple dependency injection container (registrar) khi số service tăng.
+- Thêm lint rule custom (nếu cần) để cấm hard‑code brand color.
 
 ---
-## 22. Violations
-Any exception must be justified in the PR/commit description with a short rationale. Repeated unjustified violations should trigger a cleanup task.
+## 22. Violation Handling
+- Vi phạm phải ghi chú lý do trong commit/PR.
+- Lặp nhiều lần → tạo task cleanup.
 
 ---
-## 23. Adoption Steps (Suggested)
-1. (Optional) Add a pre-commit hook running: `flutter analyze`.
-2. (Optional) Add GitHub Action for CI: format check, analyze, (later tests).
-3. Keep this document updated when patterns evolve.
+## 23. Adoption Steps (Tuỳ chọn)
+1. (Sau này) Pre-commit: `flutter format --set-exit-if-changed . && flutter analyze`.
+2. (Sau này) CI workflow GitHub Actions: format + analyze.
+3. Định kỳ rà soát doc khi thêm feature.
 
----
-_Last updated: 2025-09-21_
+_Last updated: 2025-09-23_
