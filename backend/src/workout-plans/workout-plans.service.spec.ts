@@ -37,7 +37,7 @@ describe('WorkoutPlansService', () => {
     workoutPlan: mockWorkoutPlan,
   };
 
-  const mockPrismaService = {
+  const mockPrismaService: any = {
     user: {
       findUnique: jest.fn(),
     },
@@ -54,11 +54,16 @@ describe('WorkoutPlansService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     workoutDay: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
+      updateMany: jest.fn(),
+      findMany: jest.fn(),
     },
     exercise: {
       findUnique: jest.fn(),
@@ -66,6 +71,7 @@ describe('WorkoutPlansService', () => {
     workoutExerciseLog: {
       groupBy: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -82,6 +88,10 @@ describe('WorkoutPlansService', () => {
     service = module.get<WorkoutPlansService>(WorkoutPlansService);
     prismaService = module.get<PrismaService>(PrismaService);
   });
+
+    // Mock interactive transaction to use same client for tx
+    (mockPrismaService as any).$transaction.mockImplementation(async (cb: any) => cb(mockPrismaService));
+
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -213,6 +223,8 @@ describe('WorkoutPlansService', () => {
     it('should allow admin to update any workout plan', async () => {
       const otherUserWorkoutPlan = { ...mockWorkoutPlan, userId: 'other-user-id' };
       mockPrismaService.workoutPlan.findUnique.mockResolvedValue(otherUserWorkoutPlan);
+
+
       mockPrismaService.user.findUnique.mockResolvedValue({ ...mockUser, role: 'ADMIN' });
       const updatedWorkoutPlan = { ...otherUserWorkoutPlan, ...updateWorkoutPlanDto };
       mockPrismaService.workoutPlan.update.mockResolvedValue(updatedWorkoutPlan);
@@ -235,6 +247,7 @@ describe('WorkoutPlansService', () => {
       mockPrismaService.workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
       mockPrismaService.workoutDay.findFirst.mockResolvedValue(null);
       mockPrismaService.workoutDay.create.mockResolvedValue({ id: 'day-id', workoutPlanId: 'workout-plan-id', dayNumber: 1 });
+      mockPrismaService.workoutDay.count.mockResolvedValue(1);
       (mockPrismaService as any).exercise.findUnique.mockResolvedValue({ id: 'exercise-id' });
       mockPrismaService.workoutExercise.create.mockResolvedValue(mockWorkoutExercise);
 
@@ -266,6 +279,8 @@ describe('WorkoutPlansService', () => {
       expect(mockPrismaService.workoutExercise.findUnique).toHaveBeenCalledWith({
         where: { id: 'workout-exercise-id' },
       });
+
+
       expect(mockPrismaService.workoutExercise.delete).toHaveBeenCalledWith({
         where: { id: 'workout-exercise-id' },
       });
@@ -322,4 +337,53 @@ describe('WorkoutPlansService', () => {
       expect(res.stats).toEqual([]);
     });
   });
+
+  describe('createDay', () => {
+    it('should create day and update plan days count', async () => {
+      (mockPrismaService as any).workoutPlan.findUnique.mockResolvedValue(mockWorkoutPlan);
+      const createdDay = { id: 'day-id', workoutPlanId: 'workout-plan-id', dayNumber: 3, date: null };
+      (mockPrismaService as any).workoutDay.create.mockResolvedValue(createdDay);
+      (mockPrismaService as any).workoutDay.count.mockResolvedValue(3);
+
+      const res = await service.createDay({ workoutPlanId: 'workout-plan-id', dayNumber: 3 } as any);
+
+      expect((mockPrismaService as any).workoutDay.create).toHaveBeenCalled();
+      expect((mockPrismaService as any).workoutPlan.update).toHaveBeenCalledWith({
+        where: { id: 'workout-plan-id' },
+        data: { days: 3 },
+      });
+      expect(res).toEqual(createdDay);
+    });
+  });
+
+  describe('removeDay', () => {
+    it('should delete day, renumber subsequent days, and update days count', async () => {
+      (mockPrismaService as any).$transaction.mockImplementation(async (cb: any) => cb(mockPrismaService));
+      (mockPrismaService as any).workoutDay.findUnique.mockResolvedValue({ id: 'day-2', workoutPlanId: 'workout-plan-id', dayNumber: 2, exercises: [] });
+      (mockPrismaService as any).workoutDay.delete.mockResolvedValue({ id: 'day-2' });
+      (mockPrismaService as any).workoutDay.updateMany.mockResolvedValue({ count: 1 });
+      (mockPrismaService as any).workoutExercise.updateMany.mockResolvedValue({ count: 2 });
+      (mockPrismaService as any).workoutDay.count.mockResolvedValue(1);
+
+      const res = await service.removeDay('day-2');
+
+      expect((mockPrismaService as any).workoutDay.delete).toHaveBeenCalledWith({ where: { id: 'day-2' } });
+      expect((mockPrismaService as any).workoutDay.updateMany).toHaveBeenCalledWith({
+        where: { workoutPlanId: 'workout-plan-id', dayNumber: { gt: 2 } },
+        data: { dayNumber: { decrement: 1 } },
+      });
+      expect((mockPrismaService as any).workoutExercise.updateMany).toHaveBeenCalledWith({
+        where: { workoutDay: { workoutPlanId: 'workout-plan-id' }, dayNumber: { gt: 2 } },
+        data: { dayNumber: { decrement: 1 } },
+      });
+      expect((mockPrismaService as any).workoutPlan.update).toHaveBeenCalledWith({
+        where: { id: 'workout-plan-id' },
+        data: { days: 1 },
+      });
+      expect(res).toEqual({ id: 'day-2' });
+    });
+  });
+
 });
+
+

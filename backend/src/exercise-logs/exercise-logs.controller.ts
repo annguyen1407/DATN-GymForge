@@ -87,6 +87,18 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.findUserExerciseLogs(user.id, startDate, endDate);
   }
 
+  @Get('stats/daily/my/:date')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Get daily exercise statistics for current user' })
+  @ApiResponse({ status: 200, description: 'Daily exercise statistics', type: DailyExerciseStatsDto })
+  getMyDailyStats(
+    @CurrentUser() user: any,
+    @Param('date') date: string,
+  ): Promise<DailyExerciseStatsDto> {
+    return this.exerciseLogsService.getDailyStats(user.id, date);
+  }
+
   @Get('stats/daily/:userId/:date')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
@@ -98,17 +110,17 @@ export class ExerciseLogsController {
   ): Promise<DailyExerciseStatsDto> {
     return this.exerciseLogsService.getDailyStats(userId, date);
   }
-
-  @Get('stats/daily/my/:date')
+  
+  @Get('stats/weekly/my/:weekStart')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Get daily exercise statistics for current user' })
-  @ApiResponse({ status: 200, description: 'Daily exercise statistics', type: DailyExerciseStatsDto })
-  getMyDailyStats(
+  @ApiOperation({ summary: 'Get weekly exercise statistics for current user' })
+  @ApiResponse({ status: 200, description: 'Weekly exercise statistics', type: WeeklyExerciseStatsDto })
+  getMyWeeklyStats(
     @CurrentUser() user: any,
-    @Param('date') date: string,
-  ): Promise<DailyExerciseStatsDto> {
-    return this.exerciseLogsService.getDailyStats(user.id, date);
+    @Param('weekStart') weekStart: string,
+  ): Promise<WeeklyExerciseStatsDto> {
+    return this.exerciseLogsService.getWeeklyStats(user.id, weekStart);
   }
 
   @Get('stats/weekly/:userId/:weekStart')
@@ -123,16 +135,16 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.getWeeklyStats(userId, weekStart);
   }
 
-  @Get('stats/weekly/my/:weekStart')
+  @Get('stats/monthly/my/:month')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Get weekly exercise statistics for current user' })
-  @ApiResponse({ status: 200, description: 'Weekly exercise statistics', type: WeeklyExerciseStatsDto })
-  getMyWeeklyStats(
+  @ApiOperation({ summary: 'Get monthly exercise statistics for current user' })
+  @ApiResponse({ status: 200, description: 'Monthly exercise statistics', type: MonthlyExerciseStatsDto })
+  getMyMonthlyStats(
     @CurrentUser() user: any,
-    @Param('weekStart') weekStart: string,
-  ): Promise<WeeklyExerciseStatsDto> {
-    return this.exerciseLogsService.getWeeklyStats(user.id, weekStart);
+    @Param('month') month: string,
+  ): Promise<MonthlyExerciseStatsDto> {
+    return this.exerciseLogsService.getMonthlyStats(user.id, month);
   }
 
   @Get('stats/monthly/:userId/:month')
@@ -147,16 +159,16 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.getMonthlyStats(userId, month);
   }
 
-  @Get('stats/monthly/my/:month')
+  @Get('workout-plan-progress/my/:workoutPlanId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Get monthly exercise statistics for current user' })
-  @ApiResponse({ status: 200, description: 'Monthly exercise statistics', type: MonthlyExerciseStatsDto })
-  getMyMonthlyStats(
+  @ApiOperation({ summary: 'Get workout plan progress for current user' })
+  @ApiResponse({ status: 200, description: 'Workout plan progress', type: WorkoutPlanProgressDto })
+  getMyWorkoutPlanProgress(
     @CurrentUser() user: any,
-    @Param('month') month: string,
-  ): Promise<MonthlyExerciseStatsDto> {
-    return this.exerciseLogsService.getMonthlyStats(user.id, month);
+    @Param('workoutPlanId', ParseUUIDPipe) workoutPlanId: string,
+  ): Promise<WorkoutPlanProgressDto> {
+    return this.exerciseLogsService.getWorkoutPlanProgress(user.id, workoutPlanId);
   }
 
   @Get('workout-plan-progress/:userId/:workoutPlanId')
@@ -171,16 +183,13 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.getWorkoutPlanProgress(userId, workoutPlanId);
   }
 
-  @Get('workout-plan-progress/my/:workoutPlanId')
+  @Get('workout-plans-progress/my')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Get workout plan progress for current user' })
-  @ApiResponse({ status: 200, description: 'Workout plan progress', type: WorkoutPlanProgressDto })
-  getMyWorkoutPlanProgress(
-    @CurrentUser() user: any,
-    @Param('workoutPlanId', ParseUUIDPipe) workoutPlanId: string,
-  ): Promise<WorkoutPlanProgressDto> {
-    return this.exerciseLogsService.getWorkoutPlanProgress(user.id, workoutPlanId);
+  @ApiOperation({ summary: 'Get all workout plans progress for current user' })
+  @ApiResponse({ status: 200, description: 'All workout plans progress', type: [WorkoutPlanProgressDto] })
+  getMyWorkoutPlansProgress(@CurrentUser() user: any): Promise<WorkoutPlanProgressDto[]> {
+    return this.exerciseLogsService.getUserWorkoutPlansProgress(user.id);
   }
 
   @Get('workout-plans-progress/:userId')
@@ -192,28 +201,6 @@ export class ExerciseLogsController {
     @Param('userId', ParseUUIDPipe) userId: string,
   ): Promise<WorkoutPlanProgressDto[]> {
     return this.exerciseLogsService.getUserWorkoutPlansProgress(userId);
-  }
-
-  @Get('workout-plans-progress/my')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Get all workout plans progress for current user' })
-  @ApiResponse({ status: 200, description: 'All workout plans progress', type: [WorkoutPlanProgressDto] })
-  getMyWorkoutPlansProgress(@CurrentUser() user: any): Promise<WorkoutPlanProgressDto[]> {
-    return this.exerciseLogsService.getUserWorkoutPlansProgress(user.id);
-  }
-
-  @Get('performance/:userId')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get exercise performance analytics for a user' })
-  @ApiResponse({ status: 200, description: 'Exercise performance analytics', type: [ExercisePerformanceDto] })
-  @ApiQuery({ name: 'exerciseId', required: false, description: 'Filter by specific exercise ID' })
-  getExercisePerformance(
-    @Param('userId', ParseUUIDPipe) userId: string,
-    @Query('exerciseId') exerciseId?: string,
-  ): Promise<ExercisePerformanceDto[]> {
-    return this.exerciseLogsService.getExercisePerformance(userId, exerciseId);
   }
 
   @Get('performance/my')
@@ -229,13 +216,17 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.getExercisePerformance(user.id, exerciseId);
   }
 
-  @Get('streaks/:userId')
+  @Get('performance/:userId')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get exercise streaks for a user' })
-  @ApiResponse({ status: 200, description: 'Exercise streaks information' })
-  getExerciseStreaks(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.exerciseLogsService.getExerciseStreaks(userId);
+  @ApiOperation({ summary: 'Get exercise performance analytics for a user' })
+  @ApiResponse({ status: 200, description: 'Exercise performance analytics', type: [ExercisePerformanceDto] })
+  @ApiQuery({ name: 'exerciseId', required: false, description: 'Filter by specific exercise ID' })
+  getExercisePerformance(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Query('exerciseId') exerciseId?: string,
+  ): Promise<ExercisePerformanceDto[]> {
+    return this.exerciseLogsService.getExercisePerformance(userId, exerciseId);
   }
 
   @Get('streaks/my')
@@ -245,6 +236,15 @@ export class ExerciseLogsController {
   @ApiResponse({ status: 200, description: 'Exercise streaks information' })
   getMyExerciseStreaks(@CurrentUser() user: any) {
     return this.exerciseLogsService.getExerciseStreaks(user.id);
+  }
+
+  @Get('streaks/:userId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get exercise streaks for a user' })
+  @ApiResponse({ status: 200, description: 'Exercise streaks information' })
+  getExerciseStreaks(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.exerciseLogsService.getExerciseStreaks(userId);
   }
 
   @Get(':id')

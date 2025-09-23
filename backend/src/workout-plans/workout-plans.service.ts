@@ -409,7 +409,9 @@ export class WorkoutPlansService {
         workoutPlanId: dto.workoutPlanId,
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
-      },
+        status: (dto as any).status ? String((dto as any).status).toUpperCase() as any : undefined,
+        completedAt: (dto as any).completedAt ? new Date((dto as any).completedAt) : undefined,
+      } as any,
     });
 
     // Keep WorkoutPlan.days in sync with actual number of days
@@ -434,32 +436,58 @@ export class WorkoutPlansService {
     const day = await this.prisma.workoutDay.findUnique({ where: { id: dayId } });
     if (!day) throw new NotFoundException('Workout day not found');
 
+    const normalizedStatus = (dto as any).status ? String((dto as any).status).toUpperCase() : undefined;
+    const completedAt = (dto as any).completedAt ? new Date((dto as any).completedAt) : undefined;
+
     return this.prisma.workoutDay.update({
       where: { id: dayId },
       data: {
         dayNumber: dto.dayNumber,
         date: dto.date ? new Date(dto.date) : undefined,
-      },
+        status: normalizedStatus as any,
+        completedAt: normalizedStatus === 'PENDING' ? null : completedAt,
+      } as any,
     });
   }
 
   async removeDay(dayId: string) {
-    const day = await this.prisma.workoutDay.findUnique({
-      where: { id: dayId },
-      include: { exercises: true },
+    return this.prisma.$transaction(async (tx) => {
+      const day = await tx.workoutDay.findUnique({
+        where: { id: dayId },
+        include: { exercises: true },
+      });
+      if (!day) throw new NotFoundException('Workout day not found');
+      if (day.exercises.length > 0) {
+        throw new BadRequestException('Cannot delete a day that has exercises. Remove exercises first.');
+      }
+
+      const planId = day.workoutPlanId;
+      const deletedDayNumber = day.dayNumber;
+
+      const deleted = await tx.workoutDay.delete({ where: { id: dayId } });
+
+      // Renumber subsequent days and their exercises to keep sequence contiguous
+      if (deletedDayNumber !== null && deletedDayNumber !== undefined) {
+        await tx.workoutDay.updateMany({
+          where: { workoutPlanId: planId, dayNumber: { gt: deletedDayNumber } },
+          data: { dayNumber: { decrement: 1 } },
+        });
+
+        await tx.workoutExercise.updateMany({
+          where: {
+            workoutDay: { workoutPlanId: planId },
+            dayNumber: { gt: deletedDayNumber },
+          },
+          data: { dayNumber: { decrement: 1 } },
+        });
+      }
+
+      // Keep WorkoutPlan.days in sync with actual number of days
+      const daysCount = await tx.workoutDay.count({ where: { workoutPlanId: planId } });
+      await tx.workoutPlan.update({ where: { id: planId }, data: { days: daysCount } });
+
+      return deleted;
     });
-    if (!day) throw new NotFoundException('Workout day not found');
-    if (day.exercises.length > 0) {
-      throw new BadRequestException('Cannot delete a day that has exercises. Remove exercises first.');
-    }
-
-    const deleted = await this.prisma.workoutDay.delete({ where: { id: dayId } });
-
-    // Keep WorkoutPlan.days in sync with actual number of days
-    const daysCount = await this.prisma.workoutDay.count({ where: { workoutPlanId: day.workoutPlanId } });
-    await this.prisma.workoutPlan.update({ where: { id: day.workoutPlanId }, data: { days: daysCount } });
-
-    return deleted;
   }
 
   // Workout Exercise methods
@@ -681,6 +709,8 @@ export class WorkoutPlansService {
         workoutPlanId: day.workoutPlanId,
         dayNumber: day.dayNumber,
         date: (day as any).date ?? null,
+        status: (day as any).status ?? 'PENDING',
+        completedAt: (day as any).completedAt ?? null,
       },
       stats,
     };
