@@ -16,6 +16,9 @@ export class DailyExerciseStatsDto {
   @ApiProperty({ description: 'Total calories burned', example: 450.5 })
   totalCaloriesBurned: number;
 
+  @ApiProperty({ description: 'Total calories intake (meals) for the day', example: 1800 })
+  totalCaloriesIntake: number;
+
   @ApiProperty({ description: 'Total workout time in minutes', example: 90 })
   totalWorkoutTime: number;
 

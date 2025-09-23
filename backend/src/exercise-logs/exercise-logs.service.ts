@@ -62,6 +62,8 @@ export class ExerciseLogsService {
           dateLogged: new Date(createExerciseLogDto.date),
           caloriesBurned: createExerciseLogDto.totalCaloriesBurned || 0,
           notes: createExerciseLogDto.notes,
+          weight: user.weight ?? undefined,
+          height: user.height ?? undefined,
         },
       });
     } else {
@@ -71,6 +73,8 @@ export class ExerciseLogsService {
         data: {
           caloriesBurned: (log.caloriesBurned || 0) + (createExerciseLogDto.totalCaloriesBurned || 0),
           notes: createExerciseLogDto.notes ? `${log.notes || ''}\n${createExerciseLogDto.notes}` : log.notes,
+          weight: user.weight ?? undefined,
+          height: user.height ?? undefined,
         },
       });
     }
@@ -278,6 +282,7 @@ export class ExerciseLogsService {
         totalSets: 0,
         totalReps: 0,
         totalCaloriesBurned: 0,
+        totalCaloriesIntake: 0,
         totalWorkoutTime: 0,
         averageWeight: 0,
         workoutPlansCompleted: [],
@@ -320,6 +325,7 @@ export class ExerciseLogsService {
       totalSets,
       totalReps,
       totalCaloriesBurned,
+      totalCaloriesIntake: logs.reduce((sum, l) => sum + (l.caloriesIntake || 0), 0),
       totalWorkoutTime: 0, // This would need additional tracking
       averageWeight,
       workoutPlansCompleted,

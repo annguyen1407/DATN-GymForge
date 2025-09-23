@@ -136,6 +136,7 @@ describe('ExerciseLogsService', () => {
         totalSets: 0,
         totalReps: 0,
         totalCaloriesBurned: 0,
+        totalCaloriesIntake: 0,
         totalWorkoutTime: 0,
         averageWeight: 0,
         workoutPlansCompleted: [],

@@ -447,10 +447,12 @@ model Log {
   caloriesBurned      Float?                 @map("calo_burned")
   caloriesIntake      Float?                 @map("calo_input")
   notes               String?
-  mealId              String?                @db.Uuid
+
 
   user                User                   @relation(fields: [userId], references: [id])
   workoutExerciseLogs WorkoutExerciseLog[]
+  meals               Meal[]
+
 
   @@index([userId])
   @@index([dateLogged])
@@ -463,6 +465,11 @@ model Meal {
   calories   Float?    @map("calo_input")
   type       MealType? @map("meal_type")
   name       String?
+  logId      String?   @db.Uuid
+  log        Log?      @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  @@index([logId])
+
 
   @@index([date])
   @@index([type])
