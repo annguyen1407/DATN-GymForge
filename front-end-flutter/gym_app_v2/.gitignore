@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ==============================
+# Documentation (Selective Ignore)
+# Mirror of root .gitignore so local commits inside this subfolder also skip
+# large or frequently regenerated architecture/schema docs.
+# Keep README, DESIGN_SYSTEM.md, CODING_STANDARDS.md tracked.
+# NOTE: If these files were already committed, run (from repo root):
+#   git rm --cached front-end-flutter/gym_app_v2/ARCHITECTURE.md \
+#     front-end-flutter/gym_app_v2/BACKEND_SCHEMA_REFERENCE.md
+# then commit.
+
+ARCHITECTURE.md
+BACKEND_SCHEMA_REFERENCE.md
+
