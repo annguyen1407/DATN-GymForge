@@ -1,32 +1,21 @@
-# Existing ignores (add your defaults below if needed)
+#############################################
+# Core Ignores (consolidated)               #
+#############################################
 
-# Node / backend common
+# Backend (NestJS / Node)
 node_modules/
 backend/dist/
-backend/.env
-backend/.env.local
-backend/.env.development.local
-backend/.env.test.local
-backend/.env.production.local
+backend/.env*
 
-# Flutter / Dart builds
+# Flutter / Dart basic (detailed patterns handled inside project .gitignore)
 front-end-flutter/gym_app_v2/build/
 **/dart_tool/
-**/.packages
-**/.flutter-plugins
-**/.flutter-plugins-dependencies
-**/.metadata
-**/Generated.xcconfig
-**/Flutter.podspec
-**/.symlinks/
-**/Pods/
-**/pubspec.lock
 
 # OS / IDE
 .DS_Store
 .idea/
 .vscode/
-.github/
+# (Allow .github to be tracked for workflows; removed from ignore)
 
 # Cache / Logs
 npm-debug.log*
@@ -35,8 +24,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Prisma artifacts
-backend/prisma/generated/
+# Prisma artifacts (uncomment if using custom generated output)
+# backend/prisma/generated/
 
 # Redis dump (already at root)
 dump.rdb
