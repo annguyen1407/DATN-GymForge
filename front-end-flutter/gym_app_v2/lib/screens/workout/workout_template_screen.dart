@@ -7,6 +7,7 @@ import '../../widgets/app_button.dart';
 import '../../repositories/workout_day_exercises_repository.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
+import '../../widgets/plan_type_badge.dart';
 
 /// Chi tiết template workout plan.
 class WorkoutTemplateScreen extends StatefulWidget {
@@ -402,71 +403,12 @@ class _Header extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
-                    _TypeBadge(planType: planType),
+                    PlanTypeBadge(planType: planType),
                     _DaysBadge(days: days),
                     if (exercises != null) _ExercisesBadge(count: exercises!),
                   ],
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  final String planType;
-  const _TypeBadge({required this.planType});
-  String _vn(String t) {
-    switch (t) {
-      case 'STRENGTH':
-        return 'Sức mạnh';
-      case 'CARDIO':
-        return 'Sức bền';
-      case 'FLEXIBILITY':
-        return 'Dẻo dai';
-      case 'COMBINED':
-        return 'Kết hợp';
-      default:
-        return t;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Color base;
-    switch (planType) {
-      case 'STRENGTH':
-        base = const Color(0xFF8854FF);
-        break;
-      case 'CARDIO':
-        base = const Color(0xFFFF7043);
-        break;
-      case 'FLEXIBILITY':
-        base = const Color(0xFF26A69A);
-        break;
-      case 'COMBINED':
-        base = const Color(0xFF42A5F5);
-        break;
-      default:
-        base = Colors.grey.shade600;
-    }
-    return _BaseBadge(
-      gradient: [base.withOpacityRatio(.85), base.withOpacityRatio(.55)],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.fitness_center, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            _vn(planType),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-              letterSpacing: .4,
             ),
           ),
         ],
@@ -531,6 +473,44 @@ class _BaseBadge extends StatelessWidget {
   }
 }
 
+// Re-introduced description card (was accidentally removed during refactor)
+class _DescriptionCard extends StatelessWidget {
+  final String text;
+  const _DescriptionCard({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF19191D), Color(0xFF141416)],
+        ),
+        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacityRatio(.55),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14.5,
+          height: 1.55,
+          color: Colors.white.withOpacityRatio(.84),
+          letterSpacing: .25,
+        ),
+      ),
+    );
+  }
+}
+
 class _ExercisesBadge extends StatelessWidget {
   final int count;
   const _ExercisesBadge({required this.count});
@@ -553,47 +533,6 @@ class _ExercisesBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ------------------------------------------------------------
-// New UI components
-// ------------------------------------------------------------
-
-class _DescriptionCard extends StatelessWidget {
-  final String text;
-  const _DescriptionCard({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF19191D), Color(0xFF141416)],
-        ),
-        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacityRatio(.55),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14.5,
-          height: 1.55,
-          color: Colors.white.withOpacityRatio(.84),
-          letterSpacing: .25,
-        ),
       ),
     );
   }

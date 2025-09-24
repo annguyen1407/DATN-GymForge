@@ -3,6 +3,7 @@ import '../../widgets/app_button.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'log_workoutday_screen.dart'; // contains WorkoutLogScreen
 import '../../widgets/log_plan_card.dart';
+import '../../widgets/plan_type_badge.dart';
 import '../../widgets/pill_tab_bar.dart';
 
 /// LogOfDayScreen: Displays detailed workout information for a selected date with tabs
@@ -186,52 +187,9 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     }
   }
 
-  Color _planTypeColor(String? type) {
-    if (type == null) return const Color(0xFF8854FF);
-    switch (type.toLowerCase()) {
-      case 'strength':
-      case 'power':
-        return Colors.redAccent;
-      case 'hypertrophy':
-        return Colors.orangeAccent;
-      case 'endurance':
-      case 'cardio':
-        return Colors.lightBlueAccent;
-      case 'flexibility':
-      case 'mobility':
-        return Colors.tealAccent;
-      case 'weight_loss':
-        return Colors.pinkAccent;
-      default:
-        return const Color(0xFF8854FF);
-    }
-  }
-
-  // Removed _buildPlanTitle (inlined usage within _PlanCard)
-
-  Widget _buildPlanTypeChip(dynamic planTypeRaw) {
-    final t = planTypeRaw?.toString();
-    if (t == null || t.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final color = _planTypeColor(t);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        border: Border.all(color: color, width: 1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        t,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  // Unified color helper using PlanTypeBadge.baseColor
+  Color _unifiedPlanColor(String? raw) =>
+      PlanTypeBadge.baseColor(raw?.toString().toUpperCase());
 
   Widget _buildDayNumberBadge(dynamic dayNumberRaw) {
     int? dn;
@@ -741,11 +699,10 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final plan = _planData[index];
+                          final rawType = plan['planType']?.toString();
                           return PlanCard(
                             plan: plan,
-                            planTypeColor: _planTypeColor(
-                              plan['planType']?.toString(),
-                            ),
+                            planTypeColor: _unifiedPlanColor(rawType),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -760,7 +717,13 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
                               );
                             },
                             dayBadge: _buildDayNumberBadge(plan['dayNumber']),
-                            planTypeChip: _buildPlanTypeChip(plan['planType']),
+                            planTypeChip: rawType == null
+                                ? const SizedBox.shrink()
+                                : PlanTypeBadge(
+                                    planType: rawType.toString().toUpperCase(),
+                                    dense: true,
+                                    fontSize: 11,
+                                  ),
                           );
                         },
                       ),

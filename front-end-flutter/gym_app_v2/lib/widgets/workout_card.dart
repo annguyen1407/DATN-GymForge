@@ -2,22 +2,9 @@
 import 'package:flutter/material.dart';
 import '../theme/design_tokens.dart';
 import '../core/extensions/color_extensions.dart';
+import 'plan_type_badge.dart';
 
-/// Màu theo planType để hiển thị badge & gradient khi thiếu ảnh
-Color _planTypeColor(String? planType) {
-  switch (planType) {
-    case 'STRENGTH':
-      return DesignTokens.danger;
-    case 'CARDIO':
-      return DesignTokens.warning;
-    case 'FLEXIBILITY':
-      return DesignTokens.success;
-    case 'COMBINED':
-      return DesignTokens.brand;
-    default:
-      return DesignTokens.info;
-  }
-}
+// NOTE: Legacy color mapping removed. Now gradients derive from PlanTypeBadge.baseColor
 
 /// WorkoutCard: Card hiển thị workout chung cho tab "Kế hoạch" và "Chuyên gia"
 /// Khác với WorkoutTemplateCard (dùng riêng cho tab "Khám phá")
@@ -47,7 +34,7 @@ class WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = badgeColor ?? _planTypeColor(planType ?? badge);
+    final accent = badgeColor ?? PlanTypeBadge.baseColor(planType ?? badge);
     // Danh sách asset hiện có để tránh load asset không tồn tại (giảm spam error log)
     const knownAssets = {
       'assets/images/onboarding_1.png',
@@ -149,32 +136,12 @@ class WorkoutCard extends StatelessWidget {
                   // Badge (nếu có)
                   if (badge != null)
                     Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withOpacityRatio(.9),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withOpacityRatio(.4),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          badge!,
-                          style: const TextStyle(
-                            color: DesignTokens.textPrimary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      top: 10,
+                      right: 10,
+                      child: PlanTypeBadge(
+                        planType: planType ?? badge,
+                        dense: true,
+                        fontSize: 11,
                       ),
                     ),
                 ],

@@ -4,6 +4,7 @@ import '../../widgets/pill_tab_bar.dart';
 import 'explore_tab.dart';
 import 'plan_tab.dart';
 import 'expert_tab.dart';
+import '../../widgets/animations/animated_appear.dart';
 
 /// WorkoutScreen: Tab "Workout" hiển thị các nhóm workout, tab, search, category icon
 class WorkoutScreen extends StatefulWidget {
@@ -62,22 +63,96 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         ),
         body: SafeArea(
           top: false,
-          child: TabBarView(
-            controller: _controller,
-            children: [
-              const ExploreTab(),
-              // Keep isActive behavior: compare current index
-              Builder(
-                builder: (context) => PlanTab(
-                  key: ValueKey('PlanTab-${_controller.index}'),
-                  isActive: _controller.index == 1,
-                ),
-              ),
-              const ExpertTab(),
-            ],
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return TabBarView(
+                controller: _controller,
+                children: [
+                  _AnimatedTabWrapper(
+                    index: 0,
+                    controller: _controller,
+                    child: const ExploreTab(),
+                  ),
+                  Builder(
+                    builder: (context) => _AnimatedTabWrapper(
+                      index: 1,
+                      controller: _controller,
+                      child: PlanTab(
+                        key: ValueKey('PlanTab-${_controller.index}'),
+                        isActive: _controller.index == 1,
+                      ),
+                    ),
+                  ),
+                  _AnimatedTabWrapper(
+                    index: 2,
+                    controller: _controller,
+                    child: const ExpertTab(),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedTabWrapper extends StatefulWidget {
+  final int index;
+  final TabController controller;
+  final Widget child;
+  const _AnimatedTabWrapper({
+    required this.index,
+    required this.controller,
+    required this.child,
+  });
+
+  @override
+  State<_AnimatedTabWrapper> createState() => _AnimatedTabWrapperState();
+}
+
+class _AnimatedTabWrapperState extends State<_AnimatedTabWrapper> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.controller.index == widget.index) {
+      // show initial tab after first frame for smooth appear
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
+    widget.controller.addListener(_tabListener);
+  }
+
+  void _tabListener() {
+    if (widget.controller.index == widget.index && !_visible) {
+      setState(() => _visible = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_tabListener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: _visible
+          ? AnimatedAppear(
+              key: ValueKey('tab-${widget.index}-appear'),
+              delay: const Duration(milliseconds: 40),
+              child: widget.child,
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

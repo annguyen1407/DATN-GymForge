@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../models/workout_plan_model.dart';
 import '../../widgets/workout_card.dart';
+import '../../widgets/plan_type_badge.dart';
 import '../../widgets/search_box.dart';
 import 'workout_template_screen.dart';
 
@@ -29,30 +30,30 @@ class _ExploreTabState extends State<ExploreTab> {
 
   // Category definitions (UI + corresponding backend planType)
   // NOTE: If backend does not support ENDURANCE remove or map appropriately.
-  final List<_CategoryDef> _categories = const [
-    _CategoryDef(
-      label: 'Sức bền',
-      planType: 'CARDIO',
-      icon: Icons.directions_run,
-      color: Color(0xFFB86B5B),
-    ),
+  final List<_CategoryDef> _categories = [
     _CategoryDef(
       label: 'Sức mạnh',
       planType: 'STRENGTH',
-      icon: Icons.fitness_center,
-      color: Color(0xFF7B5FB2),
+      icon: Icons.fitness_center, // biểu tượng tạ ~ strength
+      color: PlanTypeBadge.baseColor('STRENGTH'),
     ),
     _CategoryDef(
-      label: 'Kết hợp',
-      planType: 'COMBINED',
-      icon: Icons.timer,
-      color: Color(0xFF4CB7A5),
+      label: 'Sức bền',
+      planType: 'CARDIO',
+      icon: Icons.favorite, // tim nhịp đập tượng trưng cardio
+      color: PlanTypeBadge.baseColor('CARDIO'),
     ),
     _CategoryDef(
       label: 'Dẻo dai',
       planType: 'FLEXIBILITY',
-      icon: Icons.accessibility_new,
-      color: Color(0xFF4C7CB7),
+      icon: Icons.self_improvement, // tư thế yoga / stretching
+      color: PlanTypeBadge.baseColor('FLEXIBILITY'),
+    ),
+    _CategoryDef(
+      label: 'Kết hợp',
+      planType: 'COMBINED',
+      icon: Icons.all_inclusive, // biểu tượng vòng lặp kết hợp đa yếu tố
+      color: PlanTypeBadge.baseColor('COMBINED'),
     ),
   ];
 
@@ -250,7 +251,8 @@ class _SelectableCategoryIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = category.color;
+    final accent =
+        category.color; // màu đã chuẩn hoá từ PlanTypeBadge.baseColor
     return GestureDetector(
       onTap: onTap,
       child: Column(

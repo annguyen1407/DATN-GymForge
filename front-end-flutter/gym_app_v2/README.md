@@ -69,21 +69,26 @@ cd DATN-GymForge/front-end-flutter/gym_app_v2
 flutter pub get
 ```
 
-3. **Cấu hình API endpoint:**
+3. **Cấu hình môi trường (.env):**
+  Tạo file `.env` (copy từ `.env.example` nếu có) trong thư mục `gym_app_v2/`:
    
-   Chỉnh sửa file `lib/services/api_constants.dart`:
-   ```dart
-   class ApiConstants {
-     // iOS Simulator - kết nối localhost
-     static const String baseUrl = 'http://localhost:3000';
-     
-     // Android Emulator - sử dụng IP đặc biệt
-     // static const String baseUrl = 'http://10.0.2.2:3000';
-     
-     // Production - domain thật khi deploy
-     // static const String baseUrl = 'https://your-api-domain.com';
-   }
-   ```
+  ```bash
+  cp .env.example .env
+  ```
+  Bên trong khai báo:
+  ```properties
+  API_BASE_URL=http://localhost:3000
+  # Android Emulator có thể dùng: http://10.0.2.2:3000
+  # Production ví dụ: https://api.your-domain.com
+   
+  # Thời gian giữa các lần tự refresh token (giây)
+  REFRESH_INTERVAL_SECONDS=600
+  ```
+  Ứng dụng sẽ tự load `.env` ở `main.dart` và dùng `API_BASE_URL` thông qua `ApiConstants.baseUrl`.
+  - Nếu thiếu hoặc không load được `.env` sẽ fallback `http://localhost:3000`.
+  - Có thể đổi nhanh interval khi test (ví dụ 30s) bằng cách sửa `REFRESH_INTERVAL_SECONDS`.
+   
+  File cũ `api_constants.dart` giờ chỉ còn getter động, KHÔNG sửa tay trực tiếp để tránh lệch môi trường giữa dev / staging / prod.
 
 4. **Chạy ứng dụng:**
 ```bash

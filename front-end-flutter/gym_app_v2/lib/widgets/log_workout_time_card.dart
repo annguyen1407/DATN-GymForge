@@ -10,7 +10,7 @@ import '../services/api_constants.dart';
 /// LogWorkoutTimeCard: Biểu đồ thống kê thời gian tập luyện theo tuần
 class LogWorkoutTimeCard extends StatefulWidget {
   final String? userId;
-  final String? token;
+  final String? token; // retained for future removal once all callers cleaned
   final ExerciseLogRepository? repo;
   const LogWorkoutTimeCard({super.key, this.userId, this.token, this.repo});
 
@@ -48,8 +48,8 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
   void didUpdateWidget(covariant LogWorkoutTimeCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final userId = widget.userId;
-    final token = widget.token;
-    if (userId != null && token != null) {
+    final token = widget.token; // legacy dependency
+    if (userId != null) {
       final changed = oldWidget.userId != userId || oldWidget.token != token;
       if (changed) {
         _initialFetchScheduled = true; // đánh dấu đã xử lý
@@ -63,8 +63,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
 
   Future<void> _loadWeek() async {
     final userId = widget.userId;
-    final token = widget.token;
-    if (userId == null || token == null) return; // not logged in yet
+    if (userId == null) return; // not logged in yet
     // no-op loading state (placeholder omitted to avoid unused warnings)
     try {
       final repo =
@@ -72,7 +71,6 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       final stats = await repo.fetchWeeklyStats(
         userId: userId,
         weekStart: _displayedWeekStart,
-        token: token,
       );
       if (!mounted) return;
       setState(() => _weekly = stats);

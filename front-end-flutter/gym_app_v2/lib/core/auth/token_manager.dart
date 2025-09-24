@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../../services/api_constants.dart';
+import '../logging/app_logger.dart';
 
 /// TokenPair model
 class TokenPair {
@@ -49,6 +50,8 @@ class TokenManager {
 
   final _secure = const FlutterSecureStorage();
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
+  // Last successful refresh timestamp (reserved for future backoff / metrics)
+  DateTime? _lastSuccessRefresh; // ignore: unused_field
 
   Future<String?> _getAccessToken() async {
     final p = await _prefs;
@@ -157,12 +160,39 @@ class TokenManager {
   /// Public explicit refresh with detailed outcome.
   /// You can call this to proactively renew before a critical operation.
   Future<RefreshOutcome> forceRefresh({String? refreshToken}) async {
+    final startAt = DateTime.now();
+    final explicit = refreshToken != null;
+    // Deferred single-line logging; eliminate intermediate verbose lines.
+    // Reuse in-flight if another refresh is already happening
+    if (_inFlight != null) {
+      AppLogger.debug('Reuse in-flight refresh future', tag: 'TokenManager');
+      final pair = await _inFlight; // wait existing
+      if (pair != null) {
+        AppLogger.debug(
+          'In-flight refresh success (reuse)',
+          tag: 'TokenManager',
+        );
+        return RefreshOutcome(RefreshStatus.success, pair: pair);
+      }
+      AppLogger.debug(
+        'In-flight refresh completed with null -> new attempt',
+        tag: 'TokenManager',
+      );
+      // if null -> previous attempt failed, continue to new attempt
+    }
     try {
       final token = refreshToken ?? await _getRefreshToken();
       if (token == null) {
+        AppLogger.info(
+          'Refresh aborted: no refresh token',
+          tag: 'TokenManager',
+        );
         return const RefreshOutcome(RefreshStatus.noRefreshToken);
       }
       final url = Uri.parse('${ApiConstants.baseUrl}/auth/refresh');
+      final completer = Completer<TokenPair?>();
+      _inFlight = completer.future; // mark in-flight for others
+      // (suppressed detailed start log to reduce noise)
       final res = await http.post(
         url,
         headers: {
@@ -171,31 +201,48 @@ class TokenManager {
         },
         body: jsonEncode({'refresh_token': token}),
       );
+      // (suppressed status debug; final consolidated line below)
       if (res.statusCode == 401 || res.statusCode == 403) {
-        return const RefreshOutcome(RefreshStatus.invalidToken);
+        completer.complete(null);
+        final outcome = const RefreshOutcome(RefreshStatus.invalidToken);
+        _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+        return outcome;
       }
       if (res.statusCode >= 500) {
-        return RefreshOutcome(
+        completer.complete(null);
+        final outcome = RefreshOutcome(
           RefreshStatus.serverError,
           message: 'Server error ${res.statusCode}',
         );
+        _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+        return outcome;
       }
-      if (res.statusCode != 200) {
-        return RefreshOutcome(
+      // Some backends may return 200 or 201 (Created) for a successful refresh.
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        completer.complete(null);
+        final outcome = RefreshOutcome(
           RefreshStatus.unknownError,
           message: 'Unexpected status ${res.statusCode}',
         );
+        _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+        return outcome;
       }
       dynamic body;
       try {
         body = jsonDecode(res.body);
       } catch (_) {
-        return const RefreshOutcome(RefreshStatus.decodeError);
+        completer.complete(null);
+        final outcome = const RefreshOutcome(RefreshStatus.decodeError);
+        _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+        return outcome;
       }
       final newAccess = body['access_token'] as String?;
       final newRefresh = body['refresh_token'] as String?;
       if (newAccess == null || newRefresh == null) {
-        return const RefreshOutcome(RefreshStatus.decodeError);
+        completer.complete(null);
+        final outcome = const RefreshOutcome(RefreshStatus.decodeError);
+        _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+        return outcome;
       }
       await _saveTokens(newAccess, newRefresh);
       final pair = TokenPair(
@@ -203,37 +250,55 @@ class TokenManager {
         refreshToken: newRefresh,
         accessExp: _extractExp(newAccess),
       );
-      return RefreshOutcome(RefreshStatus.success, pair: pair);
+      _lastSuccessRefresh = DateTime.now();
+      completer.complete(pair);
+      final outcome = RefreshOutcome(RefreshStatus.success, pair: pair);
+      _logCompact(startAt, explicit, outcome, statusCode: res.statusCode);
+      return outcome;
     } on http.ClientException catch (e) {
-      return RefreshOutcome(RefreshStatus.networkError, message: e.toString());
+      final outcome = RefreshOutcome(
+        RefreshStatus.networkError,
+        message: e.toString(),
+      );
+      _logCompact(startAt, explicit, outcome);
+      return outcome;
     } on TimeoutException catch (e) {
-      return RefreshOutcome(RefreshStatus.networkError, message: 'Timeout: $e');
+      final outcome = RefreshOutcome(
+        RefreshStatus.networkError,
+        message: 'Timeout: $e',
+      );
+      _logCompact(startAt, explicit, outcome);
+      return outcome;
     } catch (e) {
-      return RefreshOutcome(RefreshStatus.unknownError, message: e.toString());
+      final outcome = RefreshOutcome(
+        RefreshStatus.unknownError,
+        message: e.toString(),
+      );
+      _logCompact(startAt, explicit, outcome, error: e);
+      return outcome;
+    } finally {
+      _inFlight = null; // clear single-flight state
     }
   }
 
-  /// Wrapper helper to perform authorized GET with auto-refresh & single retry
-  Future<http.Response?> authorizedGet(String path) async {
-    final token = await getValidAccessToken();
-    if (token == null) return null;
-    final url = Uri.parse('${ApiConstants.baseUrl}$path');
-    var res = await http.get(
-      url,
-      headers: {'accept': 'application/json', 'Authorization': 'Bearer $token'},
+  // Removed deprecated authorizedGet (use ApiClient instead)
+}
+
+extension _TokenManagerLogging on TokenManager {
+  void _logCompact(
+    DateTime startAt,
+    bool explicitCall,
+    RefreshOutcome outcome, {
+    int? statusCode,
+    Object? error,
+  }) {
+    final end = DateTime.now();
+    final durMs = end.difference(startAt).inMilliseconds;
+    final ts = end.toIso8601String();
+    final code = statusCode != null ? ' code=$statusCode' : '';
+    AppLogger.info(
+      '[refresh] ts=$ts explicit=$explicitCall status=${outcome.status}$code dur=${durMs}ms',
+      tag: 'TokenManager',
     );
-    if (res.statusCode == 401) {
-      // Try one refresh explicit (maybe token just rotated elsewhere)
-      final retryToken = await getValidAccessToken();
-      if (retryToken == null) return res; // let caller decide logout
-      res = await http.get(
-        url,
-        headers: {
-          'accept': 'application/json',
-          'Authorization': 'Bearer $retryToken',
-        },
-      );
-    }
-    return res;
   }
 }

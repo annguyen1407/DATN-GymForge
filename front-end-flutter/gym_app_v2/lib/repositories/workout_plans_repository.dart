@@ -10,20 +10,50 @@ class WorkoutDayModel {
   final String workoutPlanId;
   final int? dayNumber; // may be null if backend allows
   final DateTime? date;
+  final String? status; // e.g. PENDING, COMPLETED, SKIPPED
+  final DateTime? completedAt;
 
-  WorkoutDayModel({
+  const WorkoutDayModel({
     required this.id,
     required this.workoutPlanId,
     this.dayNumber,
     this.date,
+    this.status,
+    this.completedAt,
   });
 
+  WorkoutDayModel copyWith({
+    int? dayNumber,
+    DateTime? date,
+    String? status,
+    DateTime? completedAt,
+  }) {
+    return WorkoutDayModel(
+      id: id,
+      workoutPlanId: workoutPlanId,
+      dayNumber: dayNumber ?? this.dayNumber,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
+
   factory WorkoutDayModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      if (v is String && v.isNotEmpty) {
+        return DateTime.tryParse(v);
+      }
+      return null;
+    }
+
     return WorkoutDayModel(
       id: json['id'] as String,
       workoutPlanId: json['workoutPlanId'] as String,
       dayNumber: json['dayNumber'] as int?,
-      date: json['date'] != null ? DateTime.tryParse(json['date']) : null,
+      date: parseDate(json['date']),
+      status: json['status'] as String?,
+      completedAt: parseDate(json['completedAt']),
     );
   }
 }

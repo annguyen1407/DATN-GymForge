@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/animations/animated_appear.dart';
 import '../../core/logging/app_logger.dart';
 import '../../widgets/app_button.dart';
 import '../../services/user_service.dart';
@@ -596,25 +597,65 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'bước ${_currentStep + 1}/$_totalSteps',
-                    style: const TextStyle(
-                      color: Color(0xFF8854FF),
-                      fontWeight: FontWeight.bold,
+              AnimatedAppear(
+                dy: 10,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 360),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.2),
+                            end: Offset.zero,
+                          ).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        'bước ${_currentStep + 1}/$_totalSteps',
+                        key: ValueKey(_currentStep),
+                        style: const TextStyle(
+                          color: Color(0xFF8854FF),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _totalSteps,
-                  itemBuilder: (context, index) => _buildStepContent(),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0.05, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey('step_$_currentStep'),
+                    child: AnimatedAppear(
+                      key: ValueKey('appear_$_currentStep'),
+                      dy: 16,
+                      child: _buildStepContent(),
+                    ),
+                  ),
                 ),
               ),
             ],
