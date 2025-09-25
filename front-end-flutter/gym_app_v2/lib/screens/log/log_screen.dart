@@ -10,7 +10,6 @@ import '../../services/api_constants.dart';
 import '../../core/auth/token_manager.dart';
 import '../../services/log_out_service.dart';
 import '../../core/auth/session_guard.dart';
-import '../../widgets/category_icon.dart';
 import '../../widgets/log_workout_time_card.dart';
 import '../../widgets/pill_tab_bar.dart';
 import '../../widgets/segmented_pill_switch.dart';
@@ -304,53 +303,17 @@ class _LogScreenState extends State<LogScreen>
       children: [
         AnimatedAppear(child: _buildTodayStatSection()),
         const SizedBox(height: 24),
+        // (Đã bỏ cụm icon danh mục bài tập để giảm nhiễu giao diện)
+        const SizedBox(height: 8),
         const Text(
-          'Workout sets',
+          'Thời gian & Lịch tập',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Your completed workout categories',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
         const SizedBox(height: 16),
-        AnimatedAppear(
-          delay: const Duration(milliseconds: 80),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              CategoryIcon(
-                icon: Icons.directions_run,
-                color: Color(0xFFB86B5B),
-                label: 'Cardio',
-                count: 3,
-              ),
-              CategoryIcon(
-                icon: Icons.fitness_center,
-                color: Color(0xFF7B5FB2),
-                label: 'Strength',
-                count: 2,
-              ),
-              CategoryIcon(
-                icon: Icons.timer,
-                color: Color(0xFF4CB7A5),
-                label: 'Endurance',
-                count: 2,
-              ),
-              CategoryIcon(
-                icon: Icons.more_horiz,
-                color: Color(0xFF4C7CB7),
-                label: 'More',
-                count: 3,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 28),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -581,19 +544,14 @@ class _LogScreenState extends State<LogScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'In-depth Analytics',
+          'Phân tích chuyên sâu',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Detailed insights into your workout performance',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -605,7 +563,7 @@ class _LogScreenState extends State<LogScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Body Metrics',
+                'Chỉ số cơ thể',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
