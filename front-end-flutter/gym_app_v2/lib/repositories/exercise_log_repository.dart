@@ -17,6 +17,8 @@ class DailyExerciseLogSummary {
   final String? notes; // general note for that day (root 'notes')
   final List<Map<String, dynamic>>
   workoutExerciseLogsRaw; // raw logs for plan tab grouping
+  /// Tổng thời gian tập (phút) trong ngày – optional (backend có thể trả về totalWorkoutTime hoặc totalWorkoutTimeMinutes)
+  final int? totalWorkoutTimeMinutes;
 
   const DailyExerciseLogSummary({
     required this.date,
@@ -29,6 +31,7 @@ class DailyExerciseLogSummary {
     required this.height,
     required this.notes,
     required this.workoutExerciseLogsRaw,
+    required this.totalWorkoutTimeMinutes,
   });
 }
 
@@ -168,6 +171,15 @@ class ExerciseLogRepository {
       // Quyết định caloriesBurned: ưu tiên aggregate nếu có, nếu không có dùng per-exercise sum.
       final caloriesBurned = aggregateCalories ?? perExerciseCalories;
 
+      // total workout time: backend có thể cung cấp dưới các key khác nhau (seconds hoặc minutes)
+      int? totalWorkoutTimeMinutes;
+      if (first['totalWorkoutTimeMinutes'] is num) {
+        totalWorkoutTimeMinutes = (first['totalWorkoutTimeMinutes'] as num).round();
+      } else if (first['totalWorkoutTime'] is num) {
+        // giả định backend đang trả về phút (đồng nhất với điều chỉnh định dạng trước đó)
+        totalWorkoutTimeMinutes = (first['totalWorkoutTime'] as num).round();
+      }
+
       return DailyExerciseLogSummary(
         date: date,
         sessions: workoutDayIdOccurrences,
@@ -185,6 +197,7 @@ class ExerciseLogRepository {
         workoutExerciseLogsRaw: workoutExerciseLogs
             .whereType<Map<String, dynamic>>()
             .toList(growable: false),
+    totalWorkoutTimeMinutes: totalWorkoutTimeMinutes,
       );
     } catch (e, st) {
       AppLogger.error(

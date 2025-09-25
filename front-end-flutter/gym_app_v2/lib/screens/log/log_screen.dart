@@ -301,12 +301,14 @@ class _LogScreenState extends State<LogScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _SectionHeader(title: 'Tổng quan hôm nay'),
+        const SizedBox(height: 12),
         AnimatedAppear(child: _buildTodayStatSection()),
         const SizedBox(height: 24),
         // (Đã bỏ cụm icon danh mục bài tập để giảm nhiễu giao diện)
         const SizedBox(height: 8),
         const Text(
-          'Thời gian & Lịch tập',
+          'Thống kê & thông tin chi tiết',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -521,17 +523,19 @@ class _LogScreenState extends State<LogScreen>
         exercisesCount: 0,
         calories: 0,
         caloriesIntake: 0,
-        circleLabel: 'Sessions',
+        circleLabel: 'Buổi tập',
         compact: true,
       );
     }
+    // Hiển thị số buổi tập (workout day distinct) thay vì tổng lượt (sessions)
     return TodayStat(
-      workoutSets: s.sessions,
+      workoutSets: s.uniqueSessions,
       exercisesCount: s.totalExercises,
       calories: s.caloriesBurned,
       caloriesIntake: s.caloriesIntake,
       points: null,
-      circleLabel: 'Sessions',
+      workoutTimeMinutes: s.totalWorkoutTimeMinutes,
+      circleLabel: 'Buổi tập',
       compact: true,
     );
   }
@@ -576,7 +580,7 @@ class _LogScreenState extends State<LogScreen>
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   alignment: Alignment.center,
                   child: const Text(
-                    'No body metrics yet',
+                    'Chưa có chỉ số',
                     style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 )
@@ -621,12 +625,12 @@ class _LogScreenState extends State<LogScreen>
                 )
               else
                 const Text(
-                  'No metrics recorded',
+                  'Chưa có ghi nhận',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               const SizedBox(height: 16),
               AppButton.primary(
-                label: 'Update Metrics',
+                label: 'Cập nhật chỉ số',
                 onPressed: () => _showBodyMetricsUpdateModal(context),
                 size: AppButtonSize.medium,
               ),
@@ -658,6 +662,24 @@ class _LogScreenState extends State<LogScreen>
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        letterSpacing: .2,
       ),
     );
   }

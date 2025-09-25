@@ -141,8 +141,8 @@ class _ExerciseInfoScreenState extends State<ExerciseInfoScreen> {
                       text: (description != null && description.isNotEmpty)
                           ? description
                           : (instruction?.isNotEmpty == true
-                              ? instruction!
-                              : 'Chưa có hướng dẫn chi tiết.'),
+                                ? instruction!
+                                : 'Chưa có hướng dẫn chi tiết.'),
                     ),
                     const SizedBox(height: 40),
                   ],
@@ -177,7 +177,7 @@ class _ExpandableBodyText extends StatefulWidget {
   final String text;
   final int maxLines; // số dòng khi thu gọn
   const _ExpandableBodyText({required this.text, this.maxLines = 5})
-      : assert(maxLines > 0, 'maxLines phải > 0');
+    : assert(maxLines > 0, 'maxLines phải > 0');
 
   @override
   State<_ExpandableBodyText> createState() => _ExpandableBodyTextState();
@@ -196,7 +196,8 @@ class _ExpandableBodyTextState extends State<_ExpandableBodyText> {
   @override
   void didUpdateWidget(covariant _ExpandableBodyText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text || oldWidget.maxLines != widget.maxLines) {
+    if (oldWidget.text != widget.text ||
+        oldWidget.maxLines != widget.maxLines) {
       _measure();
     }
   }
@@ -216,7 +217,8 @@ class _ExpandableBodyTextState extends State<_ExpandableBodyText> {
       textDirection: TextDirection.ltr,
       ellipsis: '…',
     );
-    final maxWidth = MediaQuery.of(context).size.width - 32; // 16 padding each side
+    final maxWidth =
+        MediaQuery.of(context).size.width - 32; // 16 padding each side
     tp.layout(maxWidth: maxWidth);
     final overflow = tp.didExceedMaxLines;
     if (mounted) setState(() => _overflow = overflow);
@@ -236,7 +238,9 @@ class _ExpandableBodyTextState extends State<_ExpandableBodyText> {
                 widget.text,
                 softWrap: true,
                 maxLines: _expanded ? null : widget.maxLines,
-                overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                overflow: _expanded
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13.5,

@@ -117,7 +117,9 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       _parseInt(_setsCtl, fallback: 0, min: 1) > 0 &&
       _parseInt(_repsCtl, fallback: 0, min: 1) > 0 &&
       _parseInt(_restCtl, fallback: 0, min: 0) >= 0 &&
-      _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0;
+      (_lockWeight
+          ? _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0
+          : _parseDouble(_weightCtl, fallback: 0, min: 0) > 0);
 
   bool _isInvalidForField(TextEditingController ctl, String label) {
     if (label == 'Sets' || label == 'Reps') {
@@ -127,7 +129,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       return _parseInt(ctl, fallback: -1) < 0;
     }
     if (label == 'Weight') {
-      return _parseDouble(ctl, fallback: -1) < 0;
+      final w = _parseDouble(ctl, fallback: -1);
+      return _lockWeight ? w < 0 : w <= 0;
     }
     return false;
   }
@@ -535,7 +538,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                         _numberSegment(
                           label: 'Weight',
                           ctl: _weightCtl,
-                          min: 0,
+                          min: _lockWeight ? 0 : 1,
                           max: 2000,
                           suffix: 'kg',
                           disabled: _lockWeight,

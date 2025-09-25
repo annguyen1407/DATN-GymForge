@@ -9,6 +9,7 @@ class TodayStat extends StatelessWidget {
   final int calories; // calories burned
   final int? caloriesIntake; // optional: calories đã nạp
   final int? points; // optional: điểm thưởng
+  final int? workoutTimeMinutes; // optional: tổng phút tập trong ngày
   final String circleLabel; // nhãn trong vòng tròn
   final EdgeInsetsGeometry padding;
   final bool compact; // true: thu nhỏ cho log / plan, false: full cho home
@@ -20,6 +21,7 @@ class TodayStat extends StatelessWidget {
     required this.calories,
     this.caloriesIntake,
     this.points,
+    this.workoutTimeMinutes,
     this.circleLabel = 'Workout Sets',
     this.padding = const EdgeInsets.all(24),
     this.compact = false,
@@ -69,10 +71,11 @@ class TodayStat extends StatelessWidget {
             width: circleSize,
             height: circleSize,
             decoration: BoxDecoration(
+              // Updated: use brand purple gradient instead of warning (orange)
               gradient: LinearGradient(
                 colors: [
-                  DesignTokens.warning.withOpacityRatio(.85),
-                  DesignTokens.warning,
+                  DesignTokens.brandGradientStart.withOpacityRatio(.9),
+                  DesignTokens.brandGradientEnd,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -80,7 +83,7 @@ class TodayStat extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: DesignTokens.warning.withOpacityRatio(0.45),
+                  color: DesignTokens.brand.withOpacityRatio(0.45),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                 ),
@@ -109,6 +112,16 @@ class TodayStat extends StatelessWidget {
                   compact: compact,
                 ),
                 SizedBox(height: compact ? 12 : 16),
+                if (workoutTimeMinutes != null) ...[
+                  _buildStatRow(
+                    icon: Icons.access_time_filled_rounded,
+                    color: DesignTokens.brand,
+                    value: _formatDuration(workoutTimeMinutes!),
+                    label: 'Thời gian tập',
+                    compact: compact,
+                  ),
+                  SizedBox(height: compact ? 12 : 16),
+                ],
                 _buildStatRow(
                   icon: Icons.local_fire_department_rounded,
                   color: const Color.fromARGB(255, 255, 53, 53),
@@ -182,5 +195,14 @@ class TodayStat extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '0 phút';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 }

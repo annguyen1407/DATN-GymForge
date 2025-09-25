@@ -550,13 +550,15 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     );
   }
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '0m';
-    final m = (seconds / 60).floor();
-    final s = seconds % 60;
-    if (m == 0) return '${s}s';
-    if (s == 0) return '${m}m';
-    return '${m}m ${s}s';
+  /// Định dạng tổng thời gian tập (đầu vào là PHÚT đã được backend chia sẵn 60)
+  /// 1 -> '1 phút', 60 -> '1 giờ', 61 -> '1 giờ 1 phút'
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '0 phút';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 
   Widget _buildDetailItem(String label, String value, IconData icon) {

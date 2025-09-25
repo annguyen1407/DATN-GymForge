@@ -81,7 +81,9 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
       _parseInt(_setsCtl, fallback: 0) > 0 &&
       _parseInt(_repsCtl, fallback: 0) > 0 &&
       _parseInt(_restCtl, fallback: 0) >= 0 &&
-      _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0;
+      (_lockWeight
+          ? _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0
+          : _parseDouble(_weightCtl, fallback: 0, min: 0) > 0);
 
   bool get _lockWeight => (widget.exercise.defaultWeight ?? 0) == 0;
 
@@ -93,7 +95,9 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
       return _parseInt(ctl, fallback: -1) < 0;
     }
     if (label == 'Weight') {
-      return _parseDouble(ctl, fallback: -1) < 0; // negative not allowed
+      final w = _parseDouble(ctl, fallback: -1);
+      // For weighted exercises (defaultWeight > 0), weight must stay > 0
+      return _lockWeight ? w < 0 : w <= 0;
     }
     return false;
   }
@@ -372,7 +376,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                           _numberSegment(
                             label: 'Weight',
                             ctl: _weightCtl,
-                            min: 0,
+                            min: _lockWeight ? 0 : 1,
                             max: 2000,
                             suffix: 'kg',
                             disabled: _lockWeight,
