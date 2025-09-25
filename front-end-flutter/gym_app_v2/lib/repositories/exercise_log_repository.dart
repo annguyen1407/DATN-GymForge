@@ -171,13 +171,16 @@ class ExerciseLogRepository {
       // Quyết định caloriesBurned: ưu tiên aggregate nếu có, nếu không có dùng per-exercise sum.
       final caloriesBurned = aggregateCalories ?? perExerciseCalories;
 
-      // total workout time: backend có thể cung cấp dưới các key khác nhau (seconds hoặc minutes)
+      // total workout time (daily): hiện backend trả về GIÂY ở key totalWorkoutTime, cần chuyển sang phút để hiển thị.
+      // Quy tắc: làm tròn xuống (floor) để tránh phồng số; nếu muốn hiển thị phần lẻ có thể đổi sang ceil hoặc giữ giây.
       int? totalWorkoutTimeMinutes;
       if (first['totalWorkoutTimeMinutes'] is num) {
-        totalWorkoutTimeMinutes = (first['totalWorkoutTimeMinutes'] as num).round();
+        // Nếu backend sau này trả trực tiếp phút.
+        totalWorkoutTimeMinutes = (first['totalWorkoutTimeMinutes'] as num)
+            .round();
       } else if (first['totalWorkoutTime'] is num) {
-        // giả định backend đang trả về phút (đồng nhất với điều chỉnh định dạng trước đó)
-        totalWorkoutTimeMinutes = (first['totalWorkoutTime'] as num).round();
+        final secs = (first['totalWorkoutTime'] as num).toInt();
+        totalWorkoutTimeMinutes = secs ~/ 60; // floor division
       }
 
       return DailyExerciseLogSummary(
@@ -197,7 +200,7 @@ class ExerciseLogRepository {
         workoutExerciseLogsRaw: workoutExerciseLogs
             .whereType<Map<String, dynamic>>()
             .toList(growable: false),
-    totalWorkoutTimeMinutes: totalWorkoutTimeMinutes,
+        totalWorkoutTimeMinutes: totalWorkoutTimeMinutes,
       );
     } catch (e, st) {
       AppLogger.error(
