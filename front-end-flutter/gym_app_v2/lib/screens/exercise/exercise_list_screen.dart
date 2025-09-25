@@ -204,9 +204,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => ExerciseInfoScreen(
-                                        exerciseId: ex.id,
-                                      ),
+                                      builder: (_) =>
+                                          ExerciseInfoScreen(exerciseId: ex.id),
                                     ),
                                   );
                                 },
