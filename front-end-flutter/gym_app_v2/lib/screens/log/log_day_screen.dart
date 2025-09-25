@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
-import '../../widgets/app_button.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'log_workoutday_screen.dart'; // contains WorkoutLogScreen
+import '../../repositories/exercise_log_repository.dart';
+import '../../services/api_constants.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/log_plan_card.dart';
 import '../../widgets/plan_type_badge.dart';
 import '../../widgets/pill_tab_bar.dart';
+import 'log_workoutday_screen.dart';
 
-/// LogOfDayScreen: Displays detailed workout information for a selected date with tabs
 class LogOfDayScreen extends StatefulWidget {
   final DateTime selectedDate;
-  final List<Map<String, dynamic>> workouts; // existing workouts list
+  final List<Map<String, dynamic>> workouts;
   final void Function(Map<String, dynamic>)? onWorkoutAdded;
   final double? weight;
   final double? height;
   final String? note;
-  final List<Map<String, dynamic>>?
-  rawWorkoutExerciseLogs; // passed from daily summary for plan tab parsing
+  final List<Map<String, dynamic>>? rawWorkoutExerciseLogs;
+  final String userId;
 
   const LogOfDayScreen({
     super.key,
     required this.selectedDate,
     required this.workouts,
+    required this.userId,
     this.onWorkoutAdded,
     this.weight,
     this.height,
@@ -34,58 +36,62 @@ class LogOfDayScreen extends StatefulWidget {
 
 class _LogOfDayScreenState extends State<LogOfDayScreen>
     with SingleTickerProviderStateMixin {
-  // Controllers & state referenced in bottom sheets (keep minimal subset to satisfy existing usages)
-  final TextEditingController _bodyWeightController = TextEditingController();
-  final TextEditingController _bodyHeightController = TextEditingController();
-  final TextEditingController _foodNameController = TextEditingController();
-  final TextEditingController _foodCaloriesController = TextEditingController();
-  final TextEditingController _newNoteController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _setsController = TextEditingController();
-  final TextEditingController _repsController = TextEditingController();
-  final TextEditingController _weightController = TextEditingController();
+  // Controllers
+  final _bodyWeightController = TextEditingController();
+  final _bodyHeightController = TextEditingController();
+  final _foodNameController = TextEditingController();
+  final _foodCaloriesController = TextEditingController();
+  final _newNoteController = TextEditingController();
+  bool _noteExpanded = false; // expand/collapse state for long note
 
+  late TabController _tabController;
   late Map<String, dynamic> _bodyMetrics;
-
   late List<String> _notes;
-  final List<Map<String, dynamic>> _nutritionData = [
+
+  final _nutritionData = [
     {'meal': 'Breakfast', 'foods': <Map<String, dynamic>>[]},
     {'meal': 'Lunch', 'foods': <Map<String, dynamic>>[]},
   ];
 
-  double _calculateBMI(double weight, double heightCm) {
-    final m = heightCm / 100.0;
-    if (m <= 0) return 0;
-    return weight / (m * m);
-  }
+  final _repo = ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
+  bool _loadingSummary = false;
+  String? _summaryError;
+  List<Map<String, dynamic>>? _rawLogs;
+  final List<Map<String, dynamic>> _planData = [];
 
-  // UI state for tabs / plans (restored minimal fields)
-  late TabController _tabController;
-  final List<Map<String, dynamic>> _planData =
-      []; // legacy placeholder structure for UI (will be filled from parsed groups)
-  // (Optional) store parsed groups later if needed
+  double _bmi(double w, double hCm) {
+    final m = hCm / 100.0;
+    if (m <= 0) return 0;
+    return w / (m * m);
+  }
 
   @override
   void initState() {
     super.initState();
-    // Fix: TabController length must match number of tabs (4) and use proper vsync
     _tabController = TabController(length: 4, vsync: this);
     final w = widget.weight ?? 70.0;
-    final h = widget.height ?? 175.0;
-    _bodyMetrics = {'weight': w, 'height': h, 'bmi': _calculateBMI(w, h)};
+    final h = widget.height ?? 170.0;
+    _bodyMetrics = {'weight': w, 'height': h, 'bmi': _bmi(w, h)};
     _notes = [];
     if (widget.note != null && widget.note!.trim().isNotEmpty) {
       _notes.add(widget.note!.trim());
     }
-    _buildPlanDataFromRawLogs();
+    _rawLogs = widget.rawWorkoutExerciseLogs;
+    _parsePlans();
+    if (widget.rawWorkoutExerciseLogs == null ||
+        widget.weight == null ||
+        widget.height == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchSummary());
+    }
   }
 
   @override
   void didUpdateWidget(covariant LogOfDayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rawWorkoutExerciseLogs != widget.rawWorkoutExerciseLogs) {
+      _rawLogs = widget.rawWorkoutExerciseLogs;
       _planData.clear();
-      _buildPlanDataFromRawLogs();
+      _parsePlans();
     }
   }
 
@@ -97,127 +103,339 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     _foodNameController.dispose();
     _foodCaloriesController.dispose();
     _newNoteController.dispose();
-    _nameController.dispose();
-    _setsController.dispose();
-    _repsController.dispose();
-    _weightController.dispose();
     super.dispose();
   }
 
-  void _buildPlanDataFromRawLogs() {
-    final raw = widget.rawWorkoutExerciseLogs;
-    if (raw == null || raw.isEmpty) return;
+  Future<void> _fetchSummary() async {
+    setState(() {
+      _loadingSummary = true;
+      _summaryError = null;
+    });
     try {
-      // Use repository parser (import extension) – replicate lightweight logic here to avoid tight coupling.
-      // Since we can't import repository directly without circular concerns, re-implement minimal grouping inline.
-      final Map<String, List<Map<String, dynamic>>> bucket = {};
-      final Map<String, Map<String, dynamic>> meta = {};
-      for (final item in raw) {
-        final workoutExercise =
-            item['workoutExercise'] as Map<String, dynamic>?;
-        final dayId = workoutExercise?['workoutDayId']?.toString() ?? 'unknown';
-        final int? dayNumber = () {
-          final candidates = [
-            item['dayNumber'],
-            workoutExercise?['dayNumber'],
-            workoutExercise?['day_number'],
-            workoutExercise?['DayNumber'],
-          ];
-          for (final c in candidates) {
-            if (c is num) return c.toInt();
-            if (c is String) {
-              final parsed = int.tryParse(c);
-              if (parsed != null) return parsed;
-            }
-          }
-          return null;
-        }();
-        final planObj =
-            workoutExercise?['workoutPlan'] as Map<String, dynamic>?;
-        final planName =
-            planObj?['name']?.toString() ??
-            workoutExercise?['planName']?.toString() ??
-            'Kế hoạch';
-        final planType =
-            planObj?['planType']?.toString() ?? planObj?['type']?.toString();
-        final progressPercent = () {
-          final v = item['progressPercent'];
-          if (v is num) return v.toDouble();
-          return 0.0;
-        }();
-        bucket.putIfAbsent(dayId, () => []);
-        bucket[dayId]!.add({
-          'id': item['id'],
-          'name': item['exerciseName'] ?? item['name'] ?? 'Bài tập',
-          'progress': (progressPercent / 100).clamp(
-            0.0,
-            1.0,
-          ), // normalize 0..1 for UI
-          'description': '',
-        });
-        meta.putIfAbsent(
-          dayId,
-          () => {
-            'planName': planName,
-            'planType': planType,
-            'dayNumber': dayNumber,
-          },
+      final summary = await _repo.fetchDailySummary(
+        userId: widget.userId,
+        date: widget.selectedDate,
+      );
+      if (!mounted) return;
+      if (summary != null) {
+        if (widget.weight == null && summary.weight != null) {
+          _bodyMetrics['weight'] = summary.weight!;
+        }
+        if (widget.height == null && summary.height != null) {
+          _bodyMetrics['height'] = summary.height!;
+        }
+        _bodyMetrics['bmi'] = _bmi(
+          _bodyMetrics['weight'],
+          _bodyMetrics['height'],
         );
+        if (summary.notes != null && summary.notes!.trim().isNotEmpty) {
+          if (!_notes.contains(summary.notes!.trim())) {
+            _notes.add(summary.notes!.trim());
+          }
+        }
+        _rawLogs = summary.workoutExerciseLogsRaw;
+        _planData.clear();
+        _parsePlans();
       }
-      bucket.forEach((dayId, exercises) {
-        final m = meta[dayId] ?? {};
-        final avgProgress = exercises.isEmpty
-            ? 0.0
-            : exercises
-                      .map((e) => (e['progress'] as double))
-                      .fold(0.0, (p, v) => p + v) /
-                  exercises.length;
-        // debug print removed after validation
-        _planData.add({
-          'workoutDayId': dayId,
-          'name': (m['planName'] ?? 'Kế hoạch').toString(),
-          'planType': m['planType'],
-          'dayNumber': m['dayNumber'],
-          'progress': avgProgress, // 0..1 for UI
-          'exercises': exercises,
-        });
-      });
-    } catch (_) {
-      // swallow errors, keep empty plan data
+    } catch (e) {
+      if (mounted) {
+        _summaryError = e.toString();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tải nhật ký: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingSummary = false);
     }
   }
 
-  // Unified color helper using PlanTypeBadge.baseColor
-  Color _unifiedPlanColor(String? raw) =>
+  void _parsePlans() {
+    final raw = _rawLogs;
+    if (raw == null || raw.isEmpty) return;
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    final Map<String, Map<String, dynamic>> meta = {};
+    for (final item in raw) {
+      final workoutExercise = item['workoutExercise'] as Map<String, dynamic>?;
+      final dayId = workoutExercise?['workoutDayId']?.toString() ?? 'unknown';
+      grouped.putIfAbsent(dayId, () => []);
+      final planObj = workoutExercise?['workoutPlan'] as Map<String, dynamic>?;
+      meta.putIfAbsent(
+        dayId,
+        () => {
+          'planName':
+              planObj?['name'] ?? workoutExercise?['planName'] ?? 'Kế hoạch',
+          'planType': planObj?['planType'] ?? planObj?['type'],
+          'dayNumber':
+              workoutExercise?['dayNumber'] ?? workoutExercise?['day_number'],
+        },
+      );
+      final prog = () {
+        final v = item['progressPercent'];
+        if (v is num) return (v.toDouble() / 100).clamp(0.0, 1.0);
+        return 0.0;
+      }();
+      grouped[dayId]!.add({
+        'id': item['id'],
+        'name': item['exerciseName'] ?? item['name'] ?? 'Bài tập',
+        'progress': prog,
+        'description': '',
+      });
+    }
+    grouped.forEach((dayId, exercises) {
+      final m = meta[dayId] ?? {};
+      final avg = exercises.isEmpty
+          ? 0.0
+          : exercises
+                    .map((e) => (e['progress'] as double))
+                    .fold(0.0, (p, v) => p + v) /
+                exercises.length;
+      _planData.add({
+        'workoutDayId': dayId,
+        'name': m['planName'],
+        'planType': m['planType'],
+        'dayNumber': m['dayNumber'],
+        'progress': avg,
+        'exercises': exercises,
+      });
+    });
+  }
+
+  Color _planTypeColor(String? raw) =>
       PlanTypeBadge.baseColor(raw?.toString().toUpperCase());
 
-  Widget _buildDayNumberBadge(dynamic dayNumberRaw) {
+  Widget _dayBadge(dynamic dnRaw) {
     int? dn;
-    if (dayNumberRaw is int) dn = dayNumberRaw;
-    if (dayNumberRaw is String) dn = int.tryParse(dayNumberRaw);
+    if (dnRaw is int)
+      dn = dnRaw;
+    else if (dnRaw is String)
+      dn = int.tryParse(dnRaw);
     if (dn == null) return const SizedBox.shrink();
     return Container(
-      width: 42,
-      height: 42,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: Colors.grey[800],
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFF8854FF), width: 1),
       ),
       alignment: Alignment.center,
-      child: Text(
-        'D$dn',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
+      child: const Text('D', style: TextStyle(color: Colors.white)),
+      // Replacing with simple badge; could restore number if needed
+    );
+  }
+
+  Widget _banner() {
+    if (_loadingSummary) {
+      return const LinearProgressIndicator(
+        minHeight: 2,
+        backgroundColor: Colors.transparent,
+        valueColor: AlwaysStoppedAnimation(Color(0xFF8854FF)),
+      );
+    }
+    if (_summaryError != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(8),
+        color: Colors.redAccent.withOpacity(.15),
+        child: Text(
+          'Lỗi: $_summaryError',
+          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  InputDecoration _inputDec(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Colors.white54),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Colors.white54),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Color(0xFF8854FF)),
+    ),
+  );
+
+  // Compact notes area with expandable long text
+  Widget _buildNotesArea() {
+    final hasNote = _notes.isNotEmpty && _notes.first.trim().isNotEmpty;
+    final noteText = hasNote ? _notes.first : 'Chưa có ghi chú cho ngày này';
+    final textStyle = TextStyle(
+      color: hasNote ? Colors.white : Colors.white54,
+      fontSize: 14,
+      height: 1.35,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLong =
+            hasNote &&
+            _isLongNote(noteText, textStyle, constraints.maxWidth, 5);
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                child: Text(
+                  noteText,
+                  style: textStyle,
+                  maxLines: !_noteExpanded && isLong ? 5 : null,
+                  overflow: !_noteExpanded && isLong
+                      ? TextOverflow.fade
+                      : TextOverflow.visible,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (isLong)
+                    GestureDetector(
+                      onTap: () =>
+                          setState(() => _noteExpanded = !_noteExpanded),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          _noteExpanded ? 'Thu gọn' : 'Xem thêm',
+                          style: const TextStyle(
+                            color: Color(0xFF8854FF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 24),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.more_horiz,
+                      color: Color(0xFF8854FF),
+                      size: 22,
+                    ),
+                    tooltip: 'Chỉnh sửa ghi chú',
+                    onPressed: _showEditNoteModal,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  bool _isLongNote(
+    String text,
+    TextStyle style,
+    double maxWidth,
+    int maxLines,
+  ) {
+    if (text.isEmpty) return false;
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: maxLines,
+      ellipsis: '…',
+    );
+    tp.layout(maxWidth: maxWidth);
+    return tp.didExceedMaxLines;
+  }
+
+  Future<void> _showEditNoteModal() async {
+    // Pre-fill with existing first note (or empty)
+    _newNoteController.text = _notes.isNotEmpty ? _notes.first : '';
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Chỉnh sửa ghi chú',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _newNoteController,
+              maxLines: 5,
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDec('Nhập ghi chú...'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton.text(
+                    label: 'Hủy',
+                    onPressed: () => Navigator.pop(ctx),
+                    size: AppButtonSize.small,
+                    fullWidth: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AppButton.primary(
+                    label: 'Lưu',
+                    size: AppButtonSize.small,
+                    onPressed: () {
+                      final text = _newNoteController.text.trim();
+                      setState(() {
+                        if (_notes.isEmpty) {
+                          if (text.isNotEmpty) _notes.add(text);
+                        } else {
+                          if (text.isNotEmpty) {
+                            _notes[0] = text;
+                          } else {
+                            // If cleared, remove note
+                            _notes.clear();
+                          }
+                        }
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Function to show modal for adjusting body metrics
-  Future<void> _showAdjustBodyMetricsModal(BuildContext context) async {
+  Future<void> _showEditBodyMetrics() async {
     _bodyWeightController.text = _bodyMetrics['weight'].toStringAsFixed(1);
     _bodyHeightController.text = _bodyMetrics['height'].toStringAsFixed(1);
     await showModalBottomSheet(
@@ -227,345 +445,208 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       isScrollControlled: true,
-      builder: (context) => Padding(
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
           left: 16,
           right: 16,
           top: 16,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Adjust Body Metrics',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Chỉnh sửa chỉ số',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _bodyWeightController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Weight (kg)',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bodyWeightController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _bodyHeightController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Height (cm)',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDec('Weight (kg)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bodyHeightController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: AppButton.text(
-                      label: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
-                      size: AppButtonSize.small,
-                      fullWidth: true,
-                    ),
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDec('Height (cm)'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton.text(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.pop(ctx),
+                    size: AppButtonSize.small,
+                    fullWidth: true,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: AppButton.primary(
-                      label: 'Save',
-                      size: AppButtonSize.small,
-                      onPressed: () {
-                        final weight = double.tryParse(
-                          _bodyWeightController.text,
-                        );
-                        final height = double.tryParse(
-                          _bodyHeightController.text,
-                        );
-                        if (weight != null &&
-                            weight > 0 &&
-                            height != null &&
-                            height > 0) {
-                          setState(() {
-                            _bodyMetrics['weight'] = weight;
-                            _bodyMetrics['height'] = height;
-                            _bodyMetrics['bmi'] = _calculateBMI(weight, height);
-                          });
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AppButton.primary(
+                    label: 'Save',
+                    size: AppButtonSize.small,
+                    onPressed: () {
+                      final w = double.tryParse(_bodyWeightController.text);
+                      final h = double.tryParse(_bodyHeightController.text);
+                      if (w != null && h != null && w > 0 && h > 0) {
+                        setState(() {
+                          _bodyMetrics['weight'] = w;
+                          _bodyMetrics['height'] = h;
+                          _bodyMetrics['bmi'] = _bmi(w, h);
+                        });
+                        Navigator.pop(ctx);
+                      }
+                    },
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Function to show modal for adding a food to a meal
-  Future<void> _showAddFoodModal(
-    BuildContext context,
-    Map<String, dynamic> meal,
-  ) async {
+  Future<void> _showAddFood(Map<String, dynamic> meal) async {
     _foodNameController.clear();
     _foodCaloriesController.clear();
     await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      isScrollControlled: true,
-      builder: (context) => Padding(
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
           left: 16,
           right: 16,
           top: 16,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Add Food to ${meal['meal']}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add Food to ${meal['meal']}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _foodNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Food Name',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _foodNameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDec('Food Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _foodCaloriesController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _foodCaloriesController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Calories (kcal)',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                    borderRadius: BorderRadius.circular(8),
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDec('Calories (kcal)'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton.text(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.pop(ctx),
+                    size: AppButtonSize.small,
+                    fullWidth: true,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: AppButton.text(
-                      label: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
-                      size: AppButtonSize.small,
-                      fullWidth: true,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: AppButton.primary(
-                      label: 'Save',
-                      size: AppButtonSize.small,
-                      onPressed: () {
-                        final foodName = _foodNameController.text.trim();
-                        final foodCalories = double.tryParse(
-                          _foodCaloriesController.text,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AppButton.primary(
+                    label: 'Save',
+                    size: AppButtonSize.small,
+                    onPressed: () {
+                      final name = _foodNameController.text.trim();
+                      final cal = double.tryParse(_foodCaloriesController.text);
+                      if (name.isNotEmpty && cal != null && cal > 0) {
+                        setState(
+                          () => (meal['foods'] as List).add({
+                            'name': name,
+                            'calories': cal.toInt(),
+                          }),
                         );
-                        if (foodName.isNotEmpty &&
-                            foodCalories != null &&
-                            foodCalories > 0) {
-                          setState(() {
-                            (meal['foods'] as List).add({
-                              'name': foodName,
-                              'calories': foodCalories.toInt(),
-                            });
-                          });
-                          _foodNameController.clear();
-                          _foodCaloriesController.clear();
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
+                        Navigator.pop(ctx);
+                      }
+                    },
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Function to show modal for adding a new note
-  Future<void> _showAddNoteModal(BuildContext context) async {
-    _newNoteController.clear();
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Add Note',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _newNoteController,
-                maxLines: 2,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Enter Note',
-                  labelStyle: const TextStyle(color: Colors.white54),
-                  border: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: AppButton.text(
-                      label: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
-                      size: AppButtonSize.small,
-                      fullWidth: true,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: AppButton.primary(
-                      label: 'Save',
-                      size: AppButtonSize.small,
-                      onPressed: () {
-                        final note = _newNoteController.text.trim();
-                        if (note.isNotEmpty) {
-                          setState(() {
-                            _notes.add(note);
-                          });
-                          _newNoteController.clear();
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Widget _metric(String label, String value) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    // Calculate calories intake from all foods across meals
     final caloriesIntake = _nutritionData.fold<int>(
       0,
-      (sum, meal) =>
-          sum +
+      (s, meal) =>
+          s +
           (meal['foods'] as List<Map<String, dynamic>>).fold<int>(
             0,
-            (mealSum, food) => mealSum + (food['calories'] as int),
+            (ss, f) => ss + (f['calories'] as int),
           ),
     );
-    final caloriesBurned = widget.workouts.isNotEmpty
-        ? widget.workouts.fold<int>(
-            0,
-            (sum, workout) =>
-                sum +
-                ((workout['sets'] as int) *
-                        (workout['reps'] as int) *
-                        (workout['weight'] as double) *
-                        0.1)
-                    .toInt(),
-          )
-        : 500; // Mock value if no workouts
-    final calorieRatio = caloriesIntake > 0
+    final caloriesBurned = widget.workouts.fold<int>(
+      0,
+      (s, w) =>
+          s +
+          (((w['sets'] ?? 0) as int) *
+                  ((w['reps'] ?? 0) as int) *
+                  ((w['weight'] ?? 0.0) as double) *
+                  0.1)
+              .toInt(),
+    );
+    final ratio = caloriesIntake > 0
         ? (caloriesBurned / caloriesIntake).clamp(0.0, 1.0)
         : 0.0;
 
@@ -573,7 +654,6 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        // Show only the date as requested
         title: Text(
           _formatDate(widget.selectedDate),
           style: const TextStyle(
@@ -591,471 +671,328 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
           labels: const ['Ghi chú', 'Kế hoạch', 'Cơ thể', 'Dinh dưỡng'],
         ),
       ),
-      body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            // Ghi chú (Notes) Tab
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Column(
+        children: [
+          _banner(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Notes Tab (Vietnamese UI - single column, edit only)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Notes',
+                        'Ghi chú',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add,
-                          color: Color(0xFF8854FF),
-                          size: 20,
-                        ),
-                        onPressed: () => _showAddNoteModal(context),
-                      ),
+                      const SizedBox(height: 12),
+                      _buildNotesArea(),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  _notes.isEmpty
+                ),
+                // Plans Tab
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _planData.isEmpty
                       ? const Center(
                           child: Text(
-                            'No additional notes added',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 14,
-                            ),
+                            'No plans available',
+                            style: TextStyle(color: Colors.white54),
                           ),
                         )
                       : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _notes.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final note = _notes[index];
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              constraints: BoxConstraints(minHeight: 80),
-                              child: Stack(
-                                children: [
-                                  Text(
-                                    note,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
+                          itemCount: _planData.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (ctx, i) {
+                            final plan = _planData[i];
+                            final type = plan['planType']?.toString();
+                            return PlanCard(
+                              plan: plan,
+                              planTypeColor: _planTypeColor(type),
+                              dayBadge: _dayBadge(plan['dayNumber']),
+                              planTypeChip: type == null
+                                  ? const SizedBox.shrink()
+                                  : PlanTypeBadge(
+                                      planType: type.toUpperCase(),
+                                      dense: true,
+                                      fontSize: 11,
                                     ),
-                                  ),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.more_horiz,
-                                        color: Color(0xFF8854FF),
-                                        size: 25,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _notes.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ],
-              ),
-            ),
-            // Kế hoạch (Plan) Tab
-            SafeArea(
-              bottom: true,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _planData.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No plans available',
-                          style: TextStyle(color: Colors.white54, fontSize: 16),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _planData.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final plan = _planData[index];
-                          final rawType = plan['planType']?.toString();
-                          return PlanCard(
-                            plan: plan,
-                            planTypeColor: _unifiedPlanColor(rawType),
-                            onTap: () {
-                              Navigator.push(
+                              onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => WorkoutLogScreen(
+                                  builder: (_) => WorkoutLogScreen(
                                     planName: plan['name'],
                                     exercises: List<Map<String, dynamic>>.from(
                                       plan['exercises'],
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                            dayBadge: _buildDayNumberBadge(plan['dayNumber']),
-                            planTypeChip: rawType == null
-                                ? const SizedBox.shrink()
-                                : PlanTypeBadge(
-                                    planType: rawType.toString().toUpperCase(),
-                                    dense: true,
-                                    fontSize: 11,
-                                  ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-            // Cơ thể (Body) Tab
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Chỉ số cơ thể',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                              ),
+                            );
+                          },
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit,
-                            color: Color(0xFF8854FF),
-                            size: 20,
-                          ),
-                          onPressed: () => _showAdjustBodyMetricsModal(context),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildMetricItem(
-                          'Weight',
-                          '${_bodyMetrics['weight'].toStringAsFixed(1)} kg',
-                        ),
-                        _buildMetricItem(
-                          'Height',
-                          '${_bodyMetrics['height'].toStringAsFixed(1)} cm',
-                        ),
-                        _buildMetricItem(
-                          'BMI',
-                          '${_bodyMetrics['bmi'].toStringAsFixed(2)}',
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
-              ),
-            ),
-            // Dinh dưỡng (Nutrition) Tab
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: _nutritionData.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No nutrition data recorded for this date',
-                        style: TextStyle(color: Colors.white54, fontSize: 16),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                // Body Tab
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[900],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Calories Summary',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Intake 🍗 : $caloriesIntake kcal',
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Burned 🔥: $caloriesBurned kcal',
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                CircularPercentIndicator(
-                                  radius: 60.0,
-                                  lineWidth: 10.0,
-                                  percent: calorieRatio,
-                                  center: Text(
-                                    '${(calorieRatio * 100).toStringAsFixed(0)}%',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  progressColor: const Color(0xFF8854FF),
-                                  backgroundColor: Colors.grey[800]!,
-                                  circularStrokeCap: CircularStrokeCap.round,
-                                ),
-                              ],
+                          const Text(
+                            'Chỉ số cơ thể',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _nutritionData.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final meal = _nutritionData[index];
-                              final foods =
-                                  meal['foods'] as List<Map<String, dynamic>>;
-                              final totalCalories = foods.fold<int>(
-                                0,
-                                (sum, food) => sum + (food['calories'] as int),
-                              );
-                              return Container(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  3,
-                                  12,
-                                  12,
-                                ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit,
+                              color: Color(0xFF8854FF),
+                              size: 20,
+                            ),
+                            onPressed: _showEditBodyMetrics,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _metric(
+                            'Weight',
+                            '${_bodyMetrics['weight'].toStringAsFixed(1)} kg',
+                          ),
+                          _metric(
+                            'Height',
+                            '${_bodyMetrics['height'].toStringAsFixed(1)} cm',
+                          ),
+                          _metric(
+                            'BMI',
+                            '${_bodyMetrics['bmi'].toStringAsFixed(2)}',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Nutrition Tab
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child:
+                      _nutritionData.every((m) => (m['foods'] as List).isEmpty)
+                      ? const Center(
+                          child: Text(
+                            'No nutrition data recorded for this date',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: Colors.grey[900],
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          meal['meal'],
-                                          style: const TextStyle(
+                                        const Text(
+                                          'Calories Summary',
+                                          style: TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.add,
-                                            color: Color(0xFF8854FF),
-                                            size: 20,
-                                          ),
-                                          onPressed: () =>
-                                              _showAddFoodModal(context, meal),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    if (foods.isEmpty)
-                                      const Text(
-                                        'No foods added yet',
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
-                                        ),
-                                      )
-                                    else
-                                      ...foods.asMap().entries.map((entry) {
-                                        final foodIndex = entry.key;
-                                        final food = entry.value;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 8.0,
-                                          ),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[800],
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Stack(
-                                              children: [
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            food['name'],
-                                                            style:
-                                                                const TextStyle(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  fontSize: 14,
-                                                                ),
-                                                          ),
-                                                          Text(
-                                                            '${food['calories']} kcal',
-                                                            style:
-                                                                const TextStyle(
-                                                                  color: Colors
-                                                                      .white54,
-                                                                  fontSize: 12,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Positioned(
-                                                  top: 0,
-                                                  right: 0,
-                                                  child: IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete_outline,
-                                                      color: Colors.red,
-                                                      size: 20,
-                                                    ),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        foods.removeAt(
-                                                          foodIndex,
-                                                        );
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      }),
-                                    const Divider(color: Colors.grey),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
+                                        const SizedBox(height: 8),
                                         Text(
-                                          'Meals: ${foods.length}',
+                                          'Intake 🍗 : $caloriesIntake kcal',
                                           style: const TextStyle(
                                             color: Colors.white54,
                                             fontSize: 14,
                                           ),
                                         ),
                                         Text(
-                                          'Total: $totalCalories kcal',
+                                          'Burned 🔥: $caloriesBurned kcal',
                                           style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white54,
                                             fontSize: 14,
                                           ),
                                         ),
                                       ],
                                     ),
+                                    CircularPercentIndicator(
+                                      radius: 50,
+                                      lineWidth: 8,
+                                      percent: ratio,
+                                      center: Text(
+                                        '${(ratio * 100).toStringAsFixed(0)}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      progressColor: const Color(0xFF8854FF),
+                                      backgroundColor: Colors.grey[800]!,
+                                      circularStrokeCap:
+                                          CircularStrokeCap.round,
+                                    ),
                                   ],
                                 ),
-                              );
-                            },
+                              ),
+                              const SizedBox(height: 16),
+                              ..._nutritionData.map((meal) {
+                                final foods =
+                                    meal['foods'] as List<Map<String, dynamic>>;
+                                final total = foods.fold<int>(
+                                  0,
+                                  (s, f) => s + (f['calories'] as int),
+                                );
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[900],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            meal['meal'] as String? ?? '',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.add,
+                                              color: Color(0xFF8854FF),
+                                              size: 20,
+                                            ),
+                                            onPressed: () => _showAddFood(meal),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (foods.isEmpty)
+                                        const Text(
+                                          'No foods added yet',
+                                          style: TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 14,
+                                          ),
+                                        )
+                                      else
+                                        ...foods.asMap().entries.map(
+                                          (e) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 6.0,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        e.value['name'],
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '${e.value['calories']} kcal',
+                                                        style: const TextStyle(
+                                                          color: Colors.white54,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.delete_outline,
+                                                    color: Colors.red,
+                                                    size: 20,
+                                                  ),
+                                                  onPressed: () => setState(
+                                                    () => foods.removeAt(e.key),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      const Divider(color: Colors.grey),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Items: ${foods.length}',
+                                            style: const TextStyle(
+                                              color: Colors.white54,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Total: $total kcal',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper method to build metric item
-  Widget _buildMetricItem(String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
-
-  String _formatDate(DateTime d) {
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    final yyyy = d.year.toString();
-    return '$dd/$mm/$yyyy';
-  }
-
-  // Function to show modal for adding a new workout
 }
-
-/// Reusable styled plan card widget
-// PlanCard & helper chip extracted to widgets/plan_card.dart

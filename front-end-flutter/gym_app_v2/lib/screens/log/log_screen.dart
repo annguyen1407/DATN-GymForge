@@ -394,16 +394,12 @@ class _LogScreenState extends State<LogScreen>
                             focusedDay: _focusedDay,
                             selectedDayPredicate: (day) =>
                                 isSameDay(_selectedDay, day),
-                            onDaySelected: (selectedDay, focusedDay) async {
+                            onDaySelected: (selectedDay, focusedDay) {
+                              // Only update local selected/focused day without triggering daily summary fetch
                               setState(() {
                                 _selectedDay = selectedDay;
                                 _focusedDay = focusedDay;
-                                _loadingSummary = true;
                               });
-                              try {
-                                await _fetchDailySummary(selectedDay);
-                              } catch (_) {}
-                              final summary = _dailySummary;
                               if (!mounted) return;
                               Navigator.push(
                                 context,
@@ -413,11 +409,7 @@ class _LogScreenState extends State<LogScreen>
                                     workouts: _workouts[selectedDay] ?? [],
                                     onWorkoutAdded: (w) =>
                                         _addWorkout(selectedDay, w),
-                                    weight: summary?.weight,
-                                    height: summary?.height,
-                                    note: summary?.notes,
-                                    rawWorkoutExerciseLogs:
-                                        summary?.workoutExerciseLogsRaw,
+                                    userId: _userId ?? '',
                                   ),
                                 ),
                               );
