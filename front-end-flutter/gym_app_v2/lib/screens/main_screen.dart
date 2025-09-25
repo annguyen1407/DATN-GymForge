@@ -1,11 +1,5 @@
-import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../services/api_service.dart';
-import '../../services/log_out_service.dart';
-import '../../main.dart' show kTokenRefreshInterval;
+// Removed per-screen token refresh timer in favor of global RefreshScheduler started post-login.
 import 'package:flutter/material.dart';
-import '../core/logging/app_logger.dart';
 import 'user/user_screen.dart';
 import 'home/home_screen.dart';
 import 'workout/workout_screen.dart';
@@ -25,8 +19,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  Timer? _refreshTimer;
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   int _selectedIndex = 0; // Tab hiện tại
   UserModel? _user; // Thông tin user lấy từ API
   bool _loading = true; // Trạng thái loading khi fetch user
@@ -35,43 +27,11 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _fetchUser();
-    _startPeriodicTokenRefresh();
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
     super.dispose();
-  }
-
-  void _startPeriodicTokenRefresh() {
-    AppLogger.info('Khởi động timer refresh token', tag: 'MainScreen');
-    _refreshTimer = Timer.periodic(kTokenRefreshInterval, (_) async {
-      AppLogger.debug(
-        'Thực hiện refresh token lúc ${DateTime.now()}',
-        tag: 'MainScreen',
-      );
-      final prefs = await SharedPreferences.getInstance();
-      String? accessToken = prefs.getString('access_token');
-      final refreshToken = await _secureStorage.read(key: 'refresh_token');
-      if (refreshToken != null) {
-        final refreshResult = await ApiService.refreshToken(refreshToken);
-        if (refreshResult != null &&
-            refreshResult['access_token'] != null &&
-            refreshResult['refresh_token'] != null) {
-          accessToken = refreshResult['access_token'] as String;
-          await prefs.setString('access_token', accessToken);
-          await _secureStorage.write(
-            key: 'refresh_token',
-            value: refreshResult['refresh_token'] as String,
-          );
-        } else {
-          // Nếu refresh thất bại, tự động logout
-          _refreshTimer?.cancel();
-          if (mounted) await LogoutService.logout(context);
-        }
-      }
-    });
   }
 
   /// Gọi API lấy profile user
@@ -93,27 +53,31 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      // Hiển thị loading khi đang lấy user
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    // Danh sách các tab chính
     final List<Widget> tabs = [
-      HomeScreen(userName: _user?.name ?? ''),
-      WorkoutScreen(),
-      ExerciseScreen(),
-      LogScreen(),
-      UserScreen(),
+      HomeScreen(userName: _user?.name ?? '', isLoading: _loading),
+      const WorkoutScreen(),
+      const ExerciseScreen(),
+      const LogScreen(),
+      const UserScreen(),
     ];
+
+    void handleTap(int index) {
+      if (_loading && index != 0) return; // lock other tabs until user loaded
+      _onItemTapped(index);
+    }
+
     return Scaffold(
       extendBody: true,
       body: tabs[_selectedIndex],
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+      bottomNavigationBar: Opacity(
+        opacity: _loading ? 0.8 : 1,
+        child: IgnorePointer(
+          ignoring: _loading && _selectedIndex != 0,
+          child: CustomBottomNavBar(
+            currentIndex: _selectedIndex,
+            onTap: handleTap,
+          ),
+        ),
       ),
     );
   }

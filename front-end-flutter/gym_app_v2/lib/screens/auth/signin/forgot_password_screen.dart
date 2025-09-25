@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/app_snack_bar.dart';
 import '../../../widgets/app_button.dart';
+import '../../../widgets/animations/animated_appear.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -120,180 +121,288 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    children: [
-                      if (!_showOtpStep) ...[
-                        const Icon(
-                          Icons.email_outlined,
-                          color: Color(0xFF8854FF),
-                          size: 48,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Nhập email để nhận mã xác thực',
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(
-                              Icons.email,
-                              color: Colors.white54,
-                            ),
-                            hintText: 'Email tài khoản',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.grey[850],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
+                // Two-phase flow (request email -> OTP+reset). Skeleton adapts field count.
+                Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 420),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0, 0.05),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: anim,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                                ),
+                            child: child,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        AppButton.primary(
-                          label: 'Gửi mã xác thực',
-                          size: AppButtonSize.large,
-                          loading: _isLoading,
-                          onPressed: _isLoading ? null : _submitEmail,
-                          leadingIcon: _isLoading ? null : Icons.send_rounded,
-                        ),
-                      ] else ...[
-                        const Icon(
-                          Icons.lock_reset,
-                          color: Color(0xFF8854FF),
-                          size: 48,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Nhập OTP và mật khẩu mới',
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: _otpController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 6,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(6),
-                          ],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            letterSpacing: 2,
-                          ),
-                          decoration: InputDecoration(
-                            counterText: '',
-                            prefixIcon: const Icon(
-                              Icons.numbers,
-                              color: Colors.white54,
-                            ),
-                            hintText: 'Mã xác thực OTP (6 số)',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.grey[850],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _newPasswordController,
-                          obscureText: _obscureNewPassword,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(
-                              Icons.lock,
-                              color: Colors.white54,
-                            ),
-                            hintText: 'Mật khẩu mới',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.grey[850],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _obscureNewPassword = !_obscureNewPassword;
-                                });
-                              },
-                              child: Icon(
-                                _obscureNewPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: Colors.white54,
+                        child: _showOtpStep
+                            ? Column(
+                                key: const ValueKey('otpStep'),
+                                children: [
+                                  const AnimatedAppear(
+                                    child: Icon(
+                                      Icons.lock_reset,
+                                      color: Color(0xFF8854FF),
+                                      size: 48,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const AnimatedAppear(
+                                    delay: Duration(milliseconds: 80),
+                                    child: Text(
+                                      'Nhập OTP và mật khẩu mới',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 16,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 140),
+                                    child: TextField(
+                                      controller: _otpController,
+                                      keyboardType: TextInputType.number,
+                                      maxLength: 6,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(6),
+                                      ],
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        letterSpacing: 2,
+                                      ),
+                                      decoration: InputDecoration(
+                                        counterText: '',
+                                        prefixIcon: const Icon(
+                                          Icons.numbers,
+                                          color: Colors.white54,
+                                        ),
+                                        hintText: 'Mã xác thực OTP (6 số)',
+                                        hintStyle: const TextStyle(
+                                          color: Colors.white54,
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.grey[850],
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 180),
+                                    child: TextField(
+                                      controller: _newPasswordController,
+                                      obscureText: _obscureNewPassword,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      decoration: InputDecoration(
+                                        prefixIcon: const Icon(
+                                          Icons.lock,
+                                          color: Colors.white54,
+                                        ),
+                                        hintText: 'Mật khẩu mới',
+                                        hintStyle: const TextStyle(
+                                          color: Colors.white54,
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.grey[850],
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        suffixIcon: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _obscureNewPassword =
+                                                  !_obscureNewPassword;
+                                            });
+                                          },
+                                          child: Icon(
+                                            _obscureNewPassword
+                                                ? Icons.visibility_off
+                                                : Icons.visibility,
+                                            color: Colors.white54,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 220),
+                                    child: TextField(
+                                      controller: _confirmPasswordController,
+                                      obscureText: _obscureConfirmPassword,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      decoration: InputDecoration(
+                                        prefixIcon: const Icon(
+                                          Icons.lock_outline,
+                                          color: Colors.white54,
+                                        ),
+                                        hintText: 'Xác nhận mật khẩu mới',
+                                        hintStyle: const TextStyle(
+                                          color: Colors.white54,
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.grey[850],
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        suffixIcon: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _obscureConfirmPassword =
+                                                  !_obscureConfirmPassword;
+                                            });
+                                          },
+                                          child: Icon(
+                                            _obscureConfirmPassword
+                                                ? Icons.visibility_off
+                                                : Icons.visibility,
+                                            color: Colors.white54,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 260),
+                                    child: AppButton.primary(
+                                      label: 'Đặt lại mật khẩu',
+                                      size: AppButtonSize.large,
+                                      loading: _isLoading,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _submitOtpAndPassword,
+                                      leadingIcon: _isLoading
+                                          ? null
+                                          : Icons.lock_reset,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                key: const ValueKey('emailStep'),
+                                children: [
+                                  const AnimatedAppear(
+                                    child: Icon(
+                                      Icons.email_outlined,
+                                      color: Color(0xFF8854FF),
+                                      size: 48,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const AnimatedAppear(
+                                    delay: Duration(milliseconds: 80),
+                                    child: Text(
+                                      'Nhập email để nhận mã xác thực',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 16,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 140),
+                                    child: TextField(
+                                      controller: _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      decoration: InputDecoration(
+                                        prefixIcon: const Icon(
+                                          Icons.email,
+                                          color: Colors.white54,
+                                        ),
+                                        hintText: 'Email tài khoản',
+                                        hintStyle: const TextStyle(
+                                          color: Colors.white54,
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.grey[850],
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  AnimatedAppear(
+                                    delay: const Duration(milliseconds: 220),
+                                    child: AppButton.primary(
+                                      label: 'Gửi mã xác thực',
+                                      size: AppButtonSize.large,
+                                      loading: _isLoading,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _submitEmail,
+                                      leadingIcon: _isLoading
+                                          ? null
+                                          : Icons.send_rounded,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(
-                              Icons.lock_outline,
-                              color: Colors.white54,
-                            ),
-                            hintText: 'Xác nhận mật khẩu mới',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.grey[850],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _obscureConfirmPassword =
-                                      !_obscureConfirmPassword;
-                                });
-                              },
-                              child: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: Colors.white54,
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: -4,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        switchInCurve: Curves.easeOutCubic,
+                        child: _error == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                key: const ValueKey('err'),
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        AppButton.primary(
-                          label: 'Đặt lại mật khẩu',
-                          size: AppButtonSize.large,
-                          loading: _isLoading,
-                          onPressed: _isLoading ? null : _submitOtpAndPassword,
-                          leadingIcon: _isLoading ? null : Icons.lock_reset,
-                        ),
-                      ],
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

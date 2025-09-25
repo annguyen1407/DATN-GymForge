@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/animations/animated_appear.dart';
+import '../../widgets/skeleton/skeleton_box.dart';
 import 'package:flutter/services.dart';
 // import 'package:health/health.dart';
 import '../../services/log_out_service.dart';
@@ -50,130 +52,221 @@ class _UserScreenState extends State<UserScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    const SizedBox(height: 24),
-                    // Avatar và nút đổi ảnh
-                    Center(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 48,
-                            backgroundColor: Colors.white24,
-                            backgroundImage:
-                                _user?.profilePicture != null &&
-                                    _user!.profilePicture!.isNotEmpty
-                                ? NetworkImage(_user!.profilePicture!)
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(4),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                                size: 20,
-                              ),
+          child: Column(
+            children: [
+              const SizedBox(height: 24),
+              AnimatedAppear(
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (_loading)
+                        const SkeletonBox(
+                          width: 96,
+                          height: 96,
+                          borderRadius: BorderRadius.all(Radius.circular(48)),
+                        )
+                      else
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundColor: Colors.white24,
+                          backgroundImage:
+                              _user?.profilePicture != null &&
+                                  _user!.profilePicture!.isNotEmpty
+                              ? NetworkImage(_user!.profilePicture!)
+                              : null,
+                        ),
+                      if (!_loading)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Tên người dùng
-                    Text(
-                      _user?.name ?? '',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // Thống kê cá nhân
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _UserStat(
-                            icon: Icons.timer,
-                            value: '10',
-                            label: 'Total Time (h)',
-                            color: Colors.blue,
-                          ),
-                          _UserStat(
-                            icon: Icons.star,
-                            value: '3/28',
-                            label: 'Goals Achieved',
-                            color: Colors.amber,
-                          ),
-                          _UserStat(
-                            icon: Icons.emoji_events,
-                            value: '5/15',
-                            label: 'Badge Collected',
-                            color: Colors.red,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    _SectionTitle(title: 'Tài khoản'),
-                    _UserMenuItem(
-                      icon: Icons.person,
-                      text: 'Chỉnh sửa tài khoản',
-                    ),
-                    _UserMenuItem(
-                      icon: Icons.badge,
-                      text: 'Chỉnh sửa thông tin người dùng',
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionTitle(title: 'General'),
-                    // Đã bỏ mục liên kết Apple Watch/HealthKit
-                    _UserMenuItem(
-                      icon: Icons.subscriptions,
-                      text: 'Subscription',
-                    ),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      child: Column(
-                        children: [
-                          AppButton.outline(
-                            label: 'Đăng xuất',
-                            size: AppButtonSize.medium,
-                            fullWidth: true,
-                            leadingIcon: Icons.logout,
-                            onPressed: () async {
-                              await LogoutService.logout(context);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          // _debugTokenButton(context),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _loading
+                    ? const SkeletonBox(
+                        key: ValueKey('name_skel'),
+                        width: 140,
+                        height: 18,
+                        borderRadius: BorderRadius.all(Radius.circular(6)),
+                      )
+                    : Text(
+                        _user?.name ?? '',
+                        key: const ValueKey('name'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 24),
+              AnimatedAppear(
+                delay: const Duration(milliseconds: 120),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: _loading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            SkeletonBox(
+                              width: 70,
+                              height: 70,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(20),
+                              ),
+                            ),
+                            SkeletonBox(
+                              width: 70,
+                              height: 70,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(20),
+                              ),
+                            ),
+                            SkeletonBox(
+                              width: 70,
+                              height: 70,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(20),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            _UserStat(
+                              icon: Icons.timer,
+                              value: '10',
+                              label: 'Total Time (h)',
+                              color: Colors.blue,
+                            ),
+                            _UserStat(
+                              icon: Icons.star,
+                              value: '3/28',
+                              label: 'Goals Achieved',
+                              color: Colors.amber,
+                            ),
+                            _UserStat(
+                              icon: Icons.emoji_events,
+                              value: '5/15',
+                              label: 'Badge Collected',
+                              color: Colors.red,
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              AnimatedAppear(
+                delay: const Duration(milliseconds: 180),
+                child: _SectionTitle(title: 'Tài khoản'),
+              ),
+              ..._buildMenuSection(
+                loading: _loading,
+                items: const [
+                  _UserMenuItem(
+                    icon: Icons.person,
+                    text: 'Chỉnh sửa tài khoản',
+                  ),
+                  _UserMenuItem(
+                    icon: Icons.badge,
+                    text: 'Chỉnh sửa thông tin người dùng',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              AnimatedAppear(
+                delay: const Duration(milliseconds: 220),
+                child: _SectionTitle(title: 'General'),
+              ),
+              ..._buildMenuSection(
+                loading: _loading,
+                items: const [
+                  _UserMenuItem(
+                    icon: Icons.subscriptions,
+                    text: 'Subscription',
+                  ),
+                ],
+              ),
+              const Spacer(),
+              AnimatedAppear(
+                delay: const Duration(milliseconds: 260),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: _loading
+                      ? const SkeletonBox(
+                          width: double.infinity,
+                          height: 48,
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        )
+                      : AppButton.outline(
+                          label: 'Đăng xuất',
+                          size: AppButtonSize.medium,
+                          fullWidth: true,
+                          leadingIcon: Icons.logout,
+                          onPressed: () async {
+                            await LogoutService.logout(
+                              context,
+                              reason: 'user_manual_logout',
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildMenuSection({
+    required bool loading,
+    required List<_UserMenuItem> items,
+  }) {
+    if (loading) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Column(
+            children: List.generate(
+              items.length,
+              (_) => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4.0),
+                child: SkeletonBox(
+                  width: double.infinity,
+                  height: 52,
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    return items;
   }
 }
 

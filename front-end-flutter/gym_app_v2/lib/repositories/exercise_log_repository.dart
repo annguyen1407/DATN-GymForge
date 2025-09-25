@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../core/api/api_client.dart';
 import '../core/logging/app_logger.dart';
 
 class DailyExerciseLogSummary {
@@ -18,6 +17,8 @@ class DailyExerciseLogSummary {
   final String? notes; // general note for that day (root 'notes')
   final List<Map<String, dynamic>>
   workoutExerciseLogsRaw; // raw logs for plan tab grouping
+  /// Tổng thời gian tập (phút) trong ngày – optional (backend có thể trả về totalWorkoutTime hoặc totalWorkoutTimeMinutes)
+  final int? totalWorkoutTimeMinutes;
 
   const DailyExerciseLogSummary({
     required this.date,
@@ -30,15 +31,13 @@ class DailyExerciseLogSummary {
     required this.height,
     required this.notes,
     required this.workoutExerciseLogsRaw,
+    required this.totalWorkoutTimeMinutes,
   });
 }
 
 class ExerciseLogRepository {
   final String baseUrl;
-  final http.Client _client;
-
-  ExerciseLogRepository({required this.baseUrl, http.Client? client})
-    : _client = client ?? http.Client();
+  ExerciseLogRepository({required this.baseUrl});
 
   // --- Weekly Stats Models ---
   // Represents one day's aggregated stats inside a weekly response.
@@ -74,29 +73,19 @@ class ExerciseLogRepository {
   Future<WeeklyExerciseStats?> fetchWeeklyStats({
     required String userId,
     required DateTime weekStart, // Monday start (backend expects YYYY-MM-DD)
-    required String token,
   }) async {
     final startStr = _fmt(weekStart);
-    final uri = Uri.parse(
-      '$baseUrl/exercise-logs/stats/weekly/$userId/$startStr',
-    );
+    final path = '/exercise-logs/stats/weekly/$userId/$startStr';
     try {
-      final resp = await _client.get(
-        uri,
-        headers: {
-          'accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (resp.statusCode != 200) {
+      final apiRes = await ApiClient.instance.requestJson('GET', path);
+      if (apiRes.status != 200 || apiRes.data is! Map<String, dynamic>) {
         AppLogger.warn(
-          'Weekly stats failed status ${resp.statusCode}',
+          'Weekly stats failed status ${apiRes.status}',
           tag: 'ExerciseLogRepo',
         );
-        return null; // graceful fallback – UI shows empty chart
+        return null;
       }
-      final decoded = jsonDecode(resp.body);
-      if (decoded is! Map<String, dynamic>) return null;
+      final decoded = apiRes.data as Map<String, dynamic>;
       final dailyRaw = decoded['dailyStats'];
       final daily = (dailyRaw is List)
           ? dailyRaw
@@ -127,26 +116,22 @@ class ExerciseLogRepository {
   Future<DailyExerciseLogSummary?> fetchDailySummary({
     required String userId,
     required DateTime date,
-    required String token,
   }) async {
     final dateStr = _fmt(date);
-    final uri = Uri.parse(
-      '$baseUrl/exercise-logs/user/$userId?startDate=$dateStr&endDate=$dateStr',
-    );
+    final path =
+        '/exercise-logs/user/$userId?startDate=$dateStr&endDate=$dateStr';
     try {
-      final resp = await _client.get(
-        uri,
-        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode != 200) {
+      final apiRes = await ApiClient.instance.requestJson('GET', path);
+      if (apiRes.status != 200 ||
+          apiRes.data is! List ||
+          (apiRes.data as List).isEmpty) {
         AppLogger.warn(
-          'Daily summary failed status ${resp.statusCode}',
+          'Daily summary failed status ${apiRes.status}',
           tag: 'ExerciseLogRepo',
         );
         return null;
       }
-      final decoded = jsonDecode(resp.body);
-      if (decoded is! List || decoded.isEmpty) return null;
+      final decoded = apiRes.data as List;
       final first = decoded.first as Map<String, dynamic>;
 
       final workoutExerciseLogs = (first['workoutExerciseLogs'] as List?) ?? [];
@@ -186,6 +171,18 @@ class ExerciseLogRepository {
       // Quyết định caloriesBurned: ưu tiên aggregate nếu có, nếu không có dùng per-exercise sum.
       final caloriesBurned = aggregateCalories ?? perExerciseCalories;
 
+      // total workout time (daily): hiện backend trả về GIÂY ở key totalWorkoutTime, cần chuyển sang phút để hiển thị.
+      // Quy tắc: làm tròn xuống (floor) để tránh phồng số; nếu muốn hiển thị phần lẻ có thể đổi sang ceil hoặc giữ giây.
+      int? totalWorkoutTimeMinutes;
+      if (first['totalWorkoutTimeMinutes'] is num) {
+        // Nếu backend sau này trả trực tiếp phút.
+        totalWorkoutTimeMinutes = (first['totalWorkoutTimeMinutes'] as num)
+            .round();
+      } else if (first['totalWorkoutTime'] is num) {
+        final secs = (first['totalWorkoutTime'] as num).toInt();
+        totalWorkoutTimeMinutes = secs ~/ 60; // floor division
+      }
+
       return DailyExerciseLogSummary(
         date: date,
         sessions: workoutDayIdOccurrences,
@@ -203,6 +200,7 @@ class ExerciseLogRepository {
         workoutExerciseLogsRaw: workoutExerciseLogs
             .whereType<Map<String, dynamic>>()
             .toList(growable: false),
+        totalWorkoutTimeMinutes: totalWorkoutTimeMinutes,
       );
     } catch (e, st) {
       AppLogger.error(

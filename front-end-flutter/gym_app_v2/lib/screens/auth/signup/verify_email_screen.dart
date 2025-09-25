@@ -3,6 +3,7 @@ import '../../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import '../../../services/api_service.dart';
 import 'verify_success_screen.dart';
+import '../../../widgets/animations/animated_appear.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
@@ -172,6 +173,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
+            // OTP verify screen: overlay OtpBoxesSkeleton only while _isResending to avoid full rebuild.
             Center(
               child: SingleChildScrollView(
                 child: Padding(
@@ -206,142 +208,229 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Nhập mã xác nhận',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                        const AnimatedAppear(
+                          child: Text(
+                            'Nhập mã xác nhận',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          'Mã gửi tới',
-                          style: TextStyle(color: Colors.white54, fontSize: 15),
+                        AnimatedAppear(
+                          delay: const Duration(milliseconds: 60),
+                          child: Text(
+                            'Mã gửi tới',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          _maskedEmail,
-                          style: TextStyle(
-                            color: Colors.purpleAccent,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        AnimatedAppear(
+                          delay: const Duration(milliseconds: 110),
+                          child: Text(
+                            _maskedEmail,
+                            style: const TextStyle(
+                              color: Colors.purpleAccent,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Mã có hiệu lực trong 10 phút',
-                          style: TextStyle(color: Colors.white54, fontSize: 15),
+                        const AnimatedAppear(
+                          delay: Duration(milliseconds: 160),
+                          child: Text(
+                            'Mã có hiệu lực trong 10 phút',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 28),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(6, (idx) {
-                            return Container(
-                              width: 40,
-                              height: 48,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF232232),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _focusNodes[idx].hasFocus
-                                      ? Colors.purpleAccent
-                                      : Colors.transparent,
-                                  width: 2,
+                        AnimatedAppear(
+                          delay: const Duration(milliseconds: 220),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(6, (idx) {
+                              final delay = 40 * idx;
+                              return AnimatedAppear(
+                                delay: Duration(milliseconds: 220 + delay),
+                                dy: 18,
+                                child: AnimatedBuilder(
+                                  animation: _focusNodes[idx],
+                                  builder: (_, __) {
+                                    final hasFocus = _focusNodes[idx].hasFocus;
+                                    return AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 240,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      width: 40,
+                                      height: 48,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF232232),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: hasFocus
+                                              ? Colors.purpleAccent
+                                              : Colors.transparent,
+                                          width: hasFocus ? 2 : 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withOpacityRatio(0.12),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: TextField(
+                                          controller: _controllers[idx],
+                                          focusNode: _focusNodes[idx],
+                                          keyboardType: TextInputType.number,
+                                          textAlign: TextAlign.center,
+                                          maxLength: 1,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          decoration: const InputDecoration(
+                                            counterText: '',
+                                            border: InputBorder.none,
+                                          ),
+                                          onChanged: (v) =>
+                                              _onOtpChanged(idx, v),
+                                          onSubmitted: (_) => _onSubmit(),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacityRatio(0.12),
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
+                              );
+                            }),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _error == null
+                              ? const SizedBox.shrink()
+                              : Text(
+                                  _error!,
+                                  key: const ValueKey('error'),
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                        ),
+                        const SizedBox(height: 20),
+                        AnimatedAppear(
+                          delay: const Duration(milliseconds: 520),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Không nhận được mã?',
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: (_isResending || _resendCooldown > 0)
+                                        ? null
+                                        : _onResend,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      transitionBuilder: (child, anim) =>
+                                          FadeTransition(
+                                            opacity: anim,
+                                            child: ScaleTransition(
+                                              scale: Tween<double>(
+                                                begin: 0.95,
+                                                end: 1,
+                                              ).animate(anim),
+                                              child: child,
+                                            ),
+                                          ),
+                                      child: Text(
+                                        _isResending
+                                            ? 'Đang gửi lại...'
+                                            : 'Gửi lại mã',
+                                        key: ValueKey(
+                                          _isResending.toString() +
+                                              _resendCooldown.toString(),
+                                        ),
+                                        style: TextStyle(
+                                          color:
+                                              (_isResending ||
+                                                  _resendCooldown > 0)
+                                              ? Colors.grey
+                                              : Colors.purpleAccent,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                          decoration:
+                                              (_isResending ||
+                                                  _resendCooldown > 0)
+                                              ? null
+                                              : TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: Center(
-                                child: TextField(
-                                  controller: _controllers[idx],
-                                  focusNode: _focusNodes[idx],
-                                  keyboardType: TextInputType.number,
-                                  textAlign: TextAlign.center,
-                                  maxLength: 1,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: const InputDecoration(
-                                    counterText: '',
-                                    border: InputBorder.none,
-                                  ),
-                                  onChanged: (v) => _onOtpChanged(idx, v),
-                                  onSubmitted: (_) => _onSubmit(),
-                                ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 320),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: _resendCooldown > 0
+                                    ? Padding(
+                                        key: const ValueKey('cooldown'),
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: Text(
+                                          'Bạn có thể gửi lại mã sau $_cooldownText',
+                                          style: const TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                            );
-                          }),
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
+                            ],
                           ),
-                        ],
-                        const SizedBox(height: 28),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'Không nhận được mã?',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: (_isResending || _resendCooldown > 0)
-                                  ? null
-                                  : _onResend,
-                              child: Text(
-                                _isResending ? 'Đang gửi lại...' : 'Gửi lại mã',
-                                style: TextStyle(
-                                  color: (_isResending || _resendCooldown > 0)
-                                      ? Colors.grey
-                                      : Colors.purpleAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  decoration:
-                                      (_isResending || _resendCooldown > 0)
-                                      ? null
-                                      : TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
-                        if (_resendCooldown > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              'Bạn có thể gửi lại mã sau $_cooldownText',
-                              style: const TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),

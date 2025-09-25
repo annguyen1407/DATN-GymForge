@@ -7,6 +7,7 @@ import '../../repositories/workout_day_exercises_repository.dart';
 import '../../widgets/exercise_actions_menu.dart';
 import '../../widgets/destructive_confirm_sheet.dart';
 import '../../widgets/app_snack_bar.dart';
+import '../../widgets/exercise_hero_header.dart';
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -116,7 +117,9 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       _parseInt(_setsCtl, fallback: 0, min: 1) > 0 &&
       _parseInt(_repsCtl, fallback: 0, min: 1) > 0 &&
       _parseInt(_restCtl, fallback: 0, min: 0) >= 0 &&
-      _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0;
+      (_lockWeight
+          ? _parseDouble(_weightCtl, fallback: 0, min: 0) >= 0
+          : _parseDouble(_weightCtl, fallback: 0, min: 0) > 0);
 
   bool _isInvalidForField(TextEditingController ctl, String label) {
     if (label == 'Sets' || label == 'Reps') {
@@ -126,7 +129,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       return _parseInt(ctl, fallback: -1) < 0;
     }
     if (label == 'Weight') {
-      return _parseDouble(ctl, fallback: -1) < 0;
+      final w = _parseDouble(ctl, fallback: -1);
+      return _lockWeight ? w < 0 : w <= 0;
     }
     return false;
   }
@@ -359,143 +363,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) =>
       _AnimatedIconButton(icon: icon, onTap: onTap);
-  Widget _heroHeader(BuildContext context) {
-    final mg = _exercise?.muscleGroupNames ?? const [];
-    return SizedBox(
-      height: 340,
-      width: double.infinity,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child:
-                (widget.backgroundImage != null &&
-                    widget.backgroundImage!.isNotEmpty)
-                ? Image.asset(
-                    widget.backgroundImage!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => _gradientFallback(),
-                  )
-                : _gradientFallback(),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacityRatio(0.25),
-                    Colors.black.withOpacityRatio(0.85),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 140,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  AppSnackBar.showInfo(context, 'Video demo chưa khả dụng');
-                },
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacityRatio(0.4),
-                      width: 2,
-                    ),
-                    color: Colors.white.withOpacityRatio(0.15),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacityRatio(0.92),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.black,
-                      size: 40,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 4,
-            top: MediaQuery.of(context).padding.top + 4,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          // Menu hành động (chỉ có xoá)
-          Positioned(
-            right: 4,
-            top: MediaQuery.of(context).padding.top + 4,
-            child: ExerciseActionsMenu(
-              isDeleting: _deleting,
-              onAction: (a) async {
-                if (a == ExerciseAction.delete) {
-                  await _confirmDelete();
-                }
-              },
-            ),
-          ),
-          Positioned(
-            bottom: 18,
-            left: 20,
-            right: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    _exercise?.name ?? 'Đang tải...',
-                    key: ValueKey(_exercise?.id ?? 'loading'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (mg.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (int i = 0; i < mg.take(4).length; i++)
-                        _MuscleTag(text: mg[i], highlight: i == 0),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _gradientFallback() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2D2F33), Color(0xFF181A1D)],
-        ),
-      ),
-    );
-  }
+  // Removed old inline hero header; using shared ExerciseHeroHeader below
 
   @override
   Widget build(BuildContext context) {
@@ -512,7 +380,21 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _heroHeader(context),
+              ExerciseHeroHeader(
+                title: _exercise?.name ?? 'Đang tải...',
+                loadingTitle: _exercise == null,
+                muscleGroups: _exercise?.muscleGroupNames ?? const [],
+                backgroundImage: widget.backgroundImage,
+                onBack: () => Navigator.pop(context),
+                action: ExerciseActionsMenu(
+                  isDeleting: _deleting,
+                  onAction: (a) async {
+                    if (a == ExerciseAction.delete) {
+                      await _confirmDelete();
+                    }
+                  },
+                ),
+              ),
               const SizedBox(height: 22),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -656,7 +538,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                         _numberSegment(
                           label: 'Weight',
                           ctl: _weightCtl,
-                          min: 0,
+                          min: _lockWeight ? 0 : 1,
                           max: 2000,
                           suffix: 'kg',
                           disabled: _lockWeight,
@@ -814,69 +696,3 @@ class _BottomBar extends StatelessWidget {
 }
 
 // (ExerciseSpec model removed – legacy parsing no longer needed after refactor.)
-
-class _MuscleTag extends StatelessWidget {
-  final String text;
-  final bool highlight;
-  const _MuscleTag({required this.text, required this.highlight});
-  @override
-  Widget build(BuildContext context) {
-    if (highlight) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-          ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF6B6B).withOpacityRatio(0.45),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.local_fire_department,
-              color: Colors.white,
-              size: 14,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacityRatio(0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withOpacityRatio(0.18),
-          width: 0.8,
-        ),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
-}

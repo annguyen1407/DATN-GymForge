@@ -141,10 +141,7 @@ class _PlanTabState extends State<PlanTab> {
                     description: plan.description,
                     badge: plan.planType,
                     planType: plan.planType,
-                    tags: [
-                      if (plan.userName != null) 'Bởi: ${plan.userName}',
-                      plan.status,
-                    ],
+                    tags: const [], // Removed status & author per requirement
                     onTap: () {
                       Navigator.push(
                         context,

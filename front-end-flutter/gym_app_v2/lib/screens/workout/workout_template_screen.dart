@@ -7,6 +7,9 @@ import '../../widgets/app_button.dart';
 import '../../repositories/workout_day_exercises_repository.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
+import '../../widgets/plan_type_badge.dart';
+import '../../widgets/exercise_minimal_card.dart';
+import '../exercise/exercise_info_screen.dart';
 
 /// Chi tiết template workout plan.
 class WorkoutTemplateScreen extends StatefulWidget {
@@ -140,45 +143,12 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                     children: [
                       const SizedBox(height: 12),
                       if (plan.description?.isNotEmpty == true) ...[
-                        GestureDetector(
-                          onTap: () => setState(
+                        _DescriptionSection(
+                          text: plan.description!,
+                          expanded: _showFullDescription,
+                          onToggle: () => setState(
                             () => _showFullDescription = !_showFullDescription,
                           ),
-                          child: Row(
-                            children: [
-                              Text(
-                                'Mô tả',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white.withOpacityRatio(.9),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                _showFullDescription
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 18,
-                                color: Colors.white54,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        AnimatedCrossFade(
-                          firstChild: _DescriptionCard(
-                            text: plan.description!.length > 110
-                                ? '${plan.description!.substring(0, 110)}...'
-                                : plan.description!,
-                          ),
-                          secondChild: _DescriptionCard(
-                            text: plan.description!,
-                          ),
-                          crossFadeState: _showFullDescription
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 250),
                         ),
                         const SizedBox(height: 26),
                       ],
@@ -231,7 +201,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                                   ),
                                 ),
                               )
-                            : ListView.builder(
+                            : ListView.separated(
                                 padding: const EdgeInsets.fromLTRB(
                                   14,
                                   14,
@@ -239,8 +209,22 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
                                   14,
                                 ),
                                 itemCount: _exercises.length,
-                                itemBuilder: (c, i) =>
-                                    _ExerciseCard(model: _exercises[i]),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (c, i) => ExerciseMinimalCard(
+                                  exercise: _exercises[i],
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ExerciseInfoScreen(
+                                          exerciseId: _exercises[i].id,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  dense: false,
+                                ),
                               ),
                       ),
                       const SizedBox(height: 28),
@@ -402,71 +386,12 @@ class _Header extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
-                    _TypeBadge(planType: planType),
+                    PlanTypeBadge(planType: planType),
                     _DaysBadge(days: days),
                     if (exercises != null) _ExercisesBadge(count: exercises!),
                   ],
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  final String planType;
-  const _TypeBadge({required this.planType});
-  String _vn(String t) {
-    switch (t) {
-      case 'STRENGTH':
-        return 'Sức mạnh';
-      case 'CARDIO':
-        return 'Sức bền';
-      case 'FLEXIBILITY':
-        return 'Dẻo dai';
-      case 'COMBINED':
-        return 'Kết hợp';
-      default:
-        return t;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Color base;
-    switch (planType) {
-      case 'STRENGTH':
-        base = const Color(0xFF8854FF);
-        break;
-      case 'CARDIO':
-        base = const Color(0xFFFF7043);
-        break;
-      case 'FLEXIBILITY':
-        base = const Color(0xFF26A69A);
-        break;
-      case 'COMBINED':
-        base = const Color(0xFF42A5F5);
-        break;
-      default:
-        base = Colors.grey.shade600;
-    }
-    return _BaseBadge(
-      gradient: [base.withOpacityRatio(.85), base.withOpacityRatio(.55)],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.fitness_center, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            _vn(planType),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-              letterSpacing: .4,
             ),
           ),
         ],
@@ -531,6 +456,9 @@ class _BaseBadge extends StatelessWidget {
   }
 }
 
+// Re-introduced description card (was accidentally removed during refactor)
+// _DescriptionCard removed: description now inline (AnimatedSize) per new design.
+
 class _ExercisesBadge extends StatelessWidget {
   final int count;
   const _ExercisesBadge({required this.count});
@@ -553,47 +481,6 @@ class _ExercisesBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ------------------------------------------------------------
-// New UI components
-// ------------------------------------------------------------
-
-class _DescriptionCard extends StatelessWidget {
-  final String text;
-  const _DescriptionCard({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF19191D), Color(0xFF141416)],
-        ),
-        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacityRatio(.55),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14.5,
-          height: 1.55,
-          color: Colors.white.withOpacityRatio(.84),
-          letterSpacing: .25,
-        ),
       ),
     );
   }
@@ -626,73 +513,149 @@ class _ErrorInline extends StatelessWidget {
 // (Đã bỏ header cũ với các vòng tròn trang trí)
 
 // Exercise card
-class _ExerciseCard extends StatelessWidget {
-  final ExerciseModel model;
-  const _ExerciseCard({required this.model});
+// _ExerciseCard removed; replaced by shared ExerciseMinimalCard.
+
+class _DescriptionSection extends StatefulWidget {
+  final String text;
+  final bool expanded;
+  final VoidCallback onToggle;
+  const _DescriptionSection({
+    required this.text,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  @override
+  State<_DescriptionSection> createState() => _DescriptionSectionState();
+}
+
+class _DescriptionSectionState extends State<_DescriptionSection> {
+  bool _overflow = false;
+  static const _maxLinesCollapsed = 4;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _measureOverflow();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DescriptionSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _measureOverflow();
+    }
+  }
+
+  void _measureOverflow() {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: widget.text.trim(),
+        style: TextStyle(
+          fontSize: 14.2,
+          height: 1.52,
+          color: Colors.white.withOpacityRatio(.84),
+          letterSpacing: .25,
+        ),
+      ),
+      maxLines: _maxLinesCollapsed,
+      textDirection: TextDirection.ltr,
+      ellipsis: '…',
+    );
+    final maxWidth =
+        MediaQuery.of(context).size.width - 40; // padding 20 left/right
+    tp.layout(maxWidth: maxWidth);
+    if (mounted) {
+      setState(() => _overflow = tp.didExceedMaxLines);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1C1C21), Color(0xFF141417)],
-        ),
-        border: Border.all(color: Colors.white.withOpacityRatio(.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF2A2A30), Color(0xFF1A1A1D)],
-              ),
-              border: Border.all(color: Colors.white.withOpacityRatio(.07)),
-            ),
-            child: const Icon(Icons.fitness_center, color: Colors.white70),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  model.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: .3,
+    final displayText = widget.text.trim();
+    final showToggle = _overflow;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          child: Stack(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(bottom: showToggle ? 8 : 0),
+                child: Text(
+                  displayText,
+                  softWrap: true,
+                  maxLines: widget.expanded ? null : _maxLinesCollapsed,
+                  overflow: widget.expanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.2,
+                    height: 1.52,
+                    color: Colors.white.withOpacityRatio(.84),
+                    letterSpacing: .25,
                   ),
                 ),
-                if (model.description?.isNotEmpty == true)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      model.description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacityRatio(.62),
-                        fontSize: 12.5,
-                        height: 1.3,
+              ),
+              if (showToggle && !widget.expanded)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 30,
+                  child: IgnorePointer(
+                    ignoring: true,
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.0),
+                            Colors.black.withOpacity(0.10),
+                            Colors.black.withOpacity(0.22),
+                          ],
+                        ),
                       ),
                     ),
                   ),
+                ),
+            ],
+          ),
+        ),
+        if (showToggle)
+          GestureDetector(
+            onTap: widget.onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.expanded ? 'Thu gọn' : 'Xem thêm',
+                  style: const TextStyle(
+                    color: Color(0xFFFF4E74),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    letterSpacing: .2,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  duration: const Duration(milliseconds: 240),
+                  turns: widget.expanded ? 0.5 : 0.0,
+                  curve: Curves.easeOutCubic,
+                  child: const Icon(
+                    Icons.expand_more,
+                    size: 18,
+                    color: Color(0xFFFF4E74),
+                  ),
+                ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: Colors.white30),
-        ],
-      ),
+      ],
     );
   }
 }

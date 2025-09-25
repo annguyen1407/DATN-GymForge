@@ -34,34 +34,6 @@ class ApiService {
     }
   }
 
-  /// Refresh access token bằng refresh_token (lấy từ secure storage)
-  static Future<Map<String, dynamic>?> refreshToken(String refreshToken) async {
-    try {
-      final url = Uri.parse('${ApiConstants.baseUrl}/auth/refresh');
-      final response = await http.post(
-        url,
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'refresh_token': refreshToken}),
-      );
-      final body = jsonDecode(response.body);
-      return {
-        'status': response.statusCode,
-        ...((body is Map<String, dynamic>) ? body : {}),
-      };
-    } catch (e, st) {
-      AppLogger.error(
-        'Refresh token error: $e',
-        tag: 'ApiService',
-        stackTrace: st,
-        error: e,
-      );
-      return null;
-    }
-  }
-
   /// Lấy profile user từ access token, trả về Map hoặc null nếu lỗi
   /// NOTE: Hàm này trả về dữ liệu thô (Map), KHÔNG tự động logout nếu token hết hạn (401).
   /// Nếu muốn lấy UserModel và tự động logout khi token hết hạn, dùng UserService.fetchProfile.

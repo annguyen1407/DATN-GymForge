@@ -9,6 +9,7 @@ class TodayStat extends StatelessWidget {
   final int calories; // calories burned
   final int? caloriesIntake; // optional: calories đã nạp
   final int? points; // optional: điểm thưởng
+  final int? workoutTimeMinutes; // optional: tổng phút tập trong ngày
   final String circleLabel; // nhãn trong vòng tròn
   final EdgeInsetsGeometry padding;
   final bool compact; // true: thu nhỏ cho log / plan, false: full cho home
@@ -20,6 +21,7 @@ class TodayStat extends StatelessWidget {
     required this.calories,
     this.caloriesIntake,
     this.points,
+    this.workoutTimeMinutes,
     this.circleLabel = 'Workout Sets',
     this.padding = const EdgeInsets.all(24),
     this.compact = false,
@@ -27,7 +29,8 @@ class TodayStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final circleSize = compact ? 100.0 : 140.0;
+    // Enlarged circle per request; slightly reduced padding handled by default prop override possibility.
+    final circleSize = compact ? 118.0 : 150.0;
     final numberStyle = TextStyle(
       color: Colors.white,
       fontWeight: FontWeight.bold,
@@ -39,8 +42,12 @@ class TodayStat extends StatelessWidget {
       fontSize: compact ? 11 : 12.5,
       fontWeight: FontWeight.w500,
     );
+    // Auto-adjust padding if compact to reduce vertical footprint unless caller overrides.
+    final resolvedPadding = compact && padding == const EdgeInsets.all(24)
+        ? const EdgeInsets.symmetric(horizontal: 18, vertical: 14)
+        : padding;
     return Container(
-      padding: padding,
+      padding: resolvedPadding,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -69,10 +76,11 @@ class TodayStat extends StatelessWidget {
             width: circleSize,
             height: circleSize,
             decoration: BoxDecoration(
+              // Updated: use brand purple gradient instead of warning (orange)
               gradient: LinearGradient(
                 colors: [
-                  DesignTokens.warning.withOpacityRatio(.85),
-                  DesignTokens.warning,
+                  DesignTokens.brandGradientStart.withOpacityRatio(.9),
+                  DesignTokens.brandGradientEnd,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -80,7 +88,7 @@ class TodayStat extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: DesignTokens.warning.withOpacityRatio(0.45),
+                  color: DesignTokens.brand.withOpacityRatio(0.45),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                 ),
@@ -96,10 +104,12 @@ class TodayStat extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: compact ? 40 : 70),
+          // Reduce horizontal gap to make overall card height feel more compact visually
+          SizedBox(width: compact ? 28 : 56),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildStatRow(
                   icon: Icons.fitness_center,
@@ -108,7 +118,7 @@ class TodayStat extends StatelessWidget {
                   label: 'Số bài tập',
                   compact: compact,
                 ),
-                SizedBox(height: compact ? 12 : 16),
+                SizedBox(height: compact ? 8 : 12),
                 _buildStatRow(
                   icon: Icons.local_fire_department_rounded,
                   color: const Color.fromARGB(255, 255, 53, 53),
@@ -117,7 +127,7 @@ class TodayStat extends StatelessWidget {
                   compact: compact,
                 ),
                 if (caloriesIntake != null) ...[
-                  SizedBox(height: compact ? 12 : 16),
+                  SizedBox(height: compact ? 8 : 12),
                   _buildStatRow(
                     icon: Icons.restaurant,
                     color: Colors.orangeAccent,
@@ -126,7 +136,7 @@ class TodayStat extends StatelessWidget {
                     compact: compact,
                   ),
                 ],
-                SizedBox(height: compact ? 12 : 16),
+                SizedBox(height: compact ? 8 : 12),
                 if (points != null)
                   _buildStatRow(
                     icon: Icons.diamond_rounded,
@@ -135,6 +145,16 @@ class TodayStat extends StatelessWidget {
                     label: 'Collected',
                     compact: compact,
                   ),
+                if (workoutTimeMinutes != null) ...[
+                  SizedBox(height: compact ? 8 : 12),
+                  _buildStatRow(
+                    icon: Icons.access_time_filled_rounded,
+                    color: DesignTokens.brand,
+                    value: _formatDuration(workoutTimeMinutes!),
+                    label: 'Thời gian tập',
+                    compact: compact,
+                  ),
+                ],
               ],
             ),
           ),
@@ -182,5 +202,14 @@ class TodayStat extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '0 phút';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 }

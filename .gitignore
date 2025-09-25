@@ -1,0 +1,59 @@
+#############################################
+# Core Ignores (consolidated)               #
+#############################################
+
+# Backend (NestJS / Node)
+node_modules/
+backend/dist/
+backend/.env*
+
+# Flutter / Dart basic (detailed patterns handled inside project .gitignore)
+front-end-flutter/gym_app_v2/build/
+**/dart_tool/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+# (Allow .github to be tracked for workflows; removed from ignore)
+
+# Cache / Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Prisma artifacts (uncomment if using custom generated output)
+# backend/prisma/generated/
+
+# Redis dump (already at root)
+dump.rdb
+
+# SQLite / DB files
+backend/gymapp.db
+
+# Coverage / reports
+coverage/
+
+# Temporary scripts output
+/tmp/
+
+#############################
+# Documentation (Selective) #
+#############################
+# The following markdown documents are ignored to avoid accidental commits of large or frequently regenerated docs.
+# If you need to track one again, remove its line and run: git add <file> (after ensuring it's not ignored elsewhere).
+# NOTE: Already tracked files require `git rm --cached <file>` once to actually stop tracking.
+
+/SYSTEM_FLOWS.md
+/backend/API_REFERENCE.md
+/backend/ARCHITECTURE.md
+/front-end-flutter/gym_app_v2/ARCHITECTURE.md
+/front-end-flutter/gym_app_v2/BACKEND_SCHEMA_REFERENCE.md
+
+# (Intentionally keeping README files and design/coding standards tracked)
+# If you later want to ignore ALL markdown except root README, you could replace this block with:
+#   **/*.md
+#   !README.md
+# but that would also hide design system and coding standards docs.

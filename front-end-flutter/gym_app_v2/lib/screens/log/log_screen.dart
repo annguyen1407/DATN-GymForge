@@ -4,15 +4,17 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/today_stat.dart';
+import '../../widgets/skeleton/today_stat_skeleton.dart';
 import '../../repositories/exercise_log_repository.dart';
 import '../../services/api_constants.dart';
 import '../../core/auth/token_manager.dart';
 import '../../services/log_out_service.dart';
-import '../../widgets/category_icon.dart';
+import '../../core/auth/session_guard.dart';
 import '../../widgets/log_workout_time_card.dart';
 import '../../widgets/pill_tab_bar.dart';
 import '../../widgets/segmented_pill_switch.dart';
 import 'log_day_screen.dart';
+import '../../widgets/animations/animated_appear.dart';
 
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
@@ -40,7 +42,8 @@ class _LogScreenState extends State<LogScreen>
   String? _summaryError;
   final _repo = ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
   String? _userId;
-  String? _accessToken;
+  String?
+  _accessToken; // still retrieved but repository no longer needs explicit token
   bool _authResolving = true;
 
   final Map<DateTime, List<Map<String, dynamic>>> _workouts = {};
@@ -97,11 +100,7 @@ class _LogScreenState extends State<LogScreen>
       _summaryError = null;
     });
     try {
-      final res = await _repo.fetchDailySummary(
-        userId: _userId!,
-        date: date,
-        token: _accessToken!,
-      );
+      final res = await _repo.fetchDailySummary(userId: _userId!, date: date);
       setState(() {
         _dailySummary = res;
         if (res != null) {
@@ -111,8 +110,16 @@ class _LogScreenState extends State<LogScreen>
       });
     } catch (e) {
       setState(() => _summaryError = e.toString());
-      if (e.toString().contains('401') && mounted) {
-        await LogoutService.logout(context);
+      // Trường hợp repo ném lỗi chứa 401 cũ -> sử dụng guard để quyết định
+      if (e.toString().contains('401')) {
+        final decision = await SessionGuard.handlePersistent401(
+          context: context,
+          source: 'dailySummary',
+        );
+        if (decision == UnauthorizedResolution.logout) {
+          return; // đã logout
+        }
+        // softFail: giữ nguyên lỗi cho UI hiển thị
       }
     } finally {
       if (mounted) setState(() => _loadingSummary = false);
@@ -294,52 +301,21 @@ class _LogScreenState extends State<LogScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTodayStatSection(),
+        const _SectionHeader(title: 'Tổng quan hôm nay'),
+        const SizedBox(height: 12),
+        AnimatedAppear(child: _buildTodayStatSection()),
         const SizedBox(height: 24),
+        // (Đã bỏ cụm icon danh mục bài tập để giảm nhiễu giao diện)
+        const SizedBox(height: 8),
         const Text(
-          'Workout sets',
+          'Thống kê & thông tin chi tiết',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Your completed workout categories',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            CategoryIcon(
-              icon: Icons.directions_run,
-              color: Color(0xFFB86B5B),
-              label: 'Cardio',
-              count: 3,
-            ),
-            CategoryIcon(
-              icon: Icons.fitness_center,
-              color: Color(0xFF7B5FB2),
-              label: 'Strength',
-              count: 2,
-            ),
-            CategoryIcon(
-              icon: Icons.timer,
-              color: Color(0xFF4CB7A5),
-              label: 'Endurance',
-              count: 2,
-            ),
-            CategoryIcon(
-              icon: Icons.more_horiz,
-              color: Color(0xFF4C7CB7),
-              label: 'More',
-              count: 3,
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -418,16 +394,12 @@ class _LogScreenState extends State<LogScreen>
                             focusedDay: _focusedDay,
                             selectedDayPredicate: (day) =>
                                 isSameDay(_selectedDay, day),
-                            onDaySelected: (selectedDay, focusedDay) async {
+                            onDaySelected: (selectedDay, focusedDay) {
+                              // Only update local selected/focused day without triggering daily summary fetch
                               setState(() {
                                 _selectedDay = selectedDay;
                                 _focusedDay = focusedDay;
-                                _loadingSummary = true;
                               });
-                              try {
-                                await _fetchDailySummary(selectedDay);
-                              } catch (_) {}
-                              final summary = _dailySummary;
                               if (!mounted) return;
                               Navigator.push(
                                 context,
@@ -437,11 +409,7 @@ class _LogScreenState extends State<LogScreen>
                                     workouts: _workouts[selectedDay] ?? [],
                                     onWorkoutAdded: (w) =>
                                         _addWorkout(selectedDay, w),
-                                    weight: summary?.weight,
-                                    height: summary?.height,
-                                    note: summary?.notes,
-                                    rawWorkoutExerciseLogs:
-                                        summary?.workoutExerciseLogsRaw,
+                                    userId: _userId ?? '',
                                   ),
                                 ),
                               );
@@ -497,13 +465,7 @@ class _LogScreenState extends State<LogScreen>
 
   Widget _buildTodayStatSection() {
     if (_authResolving) {
-      return const Center(
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: CircularProgressIndicator(strokeWidth: 3),
-        ),
-      );
+      return const TodayStatSkeleton(compact: true);
     }
     if (_accessToken == null || _userId == null) {
       return Column(
@@ -518,20 +480,17 @@ class _LogScreenState extends State<LogScreen>
             label: 'Đăng nhập lại',
             size: AppButtonSize.small,
             onPressed: () async {
-              await LogoutService.logout(context);
+              await LogoutService.logout(
+                context,
+                reason: 'manual_relogin_button',
+              );
             },
           ),
         ],
       );
     }
     if (_loadingSummary) {
-      return const Center(
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: CircularProgressIndicator(strokeWidth: 3),
-        ),
-      );
+      return const TodayStatSkeleton(compact: true);
     }
     if (_summaryError != null) {
       return Column(
@@ -556,17 +515,19 @@ class _LogScreenState extends State<LogScreen>
         exercisesCount: 0,
         calories: 0,
         caloriesIntake: 0,
-        circleLabel: 'Sessions',
+        circleLabel: 'Buổi tập',
         compact: true,
       );
     }
+    // Hiển thị số buổi tập (workout day distinct) thay vì tổng lượt (sessions)
     return TodayStat(
-      workoutSets: s.sessions,
+      workoutSets: s.uniqueSessions,
       exercisesCount: s.totalExercises,
       calories: s.caloriesBurned,
       caloriesIntake: s.caloriesIntake,
       points: null,
-      circleLabel: 'Sessions',
+      workoutTimeMinutes: s.totalWorkoutTimeMinutes,
+      circleLabel: 'Buổi tập',
       compact: true,
     );
   }
@@ -579,19 +540,14 @@ class _LogScreenState extends State<LogScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'In-depth Analytics',
+          'Phân tích chuyên sâu',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Detailed insights into your workout performance',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -603,7 +559,7 @@ class _LogScreenState extends State<LogScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Body Metrics',
+                'Chỉ số cơ thể',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -616,7 +572,7 @@ class _LogScreenState extends State<LogScreen>
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   alignment: Alignment.center,
                   child: const Text(
-                    'No body metrics yet',
+                    'Chưa có chỉ số',
                     style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 )
@@ -661,12 +617,12 @@ class _LogScreenState extends State<LogScreen>
                 )
               else
                 const Text(
-                  'No metrics recorded',
+                  'Chưa có ghi nhận',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               const SizedBox(height: 16),
               AppButton.primary(
-                label: 'Update Metrics',
+                label: 'Cập nhật chỉ số',
                 onPressed: () => _showBodyMetricsUpdateModal(context),
                 size: AppButtonSize.medium,
               ),
@@ -698,6 +654,24 @@ class _LogScreenState extends State<LogScreen>
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        letterSpacing: .2,
       ),
     );
   }

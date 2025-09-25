@@ -10,7 +10,7 @@ import '../services/api_constants.dart';
 /// LogWorkoutTimeCard: Biểu đồ thống kê thời gian tập luyện theo tuần
 class LogWorkoutTimeCard extends StatefulWidget {
   final String? userId;
-  final String? token;
+  final String? token; // retained for future removal once all callers cleaned
   final ExerciseLogRepository? repo;
   const LogWorkoutTimeCard({super.key, this.userId, this.token, this.repo});
 
@@ -48,8 +48,8 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
   void didUpdateWidget(covariant LogWorkoutTimeCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final userId = widget.userId;
-    final token = widget.token;
-    if (userId != null && token != null) {
+    final token = widget.token; // legacy dependency
+    if (userId != null) {
       final changed = oldWidget.userId != userId || oldWidget.token != token;
       if (changed) {
         _initialFetchScheduled = true; // đánh dấu đã xử lý
@@ -63,8 +63,7 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
 
   Future<void> _loadWeek() async {
     final userId = widget.userId;
-    final token = widget.token;
-    if (userId == null || token == null) return; // not logged in yet
+    if (userId == null) return; // not logged in yet
     // no-op loading state (placeholder omitted to avoid unused warnings)
     try {
       final repo =
@@ -72,7 +71,6 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
       final stats = await repo.fetchWeeklyStats(
         userId: userId,
         weekStart: _displayedWeekStart,
-        token: token,
       );
       if (!mounted) return;
       setState(() => _weekly = stats);
@@ -552,13 +550,15 @@ class _LogWorkoutTimeCardState extends State<LogWorkoutTimeCard>
     );
   }
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '0m';
-    final m = (seconds / 60).floor();
-    final s = seconds % 60;
-    if (m == 0) return '${s}s';
-    if (s == 0) return '${m}m';
-    return '${m}m ${s}s';
+  /// Định dạng tổng thời gian tập (đầu vào là PHÚT đã được backend chia sẵn 60)
+  /// 1 -> '1 phút', 60 -> '1 giờ', 61 -> '1 giờ 1 phút'
+  String _formatDuration(int minutes) {
+    if (minutes <= 0) return '0 phút';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m phút';
+    if (m == 0) return '$h giờ';
+    return '$h giờ $m phút';
   }
 
   Widget _buildDetailItem(String label, String value, IconData icon) {
