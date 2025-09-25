@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 /// Public reusable PlanCard widget extracted from log_day_screen.dart
 /// Accepts a plan Map (expects keys: name, progress (0..1), dayNumber, exercises (List))
 /// External builders supply planTypeColor, dayBadge, planTypeChip for flexible styling.
-class PlanCard extends StatelessWidget {
+class PlanCard extends StatefulWidget {
   final Map<String, dynamic> plan;
   final VoidCallback onTap;
   final Color planTypeColor;
-  final Widget
-  dayBadge; // deprecated visual (kept for backward compatibility – not rendered)
-  final Widget planTypeChip;
+  final Widget dayBadge; // kept for backward compatibility (not rendered)
+  final Widget planTypeChip; // Expected to be a PlanTypeBadge (dense)
+  final int? appearIndex; // optional stagger index
 
   const PlanCard({
     super.key,
@@ -18,178 +18,150 @@ class PlanCard extends StatelessWidget {
     required this.planTypeColor,
     required this.dayBadge,
     required this.planTypeChip,
+    this.appearIndex,
   });
 
   @override
+  State<PlanCard> createState() => _PlanCardState();
+}
+
+class _PlanCardState extends State<PlanCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+  bool _pressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    final curve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    _fade = Tween<double>(begin: .0, end: 1.0).animate(curve);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, .06),
+      end: Offset.zero,
+    ).animate(curve);
+    // Stagger start (optional)
+    final delayMs = (widget.appearIndex ?? 0) * 60;
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails d) => setState(() => _pressed = true);
+  void _onTapCancel() => setState(() => _pressed = false);
+  void _onTap() {
+    setState(() => _pressed = false);
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final plan = widget.plan;
     final progress = (plan['progress'] as double).clamp(0.0, 1.0);
     final exercisesCount = (plan['exercises'] as List).length;
-    // Derive localized plan type label from raw chip (if it's a Text or provides semantic). We also allow upstream override by passing a custom planTypeChip.
-    Widget effectivePlanTypeChip = planTypeChip;
-    // If caller passed a SizedBox or empty, keep as is.
-    // Attempt to extract raw type from plan map if we want to override label.
-    final rawType = (plan['planType'] ?? plan['type'] ?? plan['plan_type'])
-        ?.toString();
-    if (rawType != null && rawType.trim().isNotEmpty) {
-      final t = rawType.toUpperCase();
-      final localized = _localizedPlanType(t);
-      // Build a new chip with higher contrast if we can localize.
-      if (localized != null) {
-        final color = planTypeColor;
-        effectivePlanTypeChip = _SmallChip(
-          label: localized,
-          icon: Icons.label_important,
-          color: color.withValues(alpha: .95),
-        );
-      }
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 190, // enlarged height for better breathing space
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.grey[850]!, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .55),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            // Gradient background top area (expanded subtle)
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      planTypeColor.withValues(alpha: .60),
-                      Colors.black.withValues(alpha: .92),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+    final dayNumber = plan['dayNumber'];
+    final color = widget.planTypeColor;
+    // Use the provided planTypeChip directly (no override) to preserve unified label & style.
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: GestureDetector(
+          onTap: _onTap,
+          onTapDown: _onTapDown,
+          onTapCancel: _onTapCancel,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            scale: _pressed ? .965 : 1.0,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[850]!, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .55),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
+                ],
               ),
-            ),
-            // Content column with bottom anchored progress
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title & top meta row (simplified – removed day label/badge)
-                  Text(
-                    plan['name']?.toString() ?? 'Kế hoạch',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 19,
-                      letterSpacing: .25,
+                  // Header (gradient like WorkoutCard image placeholder)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (effectivePlanTypeChip is SizedBox == false)
-                        effectivePlanTypeChip,
-                      if (plan['dayNumber'] != null)
-                        _SmallChip(
-                          label: 'Ngày thứ ${plan['dayNumber']}',
-                          icon: Icons.today,
-                          color: planTypeColor.withValues(alpha: .90),
-                        ),
-                      _SmallChip(
-                        label: '$exercisesCount bài tập',
-                        icon: Icons.fitness_center,
-                        color: planTypeColor.withValues(alpha: .85),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Progress bar anchored at bottom
-                  // Progress bar (clean – no outer border container now)
-                  SizedBox(
-                    height: 24,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: 120,
+                      width: double.infinity,
                       child: Stack(
-                        alignment: Alignment.centerLeft,
                         children: [
                           Container(
-                            decoration: BoxDecoration(color: Colors.grey[850]),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  color.withValues(alpha: .55),
+                                  Colors.black.withValues(alpha: .85),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
                           ),
-                          FractionallySizedBox(
-                            widthFactor: progress,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 620),
-                              curve: Curves.easeOutCubic,
+                          // overlay gradient for readability
+                          Positioned.fill(
+                            child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    planTypeColor.withValues(alpha: .95),
-                                    const Color(0xFF8854FF),
+                                    Colors.black.withValues(alpha: .05),
+                                    Colors.black.withValues(alpha: .55),
                                   ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
                                 ),
                               ),
                             ),
                           ),
-                          // subtle moving sheen effect
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: AnimatedOpacity(
-                                opacity: 0.22,
-                                duration: const Duration(milliseconds: 1600),
-                                curve: Curves.easeInOut,
-                                child: ShaderMask(
-                                  shaderCallback: (rect) {
-                                    return LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.white.withValues(alpha: .55),
-                                        Colors.transparent,
-                                      ],
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                    ).createShader(rect);
-                                  },
-                                  blendMode: BlendMode.srcATop,
-                                  child: Container(
-                                    decoration: const BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white12,
-                                          Colors.white10,
-                                          Colors.white12,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          if (widget.planTypeChip is SizedBox == false)
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: widget.planTypeChip,
                             ),
-                          ),
-                          Align(
-                            alignment: Alignment.center,
+                          Positioned(
+                            left: 14,
+                            right: 14,
+                            bottom: 12,
                             child: Text(
-                              '${(progress * 100).toStringAsFixed(0)}%',
+                              plan['name']?.toString() ?? 'Kế hoạch',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: .4,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                                letterSpacing: .2,
                               ),
                             ),
                           ),
@@ -197,50 +169,89 @@ class PlanCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Body
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (dayNumber != null)
+                              _SmallChip(
+                                label: 'Ngày ${dayNumber.toString()}',
+                                icon: Icons.today,
+                                color: color.withValues(alpha: .90),
+                              ),
+                            _SmallChip(
+                              label: '$exercisesCount bài tập',
+                              icon: Icons.fitness_center,
+                              color: color.withValues(alpha: .85),
+                            ),
+                            _SmallChip(
+                              label:
+                                  '${(progress * 100).toStringAsFixed(0)}% hoàn thành',
+                              icon: Icons.show_chart,
+                              color: color.withValues(alpha: .80),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        // Progress bar (similar style retained)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: SizedBox(
+                            height: 22,
+                            child: Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                Container(color: Colors.grey[850]),
+                                FractionallySizedBox(
+                                  widthFactor: progress,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 620),
+                                    curve: Curves.easeOutCubic,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          color.withValues(alpha: .95),
+                                          color.withValues(alpha: .55),
+                                        ],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${(progress * 100).toStringAsFixed(0)}%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: .3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-            // Soft interactive overlay highlight on tap-down (basic feedback can be extended with GestureDetector states)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: .025),
-                        Colors.white.withValues(alpha: .02),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-}
-
-// Helper to localize plan type (returns null if unknown to avoid overriding custom chips)
-String? _localizedPlanType(String upperType) {
-  switch (upperType) {
-    case 'COMBINED':
-    case 'TOTAL': // optional alias if backend uses different label
-      return 'Kết hợp';
-    case 'STRENGTH':
-      return 'Sức mạnh';
-    case 'CARDIO':
-    case 'ENDURANCE':
-      return 'Sức bền';
-    case 'FLEXIBILITY':
-    case 'MOBILITY':
-      return 'Dẻo dai';
-    default:
-      return null; // keep original
   }
 }
 

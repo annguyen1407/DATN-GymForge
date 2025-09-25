@@ -197,10 +197,7 @@ class _ExploreTabState extends State<ExploreTab> {
                       description: plan.description,
                       badge: plan.planType,
                       planType: plan.planType,
-                      tags: [
-                        if (plan.userName != null) 'Bởi: ${plan.userName}',
-                        plan.status,
-                      ],
+                      tags: const [], // removed author & status per requirement
                       onTap: () async {
                         final result = await Navigator.push(
                           context,

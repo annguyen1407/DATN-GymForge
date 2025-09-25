@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/extensions/color_extensions.dart';
 import '../../../widgets/app_button.dart';
 import '../../../widgets/app_snack_bar.dart';
+import '../../../widgets/exercise_hero_header.dart';
 import '../../../repositories/workout_day_exercises_repository.dart';
 import '../../../models/exercise_model.dart';
 
@@ -260,122 +261,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
 
   // Summary card removed; replaced by hero header + sections.
 
-  Widget _heroHeader(BuildContext context) {
-    final mg = widget.exercise.muscleGroupNames;
-    return SizedBox(
-      height: 340,
-      width: double.infinity,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [const Color(0xFF2D2F33), const Color(0xFF181A1D)],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacityRatio(0.25),
-                    Colors.black.withOpacityRatio(0.85),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Mock video placeholder (since URL null)
-          Positioned(
-            top: 140, // moved slightly lower
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () =>
-                    AppSnackBar.showInfo(context, 'Video demo chưa khả dụng'),
-                child: Container(
-                  width: 90, // reduced size
-                  height: 90, // reduced size
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacityRatio(0.4),
-                      width: 2,
-                    ),
-                    color: Colors.white.withOpacityRatio(0.15),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.all(
-                      8,
-                    ), // adjusted margin proportionally
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacityRatio(0.92),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.black,
-                      size: 40, // reduced icon size
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: MediaQuery.of(context).padding.top + 4,
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            bottom: 18,
-            left: 20,
-            right: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.exercise.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (mg.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (int i = 0; i < mg.take(4).length; i++)
-                        _MuscleTag(text: mg[i], highlight: i == 0),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Removed old _heroHeader; using shared ExerciseHeroHeader
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +275,11 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _heroHeader(context),
+                ExerciseHeroHeader(
+                  title: widget.exercise.name,
+                  muscleGroups: widget.exercise.muscleGroupNames,
+                  onBack: () => Navigator.pop(context),
+                ),
                 const SizedBox(height: 22),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -577,72 +467,6 @@ class _BottomBar extends StatelessWidget {
         leadingIcon: submitting ? null : Icons.add_rounded,
         onPressed: enabled && !submitting ? onSubmit : null,
         size: AppButtonSize.large,
-      ),
-    );
-  }
-}
-
-class _MuscleTag extends StatelessWidget {
-  final String text;
-  final bool highlight;
-  const _MuscleTag({required this.text, required this.highlight});
-  @override
-  Widget build(BuildContext context) {
-    if (highlight) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-          ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF6B6B).withOpacityRatio(0.45),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.local_fire_department,
-              color: Colors.white,
-              size: 14,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacityRatio(0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withOpacityRatio(0.18),
-          width: 0.8,
-        ),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.2,
-        ),
       ),
     );
   }
