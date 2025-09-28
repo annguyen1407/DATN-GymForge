@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../../repositories/exercise_log_repository.dart';
+import '../../repositories/meals_repository.dart';
+import '../../models/meal_model.dart';
 import '../../services/api_constants.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/log_plan_card.dart';
 import '../../widgets/plan_type_badge.dart';
 import '../../widgets/pill_tab_bar.dart';
 import 'log_workoutday_screen.dart';
+import 'tabs/notes_tab.dart';
+import 'tabs/plans_tab.dart';
+import 'tabs/body_tab.dart';
+import 'tabs/nutrition_tab.dart';
 
 class LogOfDayScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -42,16 +46,48 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
   final _foodNameController = TextEditingController();
   final _foodCaloriesController = TextEditingController();
   final _newNoteController = TextEditingController();
-  bool _noteExpanded = false; // expand/collapse state for long note
 
   late TabController _tabController;
   late Map<String, dynamic> _bodyMetrics;
   late List<String> _notes;
 
-  final _nutritionData = [
-    {'meal': 'Breakfast', 'foods': <Map<String, dynamic>>[]},
-    {'meal': 'Lunch', 'foods': <Map<String, dynamic>>[]},
-  ];
+  // Dynamic meals fetched from API
+  final MealsRepository _mealsRepo = MealsRepository();
+  List<Meal> _meals = [];
+  bool _loadingMeals = false;
+  String? _mealsError;
+  int? _caloriesBurned; // from daily summary (preferred)
+
+  // Grouped structure for NutritionTab (mirrors previous shape)
+  List<Map<String, dynamic>> get _nutritionData {
+    final Map<MealType, List<Meal>> bucket = {
+      MealType.breakfast: [],
+      MealType.lunch: [],
+      MealType.dinner: [],
+      MealType.snack: [],
+      MealType.unknown: [],
+    };
+    for (final m in _meals) {
+      bucket.putIfAbsent(m.type, () => []);
+      bucket[m.type]!.add(m);
+    }
+    List<Map<String, dynamic>> sections = [];
+    void addSection(MealType t, String label) {
+      sections.add({
+        'meal': label,
+        'foods': bucket[t]!
+            .map((e) => {'id': e.id, 'name': e.name, 'calories': e.calories})
+            .toList(),
+      });
+    }
+
+    addSection(MealType.breakfast, 'Breakfast');
+    addSection(MealType.lunch, 'Lunch');
+    addSection(MealType.dinner, 'Dinner');
+    // Optionally snacks (not in UI before)
+    // addSection(MealType.snack, 'Snack');
+    return sections;
+  }
 
   final _repo = ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
   bool _loadingSummary = false;
@@ -69,9 +105,13 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    final w = widget.weight ?? 70.0;
-    final h = widget.height ?? 170.0;
-    _bodyMetrics = {'weight': w, 'height': h, 'bmi': _bmi(w, h)};
+    final w = widget.weight; // remove mock defaults
+    final h = widget.height;
+    _bodyMetrics = {
+      'weight': w,
+      'height': h,
+      'bmi': (w != null && h != null) ? _bmi(w, h) : null,
+    };
     _notes = [];
     if (widget.note != null && widget.note!.trim().isNotEmpty) {
       _notes.add(widget.note!.trim());
@@ -83,6 +123,13 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
         widget.height == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fetchSummary());
     }
+    // Fetch meals after first frame to avoid build jank
+    // Lazy load meals: only fetch when Nutrition tab opened first time
+    _tabController.addListener(() {
+      if (_tabController.index == 3 && _meals.isEmpty && !_loadingMeals) {
+        _fetchMeals();
+      }
+    });
   }
 
   @override
@@ -118,16 +165,16 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       );
       if (!mounted) return;
       if (summary != null) {
-        if (widget.weight == null && summary.weight != null) {
+        if (summary.weight != null) {
           _bodyMetrics['weight'] = summary.weight!;
         }
-        if (widget.height == null && summary.height != null) {
+        if (summary.height != null) {
           _bodyMetrics['height'] = summary.height!;
         }
-        _bodyMetrics['bmi'] = _bmi(
-          _bodyMetrics['weight'],
-          _bodyMetrics['height'],
-        );
+        _caloriesBurned = summary.caloriesBurned;
+        final bw = _bodyMetrics['weight'];
+        final bh = _bodyMetrics['height'];
+        _bodyMetrics['bmi'] = (bw != null && bh != null) ? _bmi(bw, bh) : null;
         if (summary.notes != null && summary.notes!.trim().isNotEmpty) {
           if (!_notes.contains(summary.notes!.trim())) {
             _notes.add(summary.notes!.trim());
@@ -146,6 +193,27 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       }
     } finally {
       if (mounted) setState(() => _loadingSummary = false);
+    }
+  }
+
+  Future<void> _fetchMeals() async {
+    setState(() {
+      _loadingMeals = true;
+      _mealsError = null;
+    });
+    try {
+      final list = await _mealsRepo.getMealsForDay(date: widget.selectedDate);
+      if (!mounted) return;
+      setState(() => _meals = list);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _mealsError = e.toString());
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi tải bữa ăn: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMeals = false);
     }
   }
 
@@ -205,10 +273,11 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
 
   Widget _dayBadge(dynamic dnRaw) {
     int? dn;
-    if (dnRaw is int)
+    if (dnRaw is int) {
       dn = dnRaw;
-    else if (dnRaw is String)
+    } else if (dnRaw is String) {
       dn = int.tryParse(dnRaw);
+    }
     if (dn == null) return const SizedBox.shrink();
     return Container(
       width: 40,
@@ -236,7 +305,8 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(8),
-        color: Colors.redAccent.withOpacity(.15),
+  // Semi-transparent background (approx 15% alpha)
+  color: Colors.redAccent.withAlpha(38),
         child: Text(
           'Lỗi: $_summaryError',
           style: const TextStyle(color: Colors.redAccent, fontSize: 12),
@@ -259,103 +329,7 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     ),
   );
 
-  // Compact notes area with expandable long text
-  Widget _buildNotesArea() {
-    final hasNote = _notes.isNotEmpty && _notes.first.trim().isNotEmpty;
-    final noteText = hasNote ? _notes.first : 'Chưa có ghi chú cho ngày này';
-    final textStyle = TextStyle(
-      color: hasNote ? Colors.white : Colors.white54,
-      fontSize: 14,
-      height: 1.35,
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isLong =
-            hasNote &&
-            _isLongNote(noteText, textStyle, constraints.maxWidth, 5);
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                child: Text(
-                  noteText,
-                  style: textStyle,
-                  maxLines: !_noteExpanded && isLong ? 5 : null,
-                  overflow: !_noteExpanded && isLong
-                      ? TextOverflow.fade
-                      : TextOverflow.visible,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (isLong)
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _noteExpanded = !_noteExpanded),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          _noteExpanded ? 'Thu gọn' : 'Xem thêm',
-                          style: const TextStyle(
-                            color: Color(0xFF8854FF),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox(height: 24),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      color: Color(0xFF8854FF),
-                      size: 22,
-                    ),
-                    tooltip: 'Chỉnh sửa ghi chú',
-                    onPressed: _showEditNoteModal,
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  bool _isLongNote(
-    String text,
-    TextStyle style,
-    double maxWidth,
-    int maxLines,
-  ) {
-    if (text.isEmpty) return false;
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: maxLines,
-      ellipsis: '…',
-    );
-    tp.layout(maxWidth: maxWidth);
-    return tp.didExceedMaxLines;
-  }
+  // Notes UI extracted to NotesTab widget
 
   Future<void> _showEditNoteModal() async {
     // Pre-fill with existing first note (or empty)
@@ -436,8 +410,14 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
   }
 
   Future<void> _showEditBodyMetrics() async {
-    _bodyWeightController.text = _bodyMetrics['weight'].toStringAsFixed(1);
-    _bodyHeightController.text = _bodyMetrics['height'].toStringAsFixed(1);
+    final w = _bodyMetrics['weight'];
+    final h = _bodyMetrics['height'];
+    _bodyWeightController.text = w == null
+        ? ''
+        : (w as double).toStringAsFixed(1);
+    _bodyHeightController.text = h == null
+        ? ''
+        : (h as double).toStringAsFixed(1);
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -500,14 +480,20 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
                     onPressed: () {
                       final w = double.tryParse(_bodyWeightController.text);
                       final h = double.tryParse(_bodyHeightController.text);
-                      if (w != null && h != null && w > 0 && h > 0) {
-                        setState(() {
-                          _bodyMetrics['weight'] = w;
-                          _bodyMetrics['height'] = h;
-                          _bodyMetrics['bmi'] = _bmi(w, h);
-                        });
-                        Navigator.pop(ctx);
-                      }
+                      setState(() {
+                        _bodyMetrics['weight'] = (w != null && w > 0)
+                            ? w
+                            : null;
+                        _bodyMetrics['height'] = (h != null && h > 0)
+                            ? h
+                            : null;
+                        final nw = _bodyMetrics['weight'];
+                        final nh = _bodyMetrics['height'];
+                        _bodyMetrics['bmi'] = (nw != null && nh != null)
+                            ? _bmi(nw as double, nh as double)
+                            : null;
+                      });
+                      Navigator.pop(ctx);
                     },
                   ),
                 ),
@@ -579,17 +565,64 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
                   child: AppButton.primary(
                     label: 'Save',
                     size: AppButtonSize.small,
-                    onPressed: () {
+                    onPressed: () async {
                       final name = _foodNameController.text.trim();
                       final cal = double.tryParse(_foodCaloriesController.text);
-                      if (name.isNotEmpty && cal != null && cal > 0) {
-                        setState(
-                          () => (meal['foods'] as List).add({
-                            'name': name,
-                            'calories': cal.toInt(),
-                          }),
+                      if (name.isEmpty || cal == null || cal <= 0) return;
+                      Navigator.pop(ctx);
+                      // Determine meal type from label
+                      final label = meal['meal'] as String? ?? '';
+                      MealType type;
+                      switch (label.toLowerCase()) {
+                        case 'breakfast':
+                          type = MealType.breakfast;
+                          break;
+                        case 'lunch':
+                          type = MealType.lunch;
+                          break;
+                        case 'dinner':
+                          type = MealType.dinner;
+                          break;
+                        default:
+                          type = MealType.snack;
+                      }
+                      // Optimistic local add placeholder
+                      final temp = Meal(
+                        id: 'temp_${DateTime.now().microsecondsSinceEpoch}',
+                        name: name,
+                        calories: cal.toInt(),
+                        protein: null,
+                        carbs: null,
+                        fat: null,
+                        type: type,
+                        eatenAt: widget.selectedDate,
+                      );
+                      setState(() => _meals = [..._meals, temp]);
+                      final created = await _mealsRepo.addMeal(
+                        date: widget.selectedDate,
+                        name: name,
+                        calories: cal.toInt(),
+                        type: type,
+                      );
+                      if (!mounted) return;
+                      if (created != null) {
+                        setState(() {
+                          _meals = [
+                            for (final m in _meals)
+                              if (m.id == temp.id) created else m,
+                          ];
+                        });
+                      } else {
+                        // rollback
+                        setState(() {
+                          _meals = [
+                            for (final m in _meals)
+                              if (m.id != temp.id) m,
+                          ];
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Thêm bữa ăn thất bại')),
                         );
-                        Navigator.pop(ctx);
                       }
                     },
                   ),
@@ -605,50 +638,22 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
-  Widget _metric(String label, String value) => Expanded(
-    child: Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
-      ],
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
-    final caloriesIntake = _nutritionData.fold<int>(
-      0,
-      (s, meal) =>
-          s +
-          (meal['foods'] as List<Map<String, dynamic>>).fold<int>(
-            0,
-            (ss, f) => ss + (f['calories'] as int),
-          ),
-    );
-    final caloriesBurned = widget.workouts.fold<int>(
-      0,
-      (s, w) =>
-          s +
-          (((w['sets'] ?? 0) as int) *
-                  ((w['reps'] ?? 0) as int) *
-                  ((w['weight'] ?? 0.0) as double) *
-                  0.1)
-              .toInt(),
-    );
-    final ratio = caloriesIntake > 0
-        ? (caloriesBurned / caloriesIntake).clamp(0.0, 1.0)
-        : 0.0;
+    final caloriesIntake = _meals.fold<int>(0, (s, m) => s + m.calories);
+    final caloriesBurned =
+        _caloriesBurned ??
+        widget.workouts.fold<int>(
+          0,
+          (s, w) =>
+              s +
+              (((w['sets'] ?? 0) as int) *
+                      ((w['reps'] ?? 0) as int) *
+                      ((w['weight'] ?? 0.0) as double) *
+                      0.1)
+                  .toInt(),
+        );
+    // ratio now computed internally by NutritionTab
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -678,315 +683,120 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Notes Tab (Vietnamese UI - single column, edit only)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Ghi chú',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                NotesTab(
+                  note: _notes.isNotEmpty ? _notes.first : null,
+                  onEdit: _showEditNoteModal,
+                ),
+                PlansTab(
+                  plans: _planData,
+                  planTypeColor: _planTypeColor,
+                  dayBadgeBuilder: _dayBadge,
+                  onOpenPlan: (plan) => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkoutLogScreen(
+                        planName: plan['name'],
+                        exercises: List<Map<String, dynamic>>.from(
+                          plan['exercises'],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildNotesArea(),
-                    ],
+                    ),
                   ),
                 ),
-                // Plans Tab
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _planData.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No plans available',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _planData.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (ctx, i) {
-                            final plan = _planData[i];
-                            final type = plan['planType']?.toString();
-                            return PlanCard(
-                              plan: plan,
-                              planTypeColor: _planTypeColor(type),
-                              dayBadge: _dayBadge(plan['dayNumber']),
-                              planTypeChip: type == null
-                                  ? const SizedBox.shrink()
-                                  : PlanTypeBadge(
-                                      planType: type.toUpperCase(),
-                                      dense: true,
-                                      fontSize: 11,
-                                    ),
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => WorkoutLogScreen(
-                                    planName: plan['name'],
-                                    exercises: List<Map<String, dynamic>>.from(
-                                      plan['exercises'],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                BodyTab(
+                  weight: _bodyMetrics['weight'] is double
+                      ? _bodyMetrics['weight'] as double
+                      : null,
+                  height: _bodyMetrics['height'] is double
+                      ? _bodyMetrics['height'] as double
+                      : null,
+                  bmi: _bodyMetrics['bmi'] is double
+                      ? _bodyMetrics['bmi'] as double
+                      : null,
+                  onEdit: _showEditBodyMetrics,
+                ),
+                Column(
+                  children: [
+                    if (_loadingMeals)
+                      const LinearProgressIndicator(
+                        minHeight: 2,
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation(Color(0xFF8854FF)),
+                      )
+                    else if (_mealsError != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                ),
-                // Body Tab
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Chỉ số cơ thể',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                        color: Colors.redAccent.withAlpha(38),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.redAccent,
+                              size: 16,
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              color: Color(0xFF8854FF),
-                              size: 20,
-                            ),
-                            onPressed: _showEditBodyMetrics,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          _metric(
-                            'Weight',
-                            '${_bodyMetrics['weight'].toStringAsFixed(1)} kg',
-                          ),
-                          _metric(
-                            'Height',
-                            '${_bodyMetrics['height'].toStringAsFixed(1)} cm',
-                          ),
-                          _metric(
-                            'BMI',
-                            '${_bodyMetrics['bmi'].toStringAsFixed(2)}',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Nutrition Tab
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child:
-                      _nutritionData.every((m) => (m['foods'] as List).isEmpty)
-                      ? const Center(
-                          child: Text(
-                            'No nutrition data recorded for this date',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                        )
-                      : SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[900],
-                                  borderRadius: BorderRadius.circular(8),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '$_mealsError',
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 12,
                                 ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Calories Summary',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Intake 🍗 : $caloriesIntake kcal',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Burned 🔥: $caloriesBurned kcal',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    CircularPercentIndicator(
-                                      radius: 50,
-                                      lineWidth: 8,
-                                      percent: ratio,
-                                      center: Text(
-                                        '${(ratio * 100).toStringAsFixed(0)}%',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      progressColor: const Color(0xFF8854FF),
-                                      backgroundColor: Colors.grey[800]!,
-                                      circularStrokeCap:
-                                          CircularStrokeCap.round,
-                                    ),
-                                  ],
-                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 16),
-                              ..._nutritionData.map((meal) {
-                                final foods =
-                                    meal['foods'] as List<Map<String, dynamic>>;
-                                final total = foods.fold<int>(
-                                  0,
-                                  (s, f) => s + (f['calories'] as int),
-                                );
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[900],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            meal['meal'] as String? ?? '',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add,
-                                              color: Color(0xFF8854FF),
-                                              size: 20,
-                                            ),
-                                            onPressed: () => _showAddFood(meal),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      if (foods.isEmpty)
-                                        const Text(
-                                          'No foods added yet',
-                                          style: TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 14,
-                                          ),
-                                        )
-                                      else
-                                        ...foods.asMap().entries.map(
-                                          (e) => Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 6.0,
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        e.value['name'],
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        '${e.value['calories']} kcal',
-                                                        style: const TextStyle(
-                                                          color: Colors.white54,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    color: Colors.red,
-                                                    size: 20,
-                                                  ),
-                                                  onPressed: () => setState(
-                                                    () => foods.removeAt(e.key),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      const Divider(color: Colors.grey),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Items: ${foods.length}',
-                                            style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Total: $total kcal',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }),
+                            ),
+                            TextButton(
+                              onPressed: _fetchMeals,
+                              child: const Text(
+                                'Thử lại',
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: NutritionTab(
+                        meals: _nutritionData,
+                        totalIntake: caloriesIntake,
+                        totalBurned: caloriesBurned,
+                        onAddFood: _showAddFood,
+                        onRemoveFood: (meal, index) {
+                          final foods =
+                              meal['foods'] as List<Map<String, dynamic>>;
+                          if (index < 0 || index >= foods.length) return;
+                          final id = foods[index]['id']?.toString();
+                          if (id == null) return;
+                          final backup = _meals;
+                          setState(
+                            () => _meals = [
+                              for (final m in _meals)
+                                if (m.id != id) m,
                             ],
-                          ),
-                        ),
+                          );
+                          final messenger = ScaffoldMessenger.of(context);
+                          _mealsRepo
+                              .deleteMeal(date: widget.selectedDate, mealId: id)
+                              .then((ok) {
+                                if (!ok) {
+                                  if (!mounted) return;
+                                  setState(() => _meals = backup);
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Xóa bữa ăn thất bại'),
+                                    ),
+                                  );
+                                }
+                              });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
