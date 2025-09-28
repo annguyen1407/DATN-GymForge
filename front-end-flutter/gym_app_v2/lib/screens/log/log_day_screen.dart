@@ -305,8 +305,8 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(8),
-  // Semi-transparent background (approx 15% alpha)
-  color: Colors.redAccent.withAlpha(38),
+        // Semi-transparent background (approx 15% alpha)
+        color: Colors.redAccent.withAlpha(38),
         child: Text(
           'Lỗi: $_summaryError',
           style: const TextStyle(color: Colors.redAccent, fontSize: 12),

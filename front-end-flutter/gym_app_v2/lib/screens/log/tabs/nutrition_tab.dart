@@ -28,7 +28,7 @@ class _NutritionTabState extends State<NutritionTab> {
   @override
   void initState() {
     super.initState();
-    _expanded = { for (final m in widget.meals) (m['meal'] as String): true };
+    _expanded = {for (final m in widget.meals) (m['meal'] as String): true};
   }
 
   @override
@@ -178,15 +178,14 @@ class _MealCard extends StatelessWidget {
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
-            child: expanded ? const SizedBox(height: 12) : const SizedBox.shrink(),
+            child: expanded
+                ? const SizedBox(height: 12)
+                : const SizedBox.shrink(),
           ),
           if (expanded && foods.isEmpty)
             Text(
               'Chưa có món nào',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12.5,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12.5),
             )
           else if (expanded)
             ListView.separated(
@@ -199,7 +198,9 @@ class _MealCard extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(width: 8), // indent relative to meal header
+                      const SizedBox(
+                        width: 8,
+                      ), // indent relative to meal header
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,10 +448,7 @@ class _BurnBadge extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: Colors.white.withAlpha(40),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(40), width: 1),
         gradient: gradient,
         boxShadow: [
           BoxShadow(
@@ -464,7 +462,11 @@ class _BurnBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.local_fire_department, size: 16, color: Colors.white),
+          const Icon(
+            Icons.local_fire_department,
+            size: 16,
+            color: Colors.white,
+          ),
           const SizedBox(width: 4),
           Text(
             '$display% đốt',
