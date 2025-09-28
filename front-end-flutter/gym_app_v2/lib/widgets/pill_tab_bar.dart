@@ -23,18 +23,20 @@ class PillTabBar extends StatelessWidget implements PreferredSizeWidget {
     this.tabs,
     this.labels,
     this.horizontalPadding = const EdgeInsets.symmetric(horizontal: 16),
-    this.height = kTextTabBarHeight + 12,
+    this.height = kTextTabBarHeight + 20, // increase overall bar height
     this.isScrollable = false,
     this.indicatorColor = const Color(0xFF8854FF),
     this.indicatorOpacity = 0.18,
     this.borderRadius = 14,
     this.labelStyle = const TextStyle(
-      fontSize: 13,
+      fontSize: 14.5, // slightly larger
       fontWeight: FontWeight.w600,
+      letterSpacing: .2,
     ),
     this.unselectedLabelStyle = const TextStyle(
-      fontSize: 13,
+      fontSize: 14.5,
       fontWeight: FontWeight.w500,
+      letterSpacing: .1,
     ),
     this.labelColor = Colors.white,
     this.unselectedLabelColor = Colors.white60,
@@ -71,11 +73,11 @@ class PillTabBar extends StatelessWidget implements PreferredSizeWidget {
           dividerColor: Colors.transparent,
           indicator: BoxDecoration(
             color: indicatorColor.withValues(alpha: indicatorOpacity),
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: BorderRadius.circular(borderRadius + 4),
           ),
           indicatorPadding: const EdgeInsets.symmetric(
             horizontal: 4,
-            vertical: 6,
+            vertical: 4, // slightly tighter vertical to center text
           ),
           labelPadding: EdgeInsets.zero,
           tabs: _buildTabs(),
