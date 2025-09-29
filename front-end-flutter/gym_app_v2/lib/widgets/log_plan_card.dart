@@ -71,7 +71,7 @@ class _PlanCardState extends State<PlanCard>
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
-    final progress = (plan['progress'] as double).clamp(0.0, 1.0);
+    // progress no longer displayed (handled in detail screen)
     final exercisesCount = (plan['exercises'] as List).length;
     final dayNumber = plan['dayNumber'];
     final color = widget.planTypeColor;
@@ -191,57 +191,10 @@ class _PlanCardState extends State<PlanCard>
                               icon: Icons.fitness_center,
                               color: color.withValues(alpha: .85),
                             ),
-                            _SmallChip(
-                              label:
-                                  '${(progress * 100).toStringAsFixed(0)}% hoàn thành',
-                              icon: Icons.show_chart,
-                              color: color.withValues(alpha: .80),
-                            ),
+                            // Removed progress percentage chip
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        // Progress bar (similar style retained)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: SizedBox(
-                            height: 22,
-                            child: Stack(
-                              alignment: Alignment.centerLeft,
-                              children: [
-                                Container(color: Colors.grey[850]),
-                                FractionallySizedBox(
-                                  widthFactor: progress,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 620),
-                                    curve: Curves.easeOutCubic,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          color.withValues(alpha: .95),
-                                          color.withValues(alpha: .55),
-                                        ],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '${(progress * 100).toStringAsFixed(0)}%',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: .3,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        // Removed progress bar
                       ],
                     ),
                   ),
