@@ -244,8 +244,12 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       }();
       grouped[dayId]!.add({
         'id': item['id'],
-        'name': item['exerciseName'] ?? item['name'] ?? 'Bài tập',
+        'workoutExercise':
+            item['workoutExercise'], // Giữ nguyên object chứa exerciseId
         'progress': prog,
+        'totalTime': item['totalTime'], // Thêm totalTime từ log gốc
+        // Các trường cũ giữ lại để tương thích UI
+        'name': item['exerciseName'] ?? item['name'] ?? 'Bài tập',
         'description': '',
       });
     }
@@ -305,8 +309,8 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(8),
-  // Semi-transparent background (approx 15% alpha)
-  color: Colors.redAccent.withAlpha(38),
+        // Semi-transparent background (approx 15% alpha)
+        color: Colors.redAccent.withAlpha(38),
         child: Text(
           'Lỗi: $_summaryError',
           style: const TextStyle(color: Colors.redAccent, fontSize: 12),
