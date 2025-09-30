@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/exercise_hero_header.dart';
 import '../../models/exercise_model.dart';
+import '../../core/utils/text_normalizer.dart';
 
 /// New log exercise detail screen (lightweight):
 /// - Receives workoutExerciseLogId (id của bản ghi log bài tập)
@@ -73,8 +74,8 @@ class ExerciseLogDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (exerciseModel?.instruction != null &&
-                              exerciseModel!.instruction!.isNotEmpty) ...[
+                          if (exerciseModel?.description != null &&
+                              exerciseModel!.description!.isNotEmpty) ...[
                             Text(
                               'Giới thiệu:',
                               style: const TextStyle(
@@ -85,7 +86,7 @@ class ExerciseLogDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              exerciseModel!.instruction!,
+                              exerciseModel!.description!.normalizedMultiline(),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
@@ -96,10 +97,10 @@ class ExerciseLogDetailScreen extends StatelessWidget {
                             ),
                           ],
 
-                          if (exerciseModel?.description != null &&
-                              exerciseModel!.description!.isNotEmpty) ...[
+                          if (exerciseModel?.instruction != null &&
+                              exerciseModel!.instruction!.isNotEmpty) ...[
                             if (exerciseModel?.instruction != null &&
-                                exerciseModel!.instruction!.isNotEmpty)
+                                exerciseModel!.description!.isNotEmpty)
                               const SizedBox(height: 12),
                             Text(
                               'Hướng dẫn:',
@@ -111,7 +112,7 @@ class ExerciseLogDetailScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              exerciseModel!.description!,
+                              exerciseModel!.instruction!.normalizedMultiline(),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
@@ -223,8 +224,8 @@ class ExerciseLogDetailScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            if (exerciseModel?.instruction != null &&
-                exerciseModel!.instruction!.isNotEmpty) ...[
+            if (exerciseModel?.description != null &&
+                exerciseModel!.description!.isNotEmpty) ...[
               const Text(
                 'Giới thiệu',
                 style: TextStyle(
@@ -235,7 +236,7 @@ class ExerciseLogDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                exerciseModel!.instruction!,
+                exerciseModel!.description!.normalizedMultiline(),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,
@@ -244,8 +245,8 @@ class ExerciseLogDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
             ],
-            if (exerciseModel?.description != null &&
-                exerciseModel!.description!.isNotEmpty) ...[
+            if (exerciseModel?.instruction != null &&
+                exerciseModel!.instruction!.isNotEmpty) ...[
               const Text(
                 'Hướng dẫn',
                 style: TextStyle(
@@ -256,7 +257,7 @@ class ExerciseLogDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                exerciseModel!.description!,
+                exerciseModel!.instruction!.normalizedMultiline(),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,
