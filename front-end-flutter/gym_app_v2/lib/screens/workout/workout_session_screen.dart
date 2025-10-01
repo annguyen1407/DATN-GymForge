@@ -1351,7 +1351,11 @@ class _CompactNumberFieldState extends State<_CompactNumberField> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Row(
             children: [
-              _StepperButton(onTap: _dec, icon: Icons.remove, enabled: _value > widget.min),
+              _StepperButton(
+                onTap: _dec,
+                icon: Icons.remove,
+                enabled: _value > widget.min,
+              ),
               Expanded(
                 child: Center(
                   child: Text(
@@ -1375,8 +1379,8 @@ class _CompactNumberFieldState extends State<_CompactNumberField> {
 }
 
 class _StepperButton extends StatelessWidget {
-  final VoidCallback onTap; 
-  final IconData icon; 
+  final VoidCallback onTap;
+  final IconData icon;
   final bool enabled;
   const _StepperButton({
     required this.onTap,
