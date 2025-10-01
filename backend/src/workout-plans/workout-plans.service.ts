@@ -11,6 +11,17 @@ import { UpdateWorkoutDayDto } from './dto/update-workout-day.dto';
 export class WorkoutPlansService {
   constructor(private prisma: PrismaService) {}
 
+  private async isUserPremium(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return false;
+    if (user.role === 'ADMIN' || user.role === 'COACH') return true;
+    if ((user as any).premiumExpiresAt && (user as any).premiumExpiresAt > new Date()) return true;
+    const active = await this.prisma.userSubscription.findFirst({
+      where: { userId, status: 'ACTIVE', endAt: { gt: new Date() } },
+      orderBy: { endAt: 'desc' },
+    });
+    return !!active;
+  }
 
   private async assertPlanVisibleToUser(planId: string, currentUserId?: string) {
     const plan: any = await this.prisma.workoutPlan.findUnique({ where: { id: planId } });
@@ -89,6 +100,7 @@ export class WorkoutPlansService {
         status: createWorkoutPlanDto.status,
         days: createWorkoutPlanDto.days,
         isTemplate: createWorkoutPlanDto.isTemplate ?? false,
+        isPremiumOnly: (createWorkoutPlanDto as any).isPremiumOnly ?? false,
         createdByCoachId,
         trainingRequestId,
       } as any,
@@ -129,10 +141,13 @@ export class WorkoutPlansService {
     });
   }
 
-  async findTemplates(planType?: string, _currentUserId?: string): Promise<WorkoutPlan[]> {
+  async findTemplates(planType?: string, premiumOnly?: string, _currentUserId?: string): Promise<WorkoutPlan[]> {
     const where: any = { isTemplate: true };
     if (planType) {
       where.planType = planType;
+    }
+    if (typeof premiumOnly !== 'undefined') {
+      where.isPremiumOnly = premiumOnly === 'true';
     }
 
     return this.prisma.workoutPlan.findMany({
@@ -199,6 +214,22 @@ export class WorkoutPlansService {
       },
     });
     if (!workoutPlan) throw new NotFoundException('Workout plan not found');
+
+    // Strict gating: block viewing premium-only templates for non-premium non-staff
+    if ((workoutPlan as any).isTemplate && (workoutPlan as any).isPremiumOnly) {
+      if (!currentUserId) {
+        throw new ForbiddenException('Premium subscription is required to view this template');
+      }
+      const viewer = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+      const isStaff = !!viewer?.role && ['ADMIN', 'COACH'].includes(viewer.role);
+      if (!isStaff) {
+        const allowed = await this.isUserPremium(currentUserId);
+        if (!allowed) {
+          throw new ForbiddenException('Premium subscription is required to view this template');
+        }
+      }
+    }
+
     return workoutPlan;
   }
 
@@ -246,6 +277,17 @@ export class WorkoutPlansService {
         throw new ForbiddenException('You can only create workout plans for yourself');
       }
     }
+
+    // Premium gating per template flag: only gate if template requires premium
+    if (template.isPremiumOnly) {
+      if (!targetUser.role || !['ADMIN', 'COACH'].includes(targetUser.role)) {
+        const allowed = await this.isUserPremium(createData.userId);
+        if (!allowed) {
+          throw new ForbiddenException('Premium subscription is required to use this template. Please subscribe.');
+        }
+      }
+    }
+
 
     // Create new workout plan from template
     const newWorkoutPlan = await this.prisma.workoutPlan.create({

@@ -54,8 +54,13 @@ export class WorkoutPlansController {
   @ApiOperation({ summary: 'Get all workout plan templates' })
   @ApiResponse({ status: 200, description: 'List of all workout plan templates' })
   @ApiQuery({ name: 'planType', required: false, description: 'Filter templates by plan type' })
-  findTemplates(@Query('planType') planType?: string, @CurrentUser() user?: any) {
-    return this.workoutPlansService.findTemplates(planType, user?.id);
+  @ApiQuery({ name: 'premiumOnly', required: false, description: 'Filter by premium-only flag (true/false)' })
+  findTemplates(
+    @Query('planType') planType?: string,
+    @Query('premiumOnly') premiumOnly?: string,
+    @CurrentUser() user?: any,
+  ) {
+    return this.workoutPlansService.findTemplates(planType, premiumOnly, user?.id);
   }
 
   @Get('templates/my')

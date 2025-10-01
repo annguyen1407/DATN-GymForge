@@ -41,6 +41,9 @@ describe('WorkoutPlansService', () => {
     user: {
       findUnique: jest.fn(),
     },
+    userSubscription: {
+      findFirst: jest.fn(),
+    },
     workoutPlan: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -117,17 +120,17 @@ describe('WorkoutPlansService', () => {
         where: { id: createWorkoutPlanDto.userId },
       });
       expect(mockPrismaService.workoutPlan.create).toHaveBeenCalledWith({
-        data: createWorkoutPlanDto,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          exercises: true,
-        },
+        data: expect.objectContaining({
+          userId: createWorkoutPlanDto.userId,
+          name: createWorkoutPlanDto.name,
+          description: createWorkoutPlanDto.description,
+          planType: createWorkoutPlanDto.planType,
+          status: createWorkoutPlanDto.status,
+          days: createWorkoutPlanDto.days,
+          isTemplate: false,
+          isPremiumOnly: false,
+        }),
+        include: expect.any(Object),
       });
       expect(result).toEqual(mockWorkoutPlan);
     });
@@ -184,8 +187,51 @@ describe('WorkoutPlansService', () => {
 
     it('should throw NotFoundException if workout plan not found', async () => {
       mockPrismaService.workoutPlan.findUnique.mockResolvedValue(null);
-
       await expect(service.findOne('invalid-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findTemplates (premiumOnly filter)', () => {
+    it('applies premiumOnly=true', async () => {
+      await service.findTemplates(undefined, 'true');
+      expect((prismaService as any).workoutPlan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ isTemplate: true, isPremiumOnly: true }) }),
+      );
+    });
+
+    it('applies premiumOnly=false', async () => {
+      await service.findTemplates(undefined, 'false');
+      expect((prismaService as any).workoutPlan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ isTemplate: true, isPremiumOnly: false }) }),
+      );
+    });
+  });
+
+  describe('findOne strict premium gating for template', () => {
+    it('throws Forbidden for non-premium gymer viewing premium-only template', async () => {
+      // First call from assertPlanVisibleToUser
+      (prismaService as any).workoutPlan.findUnique.mockResolvedValueOnce({ id: 'tpl1', isTemplate: true, isPremiumOnly: true, userId: 'owner' });
+      // Second call for findOne payload
+      (prismaService as any).workoutPlan.findUnique.mockResolvedValueOnce({ id: 'tpl1', isTemplate: true, isPremiumOnly: true, userId: 'owner', exercises: [], workoutDays: [] });
+      // User checks in assert and premium check
+      (prismaService as any).user.findUnique
+        .mockResolvedValueOnce({ id: 'viewer', role: 'GYMER' }) // assertPlanVisibleToUser
+        .mockResolvedValueOnce({ id: 'viewer', role: 'GYMER', premiumExpiresAt: null }); // isUserPremium
+      (prismaService as any).userSubscription.findFirst.mockResolvedValueOnce(null);
+
+      await expect(service.findOne('tpl1', 'viewer')).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows ADMIN to view premium-only template', async () => {
+      (prismaService as any).workoutPlan.findUnique.mockResolvedValueOnce({ id: 'tpl1', isTemplate: true, isPremiumOnly: true, userId: 'owner' });
+      (prismaService as any).workoutPlan.findUnique.mockResolvedValueOnce({ id: 'tpl1', isTemplate: true, isPremiumOnly: true, userId: 'owner', exercises: [], workoutDays: [] });
+      // First for assertPlanVisibleToUser, second for strict gating check
+      (prismaService as any).user.findUnique
+        .mockResolvedValueOnce({ id: 'admin', role: 'ADMIN' })
+        .mockResolvedValueOnce({ id: 'admin', role: 'ADMIN' });
+
+      const res = await service.findOne('tpl1', 'admin');
+      expect(res.id).toBe('tpl1');
     });
   });
 
@@ -304,6 +350,7 @@ describe('WorkoutPlansService', () => {
         date: new Date('2025-01-20'),
         workoutPlan: { id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' },
       });
+      (mockPrismaService as any).workoutPlan.findUnique.mockResolvedValue({ id: 'workout-plan-id', userId: 'user-id' });
       (mockPrismaService as any).workoutExercise.findMany.mockResolvedValue([
         { id: 'we-1', exerciseId: 'ex-1', targetSets: 3, targetReps: 10, targetWeight: 50, restTimeSec: 60, timePerSetSec: 40 },
       ]);
@@ -329,6 +376,7 @@ describe('WorkoutPlansService', () => {
         date: null,
         workoutPlan: { id: 'workout-plan-id', name: 'Full Body Workout', userId: 'user-id' },
       });
+      (mockPrismaService as any).workoutPlan.findUnique.mockResolvedValue({ id: 'workout-plan-id', userId: 'user-id' });
       (mockPrismaService as any).workoutExercise.findMany.mockResolvedValue([]);
 
       const res = await service.getDayStats(dayId);

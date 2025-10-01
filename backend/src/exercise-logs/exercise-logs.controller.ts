@@ -13,8 +13,9 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ExerciseLogsService } from './exercise-logs.service';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
-import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
 import { QuickLogExerciseDto } from './dto/quick-log-exercise.dto';
+import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
+
 import {
   DailyExerciseStatsDto,
   WeeklyExerciseStatsDto,
@@ -27,6 +28,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { UpdateDailyLogDto } from './dto/update-daily-log.dto';
 
 @ApiTags('exercise-logs')
 @Controller('exercise-logs')
@@ -110,7 +112,7 @@ export class ExerciseLogsController {
   ): Promise<DailyExerciseStatsDto> {
     return this.exerciseLogsService.getDailyStats(userId, date);
   }
-  
+
   @Get('stats/weekly/my/:weekStart')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
@@ -247,36 +249,102 @@ export class ExerciseLogsController {
     return this.exerciseLogsService.getExerciseStreaks(userId);
   }
 
+
+  // Get a WorkoutExerciseLog by ID
+  // @Get('workout-exercise-logs/:id')
+  // @UseGuards(RolesGuard)
+  // @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
+  // @ApiOperation({ summary: 'Get a workout exercise log entry by ID' })
+  // @ApiResponse({ status: 200, description: 'Workout exercise log details' })
+  // findWorkoutExerciseLog(@Param('id', ParseUUIDPipe) id: string) {
+  //   return this.exerciseLogsService.findWorkoutExerciseLogById(id);
+  // }
+
+  // List all set logs for a WorkoutExerciseLog
+  @Get('workout-exercise-logs/:id/sets')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
+  @ApiOperation({ summary: 'List all set logs for a workout exercise log entry' })
+  @ApiResponse({ status: 200, description: 'List of sets for the workout exercise log' })
+  listSetsForWorkoutExerciseLog(@Param('id', ParseUUIDPipe) id: string) {
+    return this.exerciseLogsService.listSetsByWorkoutExerciseLog(id);
+  }
+
+  // Daily Log CRUD for current user by date
+  @Post('logs/my/:date')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Create or update (upsert) daily log for current user' })
+  upsertMyDailyLog(
+    @CurrentUser() user: any,
+    @Param('date') date: string,
+    @Body() dto: UpdateDailyLogDto,
+  ) {
+    return this.exerciseLogsService.upsertDailyLog(user.id, date, dto);
+  }
+
+  @Get('logs/my/:date')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Get daily log for current user by date' })
+  getMyDailyLog(@CurrentUser() user: any, @Param('date') date: string) {
+    return this.exerciseLogsService.getDailyLog(user.id, date);
+  }
+
+  @Patch('logs/my/:date')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Update daily log for current user' })
+  updateMyDailyLog(
+    @CurrentUser() user: any,
+    @Param('date') date: string,
+    @Body() dto: UpdateDailyLogDto,
+  ) {
+    return this.exerciseLogsService.updateDailyLog(user.id, date, dto);
+  }
+
+  @Delete('logs/my/:date')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.GYMER, UserRole.COACH)
+  @ApiOperation({ summary: 'Delete daily log for current user' })
+  deleteMyDailyLog(@CurrentUser() user: any, @Param('date') date: string) {
+    return this.exerciseLogsService.deleteDailyLog(user.id, date);
+  }
+
+  // Backward-compatible: treat exercise-logs/:id as WorkoutExerciseLog by ID
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get an exercise log by ID' })
-  @ApiResponse({ status: 200, description: 'Exercise log details' })
-  @ApiResponse({ status: 404, description: 'Exercise log not found' })
+  @ApiOperation({ summary: 'Get a workout exercise log by ID' })
+  @ApiResponse({ status: 200, description: 'Workout exercise log details' })
+  @ApiResponse({ status: 404, description: 'Workout exercise log not found' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.exerciseLogsService.findExerciseLogById(id);
+    return this.exerciseLogsService.findWorkoutExerciseLogById(id);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH)
-  @ApiOperation({ summary: 'Update an exercise log' })
-  @ApiResponse({ status: 200, description: 'Exercise log updated successfully' })
-  @ApiResponse({ status: 404, description: 'Exercise log not found' })
+  @ApiOperation({ summary: 'Update a workout exercise log (and its sets)' })
+  @ApiResponse({ status: 200, description: 'Workout exercise log updated successfully' })
+  @ApiResponse({ status: 404, description: 'Workout exercise log not found' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateExerciseLogDto: UpdateExerciseLogDto,
+    @Body() dto: UpdateExerciseLogDto,
   ) {
-    return this.exerciseLogsService.updateExerciseLog(id, updateExerciseLogDto);
+    return this.exerciseLogsService.updateWorkoutExerciseLog(id, dto);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.GYMER, UserRole.COACH, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete an exercise log' })
-  @ApiResponse({ status: 200, description: 'Exercise log deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Exercise log not found' })
+  @ApiOperation({ summary: 'Delete a workout exercise log by ID' })
+  @ApiResponse({ status: 200, description: 'Workout exercise log deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Workout exercise log not found' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.exerciseLogsService.deleteExerciseLog(id);
+    return this.exerciseLogsService.deleteWorkoutExerciseLog(id);
   }
+
+
+
 }

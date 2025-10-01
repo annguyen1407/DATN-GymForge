@@ -20,6 +20,8 @@ import { MealsModule } from './meals/meals.module';
 import { AdminConfigModule } from './admin-config/admin-config.module';
 import { SalariesModule } from './salaries/salaries.module';
 
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -41,6 +43,8 @@ import { SalariesModule } from './salaries/salaries.module';
     UserProfileModule,
     ExerciseLogsModule,
     MealsModule,
+    SubscriptionsModule,
+
     AdminConfigModule,
     SalariesModule,
   ],

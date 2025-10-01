@@ -8,44 +8,28 @@ describe('ExerciseLogsService', () => {
   let prismaService: PrismaService;
 
   const mockPrismaService = {
-    user: {
-      findUnique: jest.fn(),
-    },
-    exercise: {
-      findUnique: jest.fn(),
-    },
-    workoutPlan: {
-      findUnique: jest.fn(),
-    },
+    user: { findUnique: jest.fn() },
+    exercise: { findUnique: jest.fn() },
+    workoutPlan: { findUnique: jest.fn() },
     log: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
-    exerciseLog: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      delete: jest.fn(),
-    },
-    workoutExercise: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-    },
-    workoutDay: {
-      update: jest.fn(),
-    },
-    setsLog: {
-      createMany: jest.fn(),
-      deleteMany: jest.fn(),
-      findMany: jest.fn(),
-    },
+    workoutExercise: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    workoutDay: { update: jest.fn() },
+    setsLog: { createMany: jest.fn(), deleteMany: jest.fn(), findMany: jest.fn() },
     workoutExerciseLog: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      groupBy: jest.fn(),
     },
   };
+
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -89,20 +73,15 @@ describe('ExerciseLogsService', () => {
 
     it('should create exercise log successfully', async () => {
       const mockUser = { id: 'user-id', name: 'Test User' };
-      const mockExercise = { id: 'exercise-id', name: 'Push-ups', met: 3.5 };
       const mockWorkoutExercise = { id: 'we-id' };
-      const mockLog = { id: 'log-id', userId: 'user-id', dateLogged: new Date('2024-01-15') };
-      const mockExerciseLog = { id: 'exercise-log-id', workoutLogId: 'log-id' };
+      const mockLog = { id: 'log-id', userId: 'user-id', dateLogged: new Date('2024-01-15'), totalWorkoutTime: 0 };
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.workoutExercise.findUnique.mockResolvedValue(mockWorkoutExercise);
       mockPrismaService.log.findFirst.mockResolvedValue(null);
       mockPrismaService.log.create.mockResolvedValue(mockLog);
-      mockPrismaService.exerciseLog.create.mockResolvedValue(mockExerciseLog);
-      mockPrismaService.exerciseLog.findUnique.mockResolvedValue({
-        ...mockExerciseLog,
-        setsLog: [],
-      });
+      mockPrismaService.workoutExerciseLog.create.mockResolvedValue({ id: 'wel-id', logId: mockLog.id });
+      mockPrismaService.setsLog.createMany.mockResolvedValue({} as any);
       mockPrismaService.workoutExercise.findMany.mockResolvedValue([]);
       mockPrismaService.workoutExerciseLog.findMany.mockResolvedValue([]);
 
@@ -120,7 +99,7 @@ describe('ExerciseLogsService', () => {
 
       expect(result).toBeDefined();
       expect(mockPrismaService.log.create).toHaveBeenCalled();
-      expect(mockPrismaService.exerciseLog.create).toHaveBeenCalled();
+      expect(mockPrismaService.workoutExerciseLog.create).toHaveBeenCalled();
     });
   });
 
@@ -162,8 +141,7 @@ describe('ExerciseLogsService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue({ id: 'u1' });
       mockPrismaService.workoutExercise.findUnique.mockResolvedValue({ id: 'we1' });
       mockPrismaService.log.findFirst.mockResolvedValue({ id: 'log-1', totalWorkoutTime: 120, caloriesBurned: 0 });
-      mockPrismaService.exerciseLog.create.mockResolvedValue({ id: 'elog-1', workoutLogId: 'log-1' });
-      mockPrismaService.exerciseLog.findUnique.mockResolvedValue({ id: 'elog-1', setsLog: [] });
+      mockPrismaService.workoutExerciseLog.create.mockResolvedValue({ id: 'wel-1', logId: 'log-1' });
 
       await service.createExerciseLog({
         userId: 'u1', workoutExerciseId: 'we1', date: '2025-01-10',
@@ -176,21 +154,18 @@ describe('ExerciseLogsService', () => {
       expect(mockPrismaService.log.update).toHaveBeenCalledWith({ where: { id: 'log-1' }, data: { totalWorkoutTime: 210 } });
     });
 
-    it('updateExerciseLog recalculates totalWorkoutTime from all sets', async () => {
-      // First fetch exists
-      mockPrismaService.exerciseLog.findUnique
-        .mockResolvedValueOnce({ id: 'elog-1', setsLog: [] }) // from findExerciseLogById
-        .mockResolvedValueOnce({ workoutLogId: 'log-1' });     // for parent lookup
-
+    it('updateWorkoutExerciseLog recalculates totalWorkoutTime from all WEL totalTime', async () => {
+      mockPrismaService.workoutExerciseLog.findUnique.mockResolvedValue({ id: 'wel-1', logId: 'log-1' });
       mockPrismaService.setsLog.deleteMany.mockResolvedValue({} as any);
       mockPrismaService.setsLog.createMany.mockResolvedValue({} as any);
-
-      mockPrismaService.exerciseLog.findMany.mockResolvedValue([
-        { setsLog: [{ times: 30 }, { times: 60 }] },
-        { setsLog: [{ times: 120 }] },
+      mockPrismaService.workoutExerciseLog.update.mockResolvedValue({ id: 'wel-1', logId: 'log-1', totalTime: 10 });
+      mockPrismaService.workoutExerciseLog.findMany.mockResolvedValue([
+        { id: 'wel-1', logId: 'log-1', totalTime: 30 },
+        { id: 'wel-2', logId: 'log-1', totalTime: 60 },
+        { id: 'wel-3', logId: 'log-1', totalTime: 120 },
       ] as any);
 
-      await service.updateExerciseLog('elog-1', { sets: [{ times: 10 }] } as any);
+      await service.updateWorkoutExerciseLog('wel-1', { sets: [{ times: 10 }] } as any);
 
       expect(mockPrismaService.log.update).toHaveBeenCalledWith({ where: { id: 'log-1' }, data: { totalWorkoutTime: 210 } });
     });
@@ -214,7 +189,6 @@ describe('ExerciseLogsService', () => {
         { id: 'l1', totalWorkoutTime: 3600, caloriesBurned: 0, workoutExerciseLogs: [] },
         { id: 'l2', totalWorkoutTime: 1800, caloriesBurned: 0, workoutExerciseLogs: [] },
       ] as any);
-      mockPrismaService.exerciseLog.findMany.mockResolvedValue([] as any);
       jest.spyOn(service, 'getWeeklyStats').mockResolvedValue({
         weekStart: '2025-01-01', weekEnd: '2025-01-07', totalWorkoutDays: 0, totalExercises: 0, totalCaloriesBurned: 0,
         totalWorkoutTime: 0, dailyStats: []

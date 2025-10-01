@@ -22,6 +22,11 @@ export class CoachesService {
       throw new ConflictException('User must have COACH role');
     }
 
+    // Require certification/proof
+    if (!createCoachDto.certification || !createCoachDto.certification.trim()) {
+      throw new ConflictException('Certification is required for coach registration');
+    }
+
     // Check if coach profile already exists
     const existingCoach = await this.prisma.coach.findUnique({
       where: { userId: createCoachDto.userId },
@@ -31,12 +36,33 @@ export class CoachesService {
       throw new ConflictException('Coach profile already exists for this user');
     }
 
-    return this.prisma.coach.create({
-      data: createCoachDto,
+    const coach = await this.prisma.coach.create({
+      data: { ...createCoachDto, status: 'PENDING' },
       include: {
         user: true,
       },
     });
+
+    // Do NOT grant premium yet; wait for admin approval
+    return coach;
+  }
+
+  async approve(id: string): Promise<Coach> {
+    const coach = await this.prisma.coach.findUnique({ where: { id }, include: { user: true } });
+    if (!coach) throw new NotFoundException('Coach not found');
+
+    const updated = await this.prisma.coach.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+      include: { user: true },
+    });
+
+    await this.prisma.user.update({
+      where: { id: updated.userId },
+      data: { premiumStatus: true, premiumExpiresAt: null },
+    });
+
+    return updated;
   }
 
   async findAll(): Promise<Coach[]> {

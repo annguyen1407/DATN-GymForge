@@ -90,26 +90,38 @@ enum FitnessGoal {
   ATHLETIC_PERFORMANCE
 }
 
+enum SalaryStatus {
+  DUE
+  PAID
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
 // === MODEL DEFINITIONS ===
 model User {
-  id             String       @id @default(uuid()) @db.Uuid
-  name           String?
-  email          String?      @unique
-  username       String?      @unique
-  password       String?
-  profilePicture String?
-  dateOfBirth    DateTime?    @db.Date
-  address        String?
-  role           UserRole?
-  phoneNumber    String?
-  premiumStatus  Boolean?     @default(false)
-  weight         Float?
-  height         Float?
-  biography      String?
-  goal           FitnessGoal?
-  oneRm          Float?       @map("1RM")
-  expType        String?
-  sex            Gender?
+  id               String       @id @default(uuid()) @db.Uuid
+  name             String?
+  email            String?      @unique
+  username         String?      @unique
+  password         String?
+  profilePicture   String?
+  dateOfBirth      DateTime?    @db.Date
+  address          String?
+  role             UserRole?
+  phoneNumber      String?
+  premiumStatus    Boolean?     @default(false)
+  premiumExpiresAt DateTime?
+  weight           Float?
+  height           Float?
+  biography        String?
+  goal             FitnessGoal?
+  oneRm            Float?       @map("1RM")
+  expType          String?
+  sex              Gender?
 
   // Email verification fields
   isEmailVerified             Boolean?  @default(false)
@@ -132,16 +144,17 @@ model User {
   updatedAt DateTime @updatedAt
 
   // relations
-  achievements  Achievement[]
-  payments      Payment[]
-  notifications Notification[]
-  messages      Message[]
-  logs          Log[]
-  workoutPlans  WorkoutPlan[]
-  exercises     Exercise[]
+  achievements   Achievement[]
+  payments       Payment[]
+  notifications  Notification[]
+  messages       Message[]
+  logs           Log[]
+  workoutPlans   WorkoutPlan[]
+  exercises      Exercise[]
+  subscriptions  UserSubscription[]
   // coach/gymer profiles
-  coachProfile  Coach?         @relation("UserCoach")
-  gymerProfile  Gymer?         @relation("UserGymer")
+  coachProfile   Coach?         @relation("UserCoach")
+  gymerProfile   Gymer?         @relation("UserGymer")
 
   // Indexes for performance optimization
   @@index([email])
@@ -150,6 +163,7 @@ model User {
   @@index([role])
   @@index([isDeleted, role])
   @@index([createdAt])
+  @@index([premiumStatus])
   @@map("users")
 }
 
@@ -339,6 +353,7 @@ model WorkoutPlan {
   status            PlanStatus? @default(ACTIVE)
   days              Int?
   isTemplate        Boolean?    @default(false)
+  isPremiumOnly     Boolean?    @default(false)
   // Attribution & training linkage
   createdByCoachId  String?     @db.Uuid
   trainingRequestId String?     @db.Uuid
@@ -351,6 +366,7 @@ model WorkoutPlan {
 
   @@index([userId])
   @@index([isTemplate])
+  @@index([isPremiumOnly])
   @@index([status])
   @@index([createdByCoachId])
   @@index([trainingRequestId])
@@ -505,6 +521,7 @@ model WorkoutExerciseLog {
 
   log             Log             @relation(fields: [logId], references: [id], onDelete: Cascade)
   workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  setsLogs        SetsLog[]
 
   @@index([workoutExerciseId])
   @@index([logId])
@@ -512,22 +529,7 @@ model WorkoutExerciseLog {
   @@map("workout_exercise_logs")
 }
 
-model ExerciseLog {
-  id           String @id @default(uuid()) @db.Uuid
-  workoutLogId String @db.Uuid
 
-  setsLog SetsLog[] @relation("ExerciseLogSets")
-
-  @@map("exercise_logs")
-}
-
-// === NEW ENUMS ===
-enum SalaryStatus {
-  DUE
-  PAID
-}
-
-// === NEW MODELS ===
 model TrainingPayment {
   id                String        @id @default(uuid()) @db.Uuid
   trainingRequestId String        @unique @db.Uuid
@@ -596,15 +598,71 @@ model AdminConfig {
 }
 
 model SetsLog {
-  id             String @id @default(uuid()) @db.Uuid
-  exerciseLogId  String @db.Uuid
-  setNumber      Int?
-  reps           Int?
-  times          Int?
-  weight         Float?
-  caloriesBurned Float? @map("calo_burned")
+  id                   String @id @default(uuid()) @db.Uuid
+  workoutExerciseLogId String @db.Uuid
+  setNumber            Int?
+  reps                 Int?
+  times                Int?
+  weight               Float?
+  caloriesBurned       Float? @map("calo_burned")
 
-  exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade, name: "ExerciseLogSets")
+  workoutExerciseLog WorkoutExerciseLog @relation(fields: [workoutExerciseLogId], references: [id], onDelete: Cascade)
 
+  @@index([workoutExerciseLogId])
   @@map("sets_logs")
+}
+
+// === SUBSCRIPTION ===
+
+model SubscriptionPlan {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  durationMonths  Int
+  price           Float
+  currency        String   @default("VND")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions   UserSubscription[]
+
+  @@index([isActive])
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id         String             @id @default(uuid()) @db.Uuid
+  userId     String             @db.Uuid
+  planId     String             @db.Uuid
+  startAt    DateTime           @default(now())
+  endAt      DateTime
+  status     SubscriptionStatus @default(ACTIVE)
+  autoRenew  Boolean?           @default(false)
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan       SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payment    SubscriptionPayment?
+
+  @@index([userId])
+  @@index([status])
+  @@index([endAt])
+  @@map("user_subscriptions")
+}
+
+model SubscriptionPayment {
+  id              String         @id @default(uuid()) @db.Uuid
+  subscriptionId  String         @unique @db.Uuid
+  payerUserId     String         @db.Uuid
+  amount          Float
+  method          PaymentMethod
+  status          PaymentStatus  @default(PENDING)
+  capturedAt      DateTime?
+  refundedAt      DateTime?
+  failureReason   String?
+
+  subscription    UserSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([payerUserId])
+  @@index([status])
+  @@map("subscription_payments")
 }
