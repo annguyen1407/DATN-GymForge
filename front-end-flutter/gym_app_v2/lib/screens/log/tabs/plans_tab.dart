@@ -43,6 +43,7 @@ class PlansTab extends StatelessWidget {
                           dense: true,
                           fontSize: 11,
                         ),
+                  showExerciseCount: false,
                   onTap: () => onOpenPlan(plan),
                 );
               },

@@ -10,6 +10,7 @@ class PlanCard extends StatefulWidget {
   final Widget dayBadge; // kept for backward compatibility (not rendered)
   final Widget planTypeChip; // Expected to be a PlanTypeBadge (dense)
   final int? appearIndex; // optional stagger index
+  final bool showExerciseCount; // toggle hiển thị số bài tập
 
   const PlanCard({
     super.key,
@@ -19,6 +20,7 @@ class PlanCard extends StatefulWidget {
     required this.dayBadge,
     required this.planTypeChip,
     this.appearIndex,
+    this.showExerciseCount = true,
   });
 
   @override
@@ -72,7 +74,7 @@ class _PlanCardState extends State<PlanCard>
   Widget build(BuildContext context) {
     final plan = widget.plan;
     // progress no longer displayed (handled in detail screen)
-    final exercisesCount = (plan['exercises'] as List).length;
+    final exercisesCount = (plan['exercises'] as List?)?.length ?? 0;
     final dayNumber = plan['dayNumber'];
     final color = widget.planTypeColor;
     // Use the provided planTypeChip directly (no override) to preserve unified label & style.
@@ -186,11 +188,12 @@ class _PlanCardState extends State<PlanCard>
                                 icon: Icons.today,
                                 color: color.withValues(alpha: .90),
                               ),
-                            _SmallChip(
-                              label: '$exercisesCount bài tập',
-                              icon: Icons.fitness_center,
-                              color: color.withValues(alpha: .85),
-                            ),
+                            if (widget.showExerciseCount)
+                              _SmallChip(
+                                label: '$exercisesCount bài tập',
+                                icon: Icons.fitness_center,
+                                color: color.withValues(alpha: .85),
+                              ),
                             // Removed progress percentage chip
                           ],
                         ),

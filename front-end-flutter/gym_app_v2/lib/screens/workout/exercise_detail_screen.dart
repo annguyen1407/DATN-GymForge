@@ -8,6 +8,7 @@ import '../../widgets/exercise_actions_menu.dart';
 import '../../widgets/destructive_confirm_sheet.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/exercise_hero_header.dart';
+import '../../core/utils/text_normalizer.dart';
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -367,8 +368,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final instruction = _exercise?.instruction?.trim();
-    final description = _exercise?.description?.trim();
+    final instruction = _exercise?.instruction?.trim().normalizedMultiline();
+    final description = _exercise?.description?.trim().normalizedMultiline();
     return Scaffold(
       backgroundColor: const Color(0xFF0B0C0E),
       body: RefreshIndicator(
@@ -488,8 +489,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                     const _SectionTitle(text: 'Giới thiệu'),
                     const SizedBox(height: 10),
                     Text(
-                      (instruction != null && instruction.isNotEmpty)
-                          ? instruction
+                      (description != null && description.isNotEmpty)
+                          ? description
                           : 'Chưa có giới thiệu cho bài tập này.',
                       style: const TextStyle(
                         color: Colors.white70,
@@ -501,10 +502,10 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                     const _SectionTitle(text: 'Hướng dẫn'),
                     const SizedBox(height: 10),
                     Text(
-                      (description != null && description.isNotEmpty)
-                          ? description
-                          : (instruction?.isNotEmpty == true
-                                ? instruction!
+                      (instruction != null && instruction.isNotEmpty)
+                          ? instruction
+                          : (description?.isNotEmpty == true
+                                ? description!
                                 : 'Chưa có hướng dẫn chi tiết.'),
                       style: const TextStyle(
                         color: Colors.white70,

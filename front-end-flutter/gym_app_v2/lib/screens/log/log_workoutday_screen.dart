@@ -705,6 +705,22 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen>
 
         if (singleLog) {
           final l = logs.first;
+          // Tính thời gian tập cho trường hợp chỉ có 1 log để hiển thị giống dạng con
+          int? singleTime;
+          if (l['workoutExercise'] is Map) {
+            final workoutExercise = l['workoutExercise'] as Map;
+            if (workoutExercise['totalTime'] is num) {
+              singleTime = (workoutExercise['totalTime'] as num).toInt();
+            }
+          }
+          if (singleTime == null) {
+            for (final key in ['totalTime', 'totalTimeSec', 'duration']) {
+              if (l[key] is num) {
+                singleTime = (l[key] as num).toInt();
+                break;
+              }
+            }
+          }
           // render giống child nhưng với tên bài tập + 1 progress bar lớn hơn
           return Container(
             margin: const EdgeInsets.only(bottom: 14),
@@ -733,27 +749,65 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen>
                     _gradientProgress(sum, height: 10),
                     const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(.06),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: const Text(
-                            'Lần 1',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(.06),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: const Text(
+                                'Lần 1',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (singleTime != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.timer_outlined,
+                                      size: 12,
+                                      color: Colors.white54,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _formatDuration(singleTime),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
+                        const Spacer(),
                         Text(
                           '${(sum * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(

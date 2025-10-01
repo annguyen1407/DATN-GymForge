@@ -5,6 +5,7 @@ import '../../../widgets/app_snack_bar.dart';
 import '../../../widgets/exercise_hero_header.dart';
 import '../../../repositories/workout_day_exercises_repository.dart';
 import '../../../models/exercise_model.dart';
+import '../../../core/utils/text_normalizer.dart';
 
 class ConfigureExerciseScreen extends StatefulWidget {
   final String workoutPlanId;
@@ -328,8 +329,10 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                       const _SectionTitle(text: 'Giới thiệu'),
                       const SizedBox(height: 10),
                       Text(
-                        widget.exercise.instruction?.trim().isNotEmpty == true
-                            ? widget.exercise.instruction!.trim()
+                        widget.exercise.description?.trim().isNotEmpty == true
+                            ? widget.exercise.description!
+                                  .trim()
+                                  .normalizedMultiline()
                             : 'Chưa có giới thiệu cho bài tập này.',
                         style: const TextStyle(
                           color: Colors.white70,
@@ -341,9 +344,16 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                       const _SectionTitle(text: 'Hướng dẫn'),
                       const SizedBox(height: 10),
                       Text(
-                        widget.exercise.description?.trim().isNotEmpty == true
-                            ? widget.exercise.description!.trim()
-                            : 'Chưa có hướng dẫn chi tiết.',
+                        widget.exercise.instruction?.trim().isNotEmpty == true
+                            ? widget.exercise.instruction!
+                                  .trim()
+                                  .normalizedMultiline()
+                            : (widget.exercise.description?.trim().isNotEmpty ==
+                                      true
+                                  ? widget.exercise.description!
+                                        .trim()
+                                        .normalizedMultiline()
+                                  : 'Chưa có hướng dẫn chi tiết.'),
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 13.5,
