@@ -22,7 +22,9 @@
     "prisma:generate": "prisma generate",
     "db:seed:subscriptions": "ts-node ./prisma/seed-subscriptions.ts",
     "db:backfill:workout-days": "ts-node ./scripts/backfill-workout-days.ts",
-    "db:backfill:workout-exercise-targets": "ts-node ./scripts/backfill-workout-exercise-targets.ts"
+    "db:backfill:workout-exercise-targets": "ts-node ./scripts/backfill-workout-exercise-targets.ts",
+    "db:backfill:setslog-wel": "ts-node ./scripts/backfill-setslog-wel.ts",
+    "db:backfill:exerciselog-to-wel": "ts-node ./scripts/backfill-exerciselog-to-wel.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

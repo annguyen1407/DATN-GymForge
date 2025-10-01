@@ -90,6 +90,17 @@ enum FitnessGoal {
   ATHLETIC_PERFORMANCE
 }
 
+enum SalaryStatus {
+  DUE
+  PAID
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
 // === MODEL DEFINITIONS ===
 model User {
   id               String       @id @default(uuid()) @db.Uuid
@@ -510,6 +521,7 @@ model WorkoutExerciseLog {
 
   log             Log             @relation(fields: [logId], references: [id], onDelete: Cascade)
   workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  setsLogs        SetsLog[]
 
   @@index([workoutExerciseId])
   @@index([logId])
@@ -517,22 +529,7 @@ model WorkoutExerciseLog {
   @@map("workout_exercise_logs")
 }
 
-model ExerciseLog {
-  id           String @id @default(uuid()) @db.Uuid
-  workoutLogId String @db.Uuid
 
-  setsLog SetsLog[] @relation("ExerciseLogSets")
-
-  @@map("exercise_logs")
-}
-
-// === NEW ENUMS ===
-enum SalaryStatus {
-  DUE
-  PAID
-}
-
-// === NEW MODELS ===
 model TrainingPayment {
   id                String        @id @default(uuid()) @db.Uuid
   trainingRequestId String        @unique @db.Uuid
@@ -601,26 +598,21 @@ model AdminConfig {
 }
 
 model SetsLog {
-  id             String @id @default(uuid()) @db.Uuid
-  exerciseLogId  String @db.Uuid
-  setNumber      Int?
-  reps           Int?
-  times          Int?
-  weight         Float?
-  caloriesBurned Float? @map("calo_burned")
+  id                   String @id @default(uuid()) @db.Uuid
+  workoutExerciseLogId String @db.Uuid
+  setNumber            Int?
+  reps                 Int?
+  times                Int?
+  weight               Float?
+  caloriesBurned       Float? @map("calo_burned")
 
-  exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade, name: "ExerciseLogSets")
+  workoutExerciseLog WorkoutExerciseLog @relation(fields: [workoutExerciseLogId], references: [id], onDelete: Cascade)
 
+  @@index([workoutExerciseLogId])
   @@map("sets_logs")
 }
 
-// === SUBSCRIPTION ENUMS & MODELS ===
-
-enum SubscriptionStatus {
-  ACTIVE
-  EXPIRED
-  CANCELED
-}
+// === SUBSCRIPTION ===
 
 model SubscriptionPlan {
   id              String   @id @default(uuid()) @db.Uuid

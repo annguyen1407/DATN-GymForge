@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
 import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
 import { QuickLogExerciseDto } from './dto/quick-log-exercise.dto';
+import { UpdateDailyLogDto } from './dto/update-daily-log.dto';
 import {
   DailyExerciseStatsDto,
   WeeklyExerciseStatsDto,
@@ -79,32 +80,11 @@ export class ExerciseLogsService {
       });
     }
 
-    // Create exercise log
-    const exerciseLog = await this.prisma.exerciseLog.create({
-      data: {
-        workoutLogId: log.id,
-      },
-    });
-
-    // Create sets logs if provided
-    if (sets && sets.length > 0) {
-      await this.prisma.setsLog.createMany({
-        data: sets.map(set => ({
-          exerciseLogId: exerciseLog.id,
-          setNumber: set.setNumber,
-          reps: set.reps,
-          times: set.times,
-          weight: set.weight,
-          caloriesBurned: set.caloriesBurned,
-        })),
-      });
-    }
-
     // Calculate total time (seconds) for this exercise from sets.times
     const totalTimeSec = (sets || []).reduce((sum, s) => sum + (s.times || 0), 0);
 
-    // Create workout exercise log (required)
-    await this.prisma.workoutExerciseLog.create({
+    // Create workout exercise log first
+    const wel = await this.prisma.workoutExerciseLog.create({
       data: {
         logId: log.id,
         workoutExerciseId: createExerciseLogDto.workoutExerciseId,
@@ -114,8 +94,21 @@ export class ExerciseLogsService {
         dayNumber: createExerciseLogDto.dayNumber,
         totalTime: totalTimeSec,
       },
-
     });
+
+    // Create sets logs if provided and attach to the WEL
+    if (sets && sets.length > 0) {
+      await this.prisma.setsLog.createMany({
+        data: sets.map(set => ({
+          workoutExerciseLogId: wel.id,
+          setNumber: set.setNumber,
+          reps: set.reps,
+          times: set.times,
+          weight: set.weight,
+          caloriesBurned: set.caloriesBurned,
+        })),
+      });
+    }
 
     // Update total workout time on the day log
     await this.prisma.log.update({
@@ -153,9 +146,9 @@ export class ExerciseLogsService {
           if (distinctCompleted >= totalExercises) {
             await this.prisma.workoutDay.update({
               where: { id: dayId },
-              data: { 
+              data: {
                 status: 'COMPLETED' as any,
-                completedAt: new Date(createExerciseLogDto.date), 
+                completedAt: new Date(createExerciseLogDto.date),
               }
             });
           }
@@ -165,28 +158,14 @@ export class ExerciseLogsService {
       // Non-fatal: logging should not fail if status update fails
     }
 
-
-    // Return created exercise log plus computed totalTime (seconds)
-    const created = await this.findExerciseLogById(exerciseLog.id);
-    return { ...created, totalTime: totalTimeSec } as any;
-  }
-
-  async findExerciseLogById(id: string) {
-    const exerciseLog = await this.prisma.exerciseLog.findUnique({
-      where: { id },
-      include: {
-        setsLog: {
-          orderBy: { setNumber: 'asc' },
-        },
-      },
+    // Return created WEL plus sets and computed totalTime
+    const setsCreated = await this.prisma.setsLog.findMany({
+      where: { workoutExerciseLogId: wel.id },
+      orderBy: { setNumber: 'asc' },
     });
-
-    if (!exerciseLog) {
-      throw new NotFoundException('Exercise log not found');
-    }
-
-    return exerciseLog;
+    return { ...wel, sets: setsCreated } as any;
   }
+
 
   async findUserExerciseLogs(userId: string, startDate?: string, endDate?: string) {
     const where: any = {
@@ -222,62 +201,6 @@ export class ExerciseLogsService {
     });
   }
 
-  async updateExerciseLog(id: string, updateExerciseLogDto: UpdateExerciseLogDto) {
-    await this.findExerciseLogById(id);
-    
-    // Update sets if provided
-    if (updateExerciseLogDto.sets) {
-      // Delete existing sets
-      await this.prisma.setsLog.deleteMany({
-        where: { exerciseLogId: id },
-      });
-
-      // Create new sets
-      if (updateExerciseLogDto.sets.length > 0) {
-        await this.prisma.setsLog.createMany({
-          data: updateExerciseLogDto.sets.map(set => ({
-            exerciseLogId: id,
-            setNumber: set.setNumber,
-            reps: set.reps,
-            times: set.times,
-            weight: set.weight,
-            caloriesBurned: set.caloriesBurned,
-          })),
-        });
-      }
-    }
-
-    // Recalculate and update the day's total workout time for this exercise log's parent Log
-    const parent = await this.prisma.exerciseLog.findUnique({
-      where: { id },
-      select: { workoutLogId: true },
-    });
-    if (parent?.workoutLogId) {
-      const allExerciseLogs = await this.prisma.exerciseLog.findMany({
-        where: { workoutLogId: parent.workoutLogId },
-        include: { setsLog: true },
-      });
-      const totalTimeSec = allExerciseLogs.reduce((sum, el) =>
-        sum + (el.setsLog?.reduce((s, st) => s + (st.times || 0), 0) || 0), 0);
-      await this.prisma.log.update({ where: { id: parent.workoutLogId }, data: { totalWorkoutTime: totalTimeSec } });
-    }
-
-    return this.findExerciseLogById(id);
-  }
-
-  async deleteExerciseLog(id: string) {
-    await this.findExerciseLogById(id);
-
-    // Delete sets first
-    await this.prisma.setsLog.deleteMany({
-      where: { exerciseLogId: id },
-    });
-
-    // Delete exercise log
-    return this.prisma.exerciseLog.delete({
-      where: { id },
-    });
-  }
 
   async getDailyStats(userId: string, date: string): Promise<DailyExerciseStatsDto> {
     const targetDate = new Date(date);
@@ -318,20 +241,16 @@ export class ExerciseLogsService {
       };
     }
 
-    // Get all exercise logs for the day
-    const exerciseLogs = await this.prisma.exerciseLog.findMany({
-      where: {
-        workoutLogId: { in: logs.map(log => log.id) },
-      },
-      include: {
-        setsLog: true,
-      },
-    });
+    // Collect WorkoutExerciseLog IDs for the day
+    const welIds = logs.flatMap(lg => (lg.workoutExerciseLogs || []).map((w: any) => w.id));
+    const totalExercises = welIds.length;
 
-    const totalExercises = exerciseLogs.length;
-    const totalSets = exerciseLogs.reduce((sum, log) => sum + log.setsLog.length, 0);
-    const totalReps = exerciseLogs.reduce((sum, log) =>
-      sum + log.setsLog.reduce((setSum, set) => setSum + (set.reps || 0), 0), 0);
+    const daySets = welIds.length > 0
+      ? await this.prisma.setsLog.findMany({ where: { workoutExerciseLogId: { in: welIds } } })
+      : [];
+
+    const totalSets = daySets.length;
+    const totalReps = daySets.reduce((sum, set) => sum + (set.reps || 0), 0);
     const totalCaloriesBurned = logs.reduce((sum, log) => sum + (log.caloriesBurned || 0), 0);
 
     // Total workout time (seconds): prefer aggregated field on Log, fallback to sum of workoutExerciseLogs.totalTime
@@ -342,9 +261,7 @@ export class ExerciseLogsService {
     }, 0);
     const totalWorkoutTime = Math.round(totalWorkoutTimeSec / 60);
 
-    const allWeights = exerciseLogs.flatMap(log =>
-      log.setsLog.map(set => set.weight).filter(weight => weight !== null && weight !== undefined)
-    );
+    const allWeights = daySets.map(set => set.weight).filter(weight => weight !== null && weight !== undefined);
     const averageWeight = allWeights.length > 0 ?
       allWeights.reduce((sum, weight) => sum + weight, 0) / allWeights.length : 0;
 
@@ -449,17 +366,8 @@ export class ExerciseLogsService {
     }, 0);
     const totalWorkoutTime = Math.round(totalWorkoutTimeSec / 60);
 
-    // Get exercise logs for the month
-    const exerciseLogs = await this.prisma.exerciseLog.findMany({
-      where: {
-        workoutLogId: { in: logs.map(log => log.id) },
-      },
-      include: {
-        setsLog: true,
-      },
-    });
-
-    const totalExercises = exerciseLogs.length;
+    // Total exercises in the month = number of WorkoutExerciseLog entries in the period
+    const totalExercises = logs.reduce((sum, lg: any) => sum + ((lg.workoutExerciseLogs?.length) || 0), 0);
 
     // Calculate most performed exercises (this would need exercise name tracking)
     const mostPerformedExercises: { name: string; count: number }[] = [];
@@ -628,14 +536,15 @@ export class ExerciseLogsService {
       const exerciseName = exercise?.name || 'Unknown Exercise';
       const totalSessions = logs.length;
 
-      // Get all sets for this exercise
+      // Get all sets for this exercise (across the matched WELs)
       const allSets = await this.prisma.setsLog.findMany({
         where: {
-          exerciseLog: {
-            workoutLogId: { in: logs.map(log => log.logId) },
-          },
+          workoutExerciseLogId: { in: logs.map(log => log.id) },
         },
       });
+
+      const recentIds = new Set(logs.slice(0, 3).map(l => l.id));
+      const olderIds = new Set(logs.slice(-3).map(l => l.id));
 
       const weights = allSets.map(set => set.weight).filter(w => w !== null && w !== undefined);
       const reps = allSets.map(set => set.reps).filter(r => r !== null && r !== undefined);
@@ -653,16 +562,15 @@ export class ExerciseLogsService {
       if (logs.length >= 2) {
         // Note: We need to get sets for specific exercise logs, but the current schema doesn't directly link
         // For now, we'll use a simpler approach based on recent vs older logs
-        const recentLogs = logs.slice(0, 3);
-        const olderLogs = logs.slice(-3);
+        const recentWeights = allSets
+          .filter(s => recentIds.has(s.workoutExerciseLogId))
+          .map(s => s.weight)
+          .filter(w => w !== null && w !== undefined);
 
-        const recentWeights = allSets.filter(set =>
-          recentLogs.some(log => log.logId === log.logId)
-        ).map(set => set.weight).filter(w => w !== null && w !== undefined);
-
-        const olderWeights = allSets.filter(set =>
-          olderLogs.some(log => log.logId === log.logId)
-        ).map(set => set.weight).filter(w => w !== null && w !== undefined);
+        const olderWeights = allSets
+          .filter(s => olderIds.has(s.workoutExerciseLogId))
+          .map(s => s.weight)
+          .filter(w => w !== null && w !== undefined);
 
         if (recentWeights.length > 0 && olderWeights.length > 0) {
           const recentAvg = recentWeights.reduce((sum, w) => sum + w, 0) / recentWeights.length;
@@ -820,4 +728,135 @@ export class ExerciseLogsService {
 
     return this.createExerciseLog(createLogDto);
   }
+
+
+  // Fetch a WorkoutExerciseLog by its ID with context
+  async findWorkoutExerciseLogById(id: string) {
+    const wel = await this.prisma.workoutExerciseLog.findUnique({
+      where: { id },
+      include: {
+        workoutExercise: {
+          include: {
+            workoutPlan: { select: { id: true, name: true } },
+            workoutDay: { select: { id: true, dayNumber: true, date: true } },
+          },
+        },
+        log: true,
+      },
+    });
+
+    if (!wel) throw new NotFoundException('Workout exercise log not found');
+    return wel;
+  }
+
+  // Update a WorkoutExerciseLog and its sets
+  async updateWorkoutExerciseLog(id: string, dto: UpdateExerciseLogDto) {
+    const wel = await this.prisma.workoutExerciseLog.findUnique({ where: { id } });
+    if (!wel) throw new NotFoundException('Workout exercise log not found');
+
+    let totalTimeSec: number | undefined = undefined;
+    if (dto.sets) {
+      await this.prisma.setsLog.deleteMany({ where: { workoutExerciseLogId: id } });
+      if (dto.sets.length > 0) {
+        await this.prisma.setsLog.createMany({
+          data: dto.sets.map(s => ({
+            workoutExerciseLogId: id,
+            setNumber: s.setNumber,
+            reps: s.reps,
+            times: s.times,
+            weight: s.weight,
+            caloriesBurned: s.caloriesBurned,
+          })),
+        });
+      }
+      totalTimeSec = dto.sets.reduce((sum, s) => sum + (s.times || 0), 0);
+    }
+
+    const data: any = {};
+    if (dto.progressPercent !== undefined) data.progressPercent = dto.progressPercent;
+    if (dto.totalCaloriesBurned !== undefined) data.caloriesBurned = dto.totalCaloriesBurned;
+    if (dto.dayNumber !== undefined) data.dayNumber = dto.dayNumber;
+    if (dto.date) data.date = new Date(dto.date);
+    if (dto.workoutExerciseId) data.workoutExerciseId = dto.workoutExerciseId;
+    if (totalTimeSec !== undefined) data.totalTime = totalTimeSec;
+
+    const updated = await this.prisma.workoutExerciseLog.update({ where: { id }, data });
+
+    // Recompute parent day's total workout time (seconds)
+    const siblings = await this.prisma.workoutExerciseLog.findMany({ where: { logId: updated.logId } });
+    const sumTime = siblings.reduce((sum, w) => sum + (w.totalTime || 0), 0);
+    await this.prisma.log.update({ where: { id: updated.logId }, data: { totalWorkoutTime: sumTime } });
+
+    const sets = await this.prisma.setsLog.findMany({ where: { workoutExerciseLogId: id }, orderBy: { setNumber: 'asc' } });
+    return { ...updated, sets } as any;
+  }
+
+  // Delete a WorkoutExerciseLog by id
+  async deleteWorkoutExerciseLog(id: string) {
+    const wel = await this.prisma.workoutExerciseLog.findUnique({ where: { id } });
+    if (!wel) throw new NotFoundException('Workout exercise log not found');
+    await this.prisma.workoutExerciseLog.delete({ where: { id } });
+    // Recompute parent day's total workout time
+    const siblings = await this.prisma.workoutExerciseLog.findMany({ where: { logId: wel.logId } });
+    const sumTime = siblings.reduce((sum, w) => sum + (w.totalTime || 0), 0);
+    await this.prisma.log.update({ where: { id: wel.logId }, data: { totalWorkoutTime: sumTime } });
+    return { id };
+  }
+
+  // List all Set logs for a WorkoutExerciseLog
+  async listSetsByWorkoutExerciseLog(id: string) {
+    return this.prisma.setsLog.findMany({
+      where: { workoutExerciseLogId: id },
+      orderBy: { setNumber: 'asc' },
+    });
+  }
+
+
+  // Daily Log CRUD (by user + date)
+  async upsertDailyLog(userId: string, date: string, dto: UpdateDailyLogDto) {
+    const targetDate = new Date(date);
+    const existing = await this.prisma.log.findFirst({ where: { userId, dateLogged: targetDate } });
+    if (existing) {
+      return this.prisma.log.update({ where: { id: existing.id }, data: { ...dto } });
+    }
+    return this.prisma.log.create({
+      data: {
+        userId,
+        dateLogged: targetDate,
+        notes: dto.notes,
+        caloriesBurned: dto.caloriesBurned,
+        caloriesIntake: dto.caloriesIntake,
+        weight: dto.weight,
+        height: dto.height,
+      },
+    });
+  }
+
+  async getDailyLog(userId: string, date: string) {
+    const targetDate = new Date(date);
+    const log = await this.prisma.log.findFirst({
+      where: { userId, dateLogged: targetDate },
+      include: {
+        meals: true,
+        workoutExerciseLogs: true,
+      },
+    });
+    if (!log) throw new NotFoundException('Daily log not found');
+    return log;
+  }
+
+  async updateDailyLog(userId: string, date: string, dto: UpdateDailyLogDto) {
+    const targetDate = new Date(date);
+    const existing = await this.prisma.log.findFirst({ where: { userId, dateLogged: targetDate } });
+    if (!existing) throw new NotFoundException('Daily log not found');
+    return this.prisma.log.update({ where: { id: existing.id }, data: { ...dto } });
+  }
+
+  async deleteDailyLog(userId: string, date: string) {
+    const targetDate = new Date(date);
+    const existing = await this.prisma.log.findFirst({ where: { userId, dateLogged: targetDate } });
+    if (!existing) throw new NotFoundException('Daily log not found');
+    return this.prisma.log.delete({ where: { id: existing.id } });
+  }
+
 }
