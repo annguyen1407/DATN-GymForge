@@ -17,6 +17,8 @@ import { EmailModule } from './email/email.module';
 import { UserProfileModule } from './user-profile/user-profile.module';
 import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 import { MealsModule } from './meals/meals.module';
+import { AdminConfigModule } from './admin-config/admin-config.module';
+import { SalariesModule } from './salaries/salaries.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { MealsModule } from './meals/meals.module';
     UserProfileModule,
     ExerciseLogsModule,
     MealsModule,
+    AdminConfigModule,
+    SalariesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

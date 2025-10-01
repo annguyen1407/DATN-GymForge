@@ -44,4 +44,9 @@ export class CreateWorkoutPlanDto {
   @IsOptional()
   @IsBoolean()
   isTemplate?: boolean;
+
+  @ApiProperty({ example: 'training-request-uuid', required: false, description: 'Attach to an accepted training request (for visibility enforcement)' })
+  @IsOptional()
+  @IsUUID()
+  trainingRequestId?: string;
 }

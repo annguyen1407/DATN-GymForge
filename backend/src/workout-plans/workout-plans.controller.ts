@@ -46,8 +46,8 @@ export class WorkoutPlansController {
   @ApiOperation({ summary: 'Get all workout plans' })
   @ApiResponse({ status: 200, description: 'List of all workout plans' })
   @ApiQuery({ name: 'userId', required: false, description: 'Filter by user ID' })
-  findAll(@Query('userId') userId?: string) {
-    return this.workoutPlansService.findAll(userId);
+  findAll(@Query('userId') userId: string | undefined, @CurrentUser() user: any) {
+    return this.workoutPlansService.findAll(userId, user?.id);
   }
 
   @Get('templates')
@@ -85,8 +85,8 @@ export class WorkoutPlansController {
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get workout plans by user ID' })
   @ApiResponse({ status: 200, description: 'User workout plans' })
-  findByUserId(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.workoutPlansService.findByUserId(userId);
+  findByUserId(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser() user: any) {
+    return this.workoutPlansService.findByUserId(userId, user?.id);
   }
 
   @Post('clone-template/:templateId')
@@ -151,8 +151,8 @@ export class WorkoutPlansController {
 
   @Get(':planId/days')
   @ApiOperation({ summary: 'List days of a workout plan' })
-  listDays(@Param('planId', ParseUUIDPipe) planId: string) {
-    return this.workoutPlansService.listDays(planId);
+  listDays(@Param('planId', ParseUUIDPipe) planId: string, @CurrentUser() user: any) {
+    return this.workoutPlansService.listDays(planId, user?.id);
   }
 
   @Patch('days/:dayId')
@@ -175,8 +175,8 @@ export class WorkoutPlansController {
   @Get('days/:dayId/stats')
   @ApiOperation({ summary: 'Get statistics for a workout day including its parent plan' })
   @ApiOkResponse({ description: 'Parent plan + day meta + aggregated stats by workout exercise', type: DayStatsResponseDto })
-  getDayStats(@Param('dayId', ParseUUIDPipe) dayId: string) {
-    return this.workoutPlansService.getDayStats(dayId);
+  getDayStats(@Param('dayId', ParseUUIDPipe) dayId: string, @CurrentUser() user: any) {
+    return this.workoutPlansService.getDayStats(dayId, user?.id);
   }
 
   // Workout Exercise endpoints
@@ -218,8 +218,8 @@ export class WorkoutPlansController {
   @Get('exercises/:workoutExerciseId/logs')
   @ApiOperation({ summary: 'List logs for a workout exercise' })
   @ApiResponse({ status: 200, description: 'List of logs for the workout exercise' })
-  listExerciseLogs(@Param('workoutExerciseId', ParseUUIDPipe) workoutExerciseId: string) {
-    return this.workoutPlansService.listExerciseLogs(workoutExerciseId);
+  listExerciseLogs(@Param('workoutExerciseId', ParseUUIDPipe) workoutExerciseId: string, @CurrentUser() user: any) {
+    return this.workoutPlansService.listExerciseLogs(workoutExerciseId, user?.id);
   }
 
   @Get('exercises')
@@ -234,13 +234,17 @@ export class WorkoutPlansController {
     @Query('workoutDayId') workoutDayId?: string,
     @Query('dayNumber') dayNumber?: string,
     @Query('exerciseId') exerciseId?: string,
+    @CurrentUser() user?: any,
   ) {
-    return this.workoutPlansService.getWorkoutExercises({
-      workoutPlanId,
-      workoutDayId,
-      dayNumber: dayNumber ? parseInt(dayNumber) : undefined,
-      exerciseId,
-    });
+    return this.workoutPlansService.getWorkoutExercises(
+      {
+        workoutPlanId,
+        workoutDayId,
+        dayNumber: dayNumber ? parseInt(dayNumber) : undefined,
+        exerciseId,
+      },
+      user?.id,
+    );
   }
 
   // Place generic param route last to avoid conflicts with static paths like 'exercises'
@@ -248,7 +252,7 @@ export class WorkoutPlansController {
   @ApiOperation({ summary: 'Get a workout plan by ID' })
   @ApiResponse({ status: 200, description: 'Workout plan details' })
   @ApiResponse({ status: 404, description: 'Workout plan not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.workoutPlansService.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+    return this.workoutPlansService.findOne(id, user?.id);
   }
 }

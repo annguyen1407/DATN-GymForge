@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { TrainingRequestsService } from './training-requests.service';
 import { CreateTrainingRequestDto } from './dto/create-training-request.dto';
 import { UpdateTrainingRequestDto } from './dto/update-training-request.dto';
+import { CancelTrainingRequestDto } from './dto/cancel-training-request.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -104,5 +105,20 @@ export class TrainingRequestsController {
   @ApiResponse({ status: 409, description: 'Request cannot be rejected' })
   reject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
     return this.trainingRequestsService.reject(id, user.id);
+  }
+
+  @Post(':id/cancel')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.COACH, UserRole.GYMER)
+  @ApiOperation({ summary: 'Cancel a training request' })
+  @ApiResponse({ status: 200, description: 'Training request canceled successfully' })
+  @ApiResponse({ status: 404, description: 'Training request not found' })
+  @ApiResponse({ status: 409, description: 'Request cannot be canceled' })
+  cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: CancelTrainingRequestDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.trainingRequestsService.cancel(id, user.id, body?.reason);
   }
 }

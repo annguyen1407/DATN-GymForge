@@ -1,6 +1,5 @@
-import { IsUUID, IsOptional, IsEnum } from 'class-validator';
+import { IsUUID, IsOptional, IsISO8601 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { TrainingRequestStatus } from '@prisma/client';
 
 export class CreateTrainingRequestDto {
   @ApiProperty({ example: 'gymer-uuid-here' })
@@ -11,8 +10,8 @@ export class CreateTrainingRequestDto {
   @IsUUID()
   coachId: string;
 
-  @ApiProperty({ enum: TrainingRequestStatus, default: TrainingRequestStatus.PENDING, required: false })
+  @ApiProperty({ example: '2025-11-15T10:00:00.000Z', required: false, description: 'Planned training date/time (ISO-8601)' })
   @IsOptional()
-  @IsEnum(TrainingRequestStatus)
-  status?: TrainingRequestStatus;
+  @IsISO8601()
+  trainingDate?: string;
 }

@@ -11,22 +11,38 @@ import { UpdateWorkoutDayDto } from './dto/update-workout-day.dto';
 export class WorkoutPlansService {
   constructor(private prisma: PrismaService) {}
 
+
+  private async assertPlanVisibleToUser(planId: string, currentUserId?: string) {
+    const plan: any = await this.prisma.workoutPlan.findUnique({ where: { id: planId } });
+    if (!plan) throw new NotFoundException('Workout plan not found');
+
+    if (!currentUserId) return; // rely on higher-level guards
+
+    const user = await this.prisma.user.findUnique({ where: { id: currentUserId }, include: { coachProfile: true } });
+    if (!user) return;
+
+    // Admins and the authoring coach always can view
+    if (user.role === 'ADMIN') return;
+    if (user.coachProfile?.id && user.coachProfile.id === plan.createdByCoachId) return;
+
+    // Owner gymer visibility restriction when training is stopped
+    if (currentUserId === plan.userId && (plan as any).trainingRequestId) {
+      const tr = await this.prisma.trainingRequest.findUnique({ where: { id: (plan as any).trainingRequestId }, select: { status: true } });
+      const status = tr?.status ?? 'PENDING';
+      if (status !== 'ACCEPTED') {
+        throw new ForbiddenException('This workout plan is hidden because the training is stopped');
+      }
+    }
+  }
+
   async create(createWorkoutPlanDto: CreateWorkoutPlanDto, currentUserId?: string): Promise<WorkoutPlan> {
     // Verify user exists
-    const user = await this.prisma.user.findUnique({
-      where: { id: createWorkoutPlanDto.userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.prisma.user.findUnique({ where: { id: createWorkoutPlanDto.userId } });
+    if (!user) throw new NotFoundException('User not found');
 
     // Check permissions: users can only create plans for themselves unless they're admin/coach
     if (currentUserId && currentUserId !== createWorkoutPlanDto.userId) {
-      const currentUser = await this.prisma.user.findUnique({
-        where: { id: currentUserId },
-      });
-
+      const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
       if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
         throw new ForbiddenException('You can only create workout plans for yourself');
       }
@@ -34,57 +50,86 @@ export class WorkoutPlansService {
 
     // Only ADMIN and COACH can create templates
     if (createWorkoutPlanDto.isTemplate && currentUserId) {
-      const currentUser = await this.prisma.user.findUnique({
-        where: { id: currentUserId },
-      });
-
+      const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
       if (!currentUser || !currentUser.role || !['ADMIN', 'COACH'].includes(currentUser.role)) {
         throw new ForbiddenException('Only admins and coaches can create templates');
       }
     }
 
+    // Attach authorship for coaches and validate trainingRequest linkage
+    let createdByCoachId: string | undefined = undefined;
+    if (currentUserId) {
+      const currentUser = await this.prisma.user.findUnique({ where: { id: currentUserId }, include: { coachProfile: true } });
+      if (currentUser?.coachProfile?.id) {
+        createdByCoachId = currentUser.coachProfile.id;
+      }
+    }
+
+    let trainingRequestId: string | undefined = (createWorkoutPlanDto as any).trainingRequestId;
+    if (trainingRequestId) {
+      const tr = await this.prisma.trainingRequest.findUnique({ where: { id: trainingRequestId } });
+      if (!tr) throw new NotFoundException('Training request not found');
+      if (tr.status !== 'ACCEPTED') {
+        throw new BadRequestException('Workout plan can only link to an ACCEPTED training request');
+      }
+      // Verify owner matches gymer of the request
+      const gymer = await this.prisma.gymer.findUnique({ where: { id: tr.gymerId } });
+      if (!gymer || gymer.userId !== createWorkoutPlanDto.userId) {
+        throw new ForbiddenException('Workout plan owner must match the gymer of the training');
+      }
+    }
+
     return this.prisma.workoutPlan.create({
-      data: createWorkoutPlanDto,
+      data: {
+        userId: createWorkoutPlanDto.userId,
+        name: createWorkoutPlanDto.name,
+        description: createWorkoutPlanDto.description,
+        picture: createWorkoutPlanDto.picture,
+        planType: createWorkoutPlanDto.planType,
+        status: createWorkoutPlanDto.status,
+        days: createWorkoutPlanDto.days,
+        isTemplate: createWorkoutPlanDto.isTemplate ?? false,
+        createdByCoachId,
+        trainingRequestId,
+      } as any,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        user: { select: { id: true, name: true, email: true } },
         exercises: true,
       },
     });
   }
 
-  async findAll(userId?: string): Promise<WorkoutPlan[]> {
-    const where = userId ? { userId, isTemplate: false } : { isTemplate: false };
+  async findAll(userId?: string, currentUserId?: string): Promise<WorkoutPlan[]> {
+    const where: any = userId ? { userId, isTemplate: false } : { isTemplate: false };
 
-    return this.prisma.workoutPlan.findMany({
+    const plans = await this.prisma.workoutPlan.findMany({
       where,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        user: { select: { id: true, name: true, email: true } },
         exercises: true,
-        _count: {
-          select: {
-            exercises: true,
-          },
-        },
+        _count: { select: { exercises: true } },
       },
-      orderBy: {
-        name: 'asc',
-      },
+      orderBy: { name: 'asc' },
+    });
+
+    if (!currentUserId || !userId || currentUserId !== userId) return plans;
+
+    const idsNeedingStatus = plans.map((p: any) => (p as any).trainingRequestId).filter((id: string | null) => !!id);
+    const statusMap = new Map<string, string>();
+    if (idsNeedingStatus.length) {
+      const trs = await this.prisma.trainingRequest.findMany({ where: { id: { in: idsNeedingStatus } }, select: { id: true, status: true } });
+      trs.forEach((t) => statusMap.set(t.id, t.status as string));
+    }
+
+    return plans.filter((p: any) => {
+      const trId = (p as any).trainingRequestId as string | null;
+      if (!trId) return true;
+      const s = statusMap.get(trId) ?? 'PENDING';
+      return s === 'ACCEPTED';
     });
   }
 
-  async findTemplates(planType?: string, currentUserId?: string): Promise<WorkoutPlan[]> {
+  async findTemplates(planType?: string, _currentUserId?: string): Promise<WorkoutPlan[]> {
     const where: any = { isTemplate: true };
     if (planType) {
       where.planType = planType;
@@ -142,53 +187,23 @@ export class WorkoutPlansService {
     });
   }
 
-  async findOne(id: string): Promise<WorkoutPlan> {
+  async findOne(id: string, currentUserId?: string): Promise<WorkoutPlan> {
+    await this.assertPlanVisibleToUser(id, currentUserId);
+
     const workoutPlan = await this.prisma.workoutPlan.findUnique({
       where: { id },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        exercises: {
-          include: {
-            appointments: true,
-          },
-        },
-        workoutDays: {
-          include: {
-            exercises: true,
-          },
-          orderBy: { dayNumber: 'asc' },
-        },
+        user: { select: { id: true, name: true, email: true } },
+        exercises: { include: { appointments: true } },
+        workoutDays: { include: { exercises: true }, orderBy: { dayNumber: 'asc' } },
       },
     });
-
-    if (!workoutPlan) {
-      throw new NotFoundException('Workout plan not found');
-    }
-
+    if (!workoutPlan) throw new NotFoundException('Workout plan not found');
     return workoutPlan;
   }
 
-  async findByUserId(userId: string): Promise<WorkoutPlan[]> {
-    return this.prisma.workoutPlan.findMany({
-      where: { userId, isTemplate: false },
-      include: {
-        exercises: true,
-        _count: {
-          select: {
-            exercises: true,
-          },
-        },
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+  async findByUserId(userId: string, currentUserId?: string): Promise<WorkoutPlan[]> {
+    return this.findAll(userId, currentUserId);
   }
 
   async createFromTemplate(
@@ -421,9 +436,8 @@ export class WorkoutPlansService {
     return created;
   }
 
-  async listDays(workoutPlanId: string) {
-    const plan = await this.prisma.workoutPlan.findUnique({ where: { id: workoutPlanId } });
-    if (!plan) throw new NotFoundException('Workout plan not found');
+  async listDays(workoutPlanId: string, currentUserId?: string) {
+    await this.assertPlanVisibleToUser(workoutPlanId, currentUserId);
 
     return this.prisma.workoutDay.findMany({
       where: { workoutPlanId },
@@ -616,13 +630,19 @@ export class WorkoutPlansService {
     });
   }
 
-  async getWorkoutExercises(filter: {
-    workoutPlanId?: string;
-    workoutDayId?: string;
-    dayNumber?: number;
-    exerciseId?: string;
-  }) {
+  async getWorkoutExercises(
+    filter: { workoutPlanId?: string; workoutDayId?: string; dayNumber?: number; exerciseId?: string },
+    currentUserId?: string,
+  ) {
     const { workoutPlanId, workoutDayId, dayNumber, exerciseId } = filter;
+
+    let planIdToCheck: string | undefined = workoutPlanId;
+    if (!planIdToCheck && workoutDayId) {
+      const day = await this.prisma.workoutDay.findUnique({ where: { id: workoutDayId }, select: { workoutPlanId: true } });
+      if (!day) throw new NotFoundException('Workout day not found');
+      planIdToCheck = day.workoutPlanId;
+    }
+    if (planIdToCheck) await this.assertPlanVisibleToUser(planIdToCheck, currentUserId);
 
     const where: any = {};
     if (workoutPlanId) where.workoutPlanId = workoutPlanId;
@@ -637,14 +657,11 @@ export class WorkoutPlansService {
         { dayNumber: 'asc' },
         { order: 'asc' },
       ],
-      include: {
-        workoutPlan: true,
-        workoutDay: true,
-      },
+      include: { workoutPlan: true, workoutDay: true },
     });
   }
 
-  async getDayStats(dayId: string) {
+  async getDayStats(dayId: string, currentUserId?: string) {
     const day = await this.prisma.workoutDay.findUnique({
       where: { id: dayId },
       include: {
@@ -654,6 +671,8 @@ export class WorkoutPlansService {
       },
     });
     if (!day) throw new NotFoundException('Workout day not found');
+
+    await this.assertPlanVisibleToUser(day.workoutPlanId, currentUserId);
 
     const exercises = await this.prisma.workoutExercise.findMany({
       where: { workoutDayId: dayId },
@@ -716,9 +735,11 @@ export class WorkoutPlansService {
     };
   }
 
-  async listExerciseLogs(workoutExerciseId: string) {
-    const exists = await this.prisma.workoutExercise.findUnique({ where: { id: workoutExerciseId } });
+  async listExerciseLogs(workoutExerciseId: string, currentUserId?: string) {
+    const exists = await this.prisma.workoutExercise.findUnique({ where: { id: workoutExerciseId }, select: { id: true, workoutPlanId: true } });
     if (!exists) throw new NotFoundException('Workout exercise not found');
+
+    await this.assertPlanVisibleToUser(exists.workoutPlanId, currentUserId);
 
     return this.prisma.workoutExerciseLog.findMany({
       where: { workoutExerciseId },

@@ -15,6 +15,29 @@ export class TokenCacheService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    // In test environments, avoid connecting to external Redis
+    if (process.env.NODE_ENV === 'test' || process.env.USE_IN_MEMORY_CACHE === '1') {
+      this.logger.log('Using in-memory token cache (test mode)');
+      const mem = new Map<string, string>();
+      this.redisClient = {
+        async set(key: string, value: string, opts?: any) {
+          mem.set(key, value);
+        },
+        async get(key: string) {
+          return mem.get(key) ?? null;
+        },
+        async del(key: string) {
+          mem.delete(key);
+        },
+        async *scanIterator(_: any) {
+          for (const key of mem.keys()) {
+            yield key;
+          }
+        },
+      } as any;
+      return;
+    }
+
     this.redisClient = createClient({
       url: `redis://${this.configService.get('REDIS_HOST', 'localhost')}:${this.configService.get('REDIS_PORT', 6379)}`,
     });

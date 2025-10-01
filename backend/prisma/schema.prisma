@@ -47,6 +47,7 @@ enum PaymentMethod {
   CREDIT_CARD
   MOMO
   VNPAY
+  APPLE_IAP
 }
 
 enum MealType {
@@ -76,7 +77,6 @@ enum DayStatus {
   SKIPPED
 }
 
-
 enum FitnessGoal {
   LOSE_WEIGHT
   BUILD_MUSCLE
@@ -92,56 +92,56 @@ enum FitnessGoal {
 
 // === MODEL DEFINITIONS ===
 model User {
-  id                        String             @id @default(uuid()) @db.Uuid
-  name                      String?
-  email                     String?            @unique
-  username                  String?            @unique
-  password                  String?
-  profilePicture            String?
-  dateOfBirth               DateTime?          @db.Date
-  address                   String?
-  role                      UserRole?
-  phoneNumber               String?
-  premiumStatus             Boolean?           @default(false)
-  weight                    Float?
-  height                    Float?
-  biography                 String?
-  goal                      FitnessGoal?
-  oneRm                     Float?             @map("1RM")
-  expType                   String?
-  sex                       Gender?
+  id             String       @id @default(uuid()) @db.Uuid
+  name           String?
+  email          String?      @unique
+  username       String?      @unique
+  password       String?
+  profilePicture String?
+  dateOfBirth    DateTime?    @db.Date
+  address        String?
+  role           UserRole?
+  phoneNumber    String?
+  premiumStatus  Boolean?     @default(false)
+  weight         Float?
+  height         Float?
+  biography      String?
+  goal           FitnessGoal?
+  oneRm          Float?       @map("1RM")
+  expType        String?
+  sex            Gender?
 
   // Email verification fields
-  isEmailVerified           Boolean?           @default(false)
-  emailVerificationOTP      String?            @db.VarChar(6)
+  isEmailVerified             Boolean?  @default(false)
+  emailVerificationOTP        String?   @db.VarChar(6)
   emailVerificationOTPExpires DateTime?
 
   // Password reset fields
-  passwordResetOTP          String?            @db.VarChar(6)
-  passwordResetOTPExpires   DateTime?
+  passwordResetOTP        String?   @db.VarChar(6)
+  passwordResetOTPExpires DateTime?
 
   // OAuth fields
-  googleId                  String?
+  googleId String?
 
   // Soft delete fields
-  isDeleted                 Boolean            @default(false)
-  deletedAt                 DateTime?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
   // Timestamps
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // relations
-  achievements      Achievement[]
-  payments          Payment[]
-  notifications     Notification[]
-  messages          Message[]
-  logs              Log[]
-  workoutPlans      WorkoutPlan[]
-  exercises         Exercise[]
+  achievements  Achievement[]
+  payments      Payment[]
+  notifications Notification[]
+  messages      Message[]
+  logs          Log[]
+  workoutPlans  WorkoutPlan[]
+  exercises     Exercise[]
   // coach/gymer profiles
-  coachProfile      Coach?             @relation("UserCoach")
-  gymerProfile      Gymer?             @relation("UserGymer")
+  coachProfile  Coach?         @relation("UserCoach")
+  gymerProfile  Gymer?         @relation("UserGymer")
 
   // Indexes for performance optimization
   @@index([email])
@@ -154,44 +154,57 @@ model User {
 }
 
 model Coach {
-  id                   String             @id @default(uuid()) @db.Uuid
-  userId               String             @unique @db.Uuid
-  certification        String?
-  status               String?
-  averageRating        Float?             @default(0)
-  feedbackCount        Int?               @default(0)
+  id            String  @id @default(uuid()) @db.Uuid
+  userId        String  @unique @db.Uuid
+  certification String?
+  status        String?
+  averageRating Float?  @default(0)
+  feedbackCount Int?    @default(0)
 
-  user                 User               @relation("UserCoach", fields: [userId], references: [id])
+  user                 User              @relation("UserCoach", fields: [userId], references: [id])
   appointments         Appointment[]
   conversations        Conversation[]
   feedbacks            Feedback[]
-  trainingRequestsSent TrainingRequest[]  @relation("SentRequests")
+  trainingRequestsSent TrainingRequest[] @relation("SentRequests")
+  createdWorkoutPlans  WorkoutPlan[]
 
   @@map("coaches")
 }
 
 model Gymer {
-  id                     String             @id @default(uuid()) @db.Uuid
-  userId                 String             @unique @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
 
-  user                   User               @relation("UserGymer", fields: [userId], references: [id])
-  appointments           Appointment[]
-  conversations          Conversation[]
-  feedbacks              Feedback[]
+  user                     User              @relation("UserGymer", fields: [userId], references: [id])
+  appointments             Appointment[]
+  conversations            Conversation[]
+  feedbacks                Feedback[]
   trainingRequestsReceived TrainingRequest[] @relation("ReceivedRequests")
 
   @@map("gymers")
 }
 
 model TrainingRequest {
-  id           String                  @id @default(uuid()) @db.Uuid
-  gymerId      String                  @db.Uuid
-  coachId      String                  @db.Uuid
-  status       TrainingRequestStatus?  @default(PENDING)
-  requestedAt  DateTime                @default(now())
+  id               String                 @id @default(uuid()) @db.Uuid
+  gymerId          String                 @db.Uuid
+  coachId          String                 @db.Uuid
+  status           TrainingRequestStatus? @default(PENDING)
+  requestedAt      DateTime               @default(now())
+  // Pricing & schedule
+  quotedPrice      Float?
+  trainingDate     DateTime?
+  // Cancellation policy snapshot
+  cancelWindowDays Int?                   @default(30)
+  canceledAt       DateTime?
+  canceledByUserId String?                @db.Uuid
+  cancelReason     String?
 
-  coach        Coach                   @relation(fields: [coachId], references: [id], name: "SentRequests")
-  gymer        Gymer                   @relation(fields: [gymerId], references: [id], name: "ReceivedRequests")
+  coach           Coach            @relation(fields: [coachId], references: [id], name: "SentRequests")
+  gymer           Gymer            @relation(fields: [gymerId], references: [id], name: "ReceivedRequests")
+  // Payment (1:1)
+  trainingPayment TrainingPayment? @relation("RequestPayment")
+  // Plans attached to this training
+  workoutPlans    WorkoutPlan[]
 
   @@index([gymerId])
   @@index([coachId])
@@ -201,15 +214,15 @@ model TrainingRequest {
 }
 
 model Feedback {
-  id         String   @id @default(uuid()) @db.Uuid
-  gymerId    String   @db.Uuid
-  coachId    String   @db.Uuid
-  rating     Float?
-  content    String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  gymerId   String   @db.Uuid
+  coachId   String   @db.Uuid
+  rating    Float?
+  content   String?
+  createdAt DateTime @default(now())
 
-  coach      Coach    @relation(fields: [coachId], references: [id])
-  gymer      Gymer    @relation(fields: [gymerId], references: [id])
+  coach Coach @relation(fields: [coachId], references: [id])
+  gymer Gymer @relation(fields: [gymerId], references: [id])
 
   @@index([gymerId])
   @@index([coachId])
@@ -218,13 +231,13 @@ model Feedback {
 }
 
 model Conversation {
-  id        String    @id @default(uuid()) @db.Uuid
-  coachId   String    @db.Uuid
-  gymerId   String    @db.Uuid
+  id      String @id @default(uuid()) @db.Uuid
+  coachId String @db.Uuid
+  gymerId String @db.Uuid
 
-  coach     Coach     @relation(fields: [coachId], references: [id])
-  gymer     Gymer     @relation(fields: [gymerId], references: [id])
-  messages  Message[]
+  coach    Coach     @relation(fields: [coachId], references: [id])
+  gymer    Gymer     @relation(fields: [gymerId], references: [id])
+  messages Message[]
 
   @@index([coachId])
   @@index([gymerId])
@@ -232,14 +245,14 @@ model Conversation {
 }
 
 model Message {
-  id              String       @id @default(uuid()) @db.Uuid
-  conversationId  String       @db.Uuid
-  senderId        String       @db.Uuid
-  content         String?
-  createdAt       DateTime     @default(now())
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid
+  senderId       String   @db.Uuid
+  content        String?
+  createdAt      DateTime @default(now())
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender          User         @relation(fields: [senderId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
 
   @@index([conversationId])
   @@index([senderId])
@@ -248,20 +261,20 @@ model Message {
 }
 
 model Appointment {
-  id                String            @id @default(uuid()) @db.Uuid
-  gymerId           String            @db.Uuid
-  coachId           String            @db.Uuid
+  id                String             @id @default(uuid()) @db.Uuid
+  gymerId           String             @db.Uuid
+  coachId           String             @db.Uuid
   date              DateTime?
-  workoutExerciseId String?           @db.Uuid
+  workoutExerciseId String?            @db.Uuid
   note              String?
   status            AppointmentStatus? @default(PENDING)
   location          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  gymer             Gymer             @relation(fields: [gymerId], references: [id])
-  coach             Coach             @relation(fields: [coachId], references: [id])
-  workoutExercise   WorkoutExercise?  @relation(fields: [workoutExerciseId], references: [id], onDelete: SetNull)
+  gymer           Gymer            @relation(fields: [gymerId], references: [id])
+  coach           Coach            @relation(fields: [coachId], references: [id])
+  workoutExercise WorkoutExercise? @relation(fields: [workoutExerciseId], references: [id], onDelete: SetNull)
 
   @@index([gymerId])
   @@index([coachId])
@@ -272,13 +285,13 @@ model Appointment {
 }
 
 model Notification {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  message    String?
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  message   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([isRead])
@@ -287,14 +300,14 @@ model Notification {
 }
 
 model Payment {
-  id           String         @id @default(uuid()) @db.Uuid
-  userId       String         @db.Uuid
-  amount       Float?
-  method       PaymentMethod?
-  status       PaymentStatus? @default(PENDING)
-  paymentDate  DateTime       @default(now())
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  amount      Float?
+  method      PaymentMethod?
+  status      PaymentStatus? @default(PENDING)
+  paymentDate DateTime       @default(now())
 
-  user         User           @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -309,7 +322,7 @@ model Achievement {
   achievedAt  DateTime? @db.Date
   type        String?
 
-  user        User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([achievedAt])
@@ -317,36 +330,43 @@ model Achievement {
 }
 
 model WorkoutPlan {
-  id          String            @id @default(uuid()) @db.Uuid
-  userId      String            @db.Uuid
-  name        String?
-  description String?
-  picture     String?           @map("workout_plan_picture")
-  planType    PlanType?
-  status      PlanStatus?       @default(ACTIVE)
-  days        Int?
-  isTemplate  Boolean?          @default(false)
+  id                String      @id @default(uuid()) @db.Uuid
+  userId            String      @db.Uuid
+  name              String?
+  description       String?
+  picture           String?     @map("workout_plan_picture")
+  planType          PlanType?
+  status            PlanStatus? @default(ACTIVE)
+  days              Int?
+  isTemplate        Boolean?    @default(false)
+  // Attribution & training linkage
+  createdByCoachId  String?     @db.Uuid
+  trainingRequestId String?     @db.Uuid
 
-  user        User              @relation(fields: [userId], references: [id])
-  exercises   WorkoutExercise[]
-  workoutDays WorkoutDay[]
+  user            User              @relation(fields: [userId], references: [id])
+  exercises       WorkoutExercise[]
+  workoutDays     WorkoutDay[]
+  createdByCoach  Coach?            @relation(fields: [createdByCoachId], references: [id])
+  trainingRequest TrainingRequest?  @relation(fields: [trainingRequestId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([isTemplate])
   @@index([status])
+  @@index([createdByCoachId])
+  @@index([trainingRequestId])
   @@map("workout_plans")
 }
 
 model WorkoutDay {
-  id            String        @id @default(uuid()) @db.Uuid
-  workoutPlanId String        @db.Uuid
+  id            String     @id @default(uuid()) @db.Uuid
+  workoutPlanId String     @db.Uuid
   dayNumber     Int?
-  date          DateTime?     @db.Date
-  status        DayStatus?    @default(PENDING)
+  date          DateTime?  @db.Date
+  status        DayStatus? @default(PENDING)
   completedAt   DateTime?
 
-  workoutPlan   WorkoutPlan   @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
-  exercises     WorkoutExercise[]
+  workoutPlan WorkoutPlan       @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exercises   WorkoutExercise[]
 
   @@index([workoutPlanId])
   @@index([dayNumber])
@@ -355,25 +375,25 @@ model WorkoutDay {
 }
 
 model WorkoutExercise {
-  id                  String         @id @default(uuid()) @db.Uuid
-  workoutPlanId       String         @db.Uuid
-  workoutDayId        String?        @db.Uuid
-  exerciseId          String?        @db.Uuid
-  dayNumber           Int?
+  id            String  @id @default(uuid()) @db.Uuid
+  workoutPlanId String  @db.Uuid
+  workoutDayId  String? @db.Uuid
+  exerciseId    String? @db.Uuid
+  dayNumber     Int?
 
   // Planned/target overrides
-  targetSets          Int?
-  targetReps          Int?
-  targetWeight        Float?
-  restTimeSec         Int?
-  timePerSetSec       Int?
-  order               Int?
-  notes               String?
+  targetSets    Int?
+  targetReps    Int?
+  targetWeight  Float?
+  restTimeSec   Int?
+  timePerSetSec Int?
+  order         Int?
+  notes         String?
 
-  workoutPlan         WorkoutPlan    @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
-  workoutDay          WorkoutDay?    @relation(fields: [workoutDayId], references: [id], onDelete: SetNull)
-  appointments        Appointment[]
-  WorkoutExerciseLog  WorkoutExerciseLog[]
+  workoutPlan        WorkoutPlan          @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  workoutDay         WorkoutDay?          @relation(fields: [workoutDayId], references: [id], onDelete: SetNull)
+  appointments       Appointment[]
+  WorkoutExerciseLog WorkoutExerciseLog[]
 
   @@index([workoutPlanId])
   @@index([workoutDayId])
@@ -384,22 +404,22 @@ model WorkoutExercise {
 }
 
 model Exercise {
-  id               String                @id @default(uuid()) @db.Uuid
-  userId           String?               @db.Uuid
-  name             String?
-  equipmentId      String?               @db.Uuid
-  description      String?
-  instruction      String?
-  videoUrl         String?
-  met              Float?
-  defaultWeight    Float?                @map("weight")
-  defaultSets      Int?                  @map("sets")
-  defaultReps      Int?                  @map("reps_per_set")
-  restTime         Int?                  @map("time_rest")
+  id                   String  @id @default(uuid()) @db.Uuid
+  userId               String? @db.Uuid
+  name                 String?
+  equipmentId          String? @db.Uuid
+  description          String?
+  instruction          String?
+  videoUrl             String?
+  met                  Float?
+  defaultWeight        Float?  @map("weight")
+  defaultSets          Int?    @map("sets")
+  defaultReps          Int?    @map("reps_per_set")
+  restTime             Int?    @map("time_rest")
   defaultTimePerSetSec Int?
 
-  user             User?                  @relation(fields: [userId], references: [id])
-  muscleGroups     ExerciseMuscleGroup[]
+  user         User?                 @relation(fields: [userId], references: [id])
+  muscleGroups ExerciseMuscleGroup[]
 
   @@index([userId])
   @@index([equipmentId])
@@ -408,21 +428,21 @@ model Exercise {
 }
 
 model MuscleGroup {
-  id          String                @id @default(uuid()) @db.Uuid
-  name        String?
+  id   String  @id @default(uuid()) @db.Uuid
+  name String?
 
-  exercises   ExerciseMuscleGroup[]
+  exercises ExerciseMuscleGroup[]
 
   @@map("muscle_groups")
 }
 
 model ExerciseMuscleGroup {
-  id              String         @id @default(uuid()) @db.Uuid
-  exerciseId      String         @db.Uuid
-  muscleGroupId   String         @db.Uuid
+  id            String @id @default(uuid()) @db.Uuid
+  exerciseId    String @db.Uuid
+  muscleGroupId String @db.Uuid
 
-  exercise        Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  muscleGroup     MuscleGroup    @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscleGroup MuscleGroup @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
 
   @@index([exerciseId])
   @@index([muscleGroupId])
@@ -431,25 +451,25 @@ model ExerciseMuscleGroup {
 }
 
 model Equipment {
-  id                String    @id @default(uuid()) @db.Uuid
-  name              String?
-  picture           String?   @map("equipment_picture")
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String?
+  picture String? @map("equipment_picture")
 
   @@map("equipment")
 }
 
 model Log {
-  id                  String                 @id @default(uuid()) @db.Uuid
-  userId              String                 @db.Uuid
-  dateLogged          DateTime?              @db.Date
-  weight              Float?
-  height              Float?
-  caloriesBurned      Float?                 @map("calo_burned")
-  caloriesIntake      Float?                 @map("calo_input")
-  notes               String?
-  totalWorkoutTime    Int?
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  dateLogged       DateTime? @db.Date
+  weight           Float?
+  height           Float?
+  caloriesBurned   Float?    @map("calo_burned")
+  caloriesIntake   Float?    @map("calo_input")
+  notes            String?
+  totalWorkoutTime Int?
 
-  user                User                   @relation(fields: [userId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
   workoutExerciseLogs WorkoutExerciseLog[]
   meals               Meal[]
 
@@ -459,34 +479,32 @@ model Log {
 }
 
 model Meal {
-  id         String    @id @default(uuid()) @db.Uuid
-  date       DateTime? @db.Date
-  calories   Float?    @map("calo_input")
-  type       MealType? @map("meal_type")
-  name       String?
-  logId      String?   @db.Uuid
-  log        Log?      @relation(fields: [logId], references: [id], onDelete: Cascade)
+  id       String    @id @default(uuid()) @db.Uuid
+  date     DateTime? @db.Date
+  calories Float?    @map("calo_input")
+  type     MealType? @map("meal_type")
+  name     String?
+  logId    String?   @db.Uuid
+  log      Log?      @relation(fields: [logId], references: [id], onDelete: Cascade)
 
   @@index([logId])
-
-
   @@index([date])
   @@index([type])
   @@map("meals")
 }
 
 model WorkoutExerciseLog {
-  id                  String    @id @default(uuid()) @db.Uuid
-  logId               String    @db.Uuid
-  workoutExerciseId   String    @db.Uuid
-  date                DateTime? @db.Date
-  progressPercent     Float?
-  caloriesBurned      Float?    @map("calo_burned")
-  dayNumber           Int?
-  totalTime           Int?
+  id                String    @id @default(uuid()) @db.Uuid
+  logId             String    @db.Uuid
+  workoutExerciseId String    @db.Uuid
+  date              DateTime? @db.Date
+  progressPercent   Float?
+  caloriesBurned    Float?    @map("calo_burned")
+  dayNumber         Int?
+  totalTime         Int?
 
-  log                 Log       @relation(fields: [logId], references: [id], onDelete: Cascade)
-  workoutExercise     WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  log             Log             @relation(fields: [logId], references: [id], onDelete: Cascade)
+  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
 
   @@index([workoutExerciseId])
   @@index([logId])
@@ -495,24 +513,98 @@ model WorkoutExerciseLog {
 }
 
 model ExerciseLog {
-  id            String    @id @default(uuid()) @db.Uuid
-  workoutLogId  String    @db.Uuid
+  id           String @id @default(uuid()) @db.Uuid
+  workoutLogId String @db.Uuid
 
-  setsLog       SetsLog[] @relation("ExerciseLogSets")
+  setsLog SetsLog[] @relation("ExerciseLogSets")
 
   @@map("exercise_logs")
 }
 
+// === NEW ENUMS ===
+enum SalaryStatus {
+  DUE
+  PAID
+}
+
+// === NEW MODELS ===
+model TrainingPayment {
+  id                String        @id @default(uuid()) @db.Uuid
+  trainingRequestId String        @unique @db.Uuid
+  payerUserId       String        @db.Uuid // gymer's userId
+  coachId           String        @db.Uuid
+  amount            Float
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  capturedAt        DateTime?
+  refundedAt        DateTime?
+  failureReason     String?
+
+  trainingRequest TrainingRequest @relation("RequestPayment", fields: [trainingRequestId], references: [id], onDelete: Cascade)
+
+  @@index([coachId])
+  @@index([status])
+  @@map("training_payments")
+}
+
+model CoachEarning {
+  id                String   @id @default(uuid()) @db.Uuid
+  coachId           String   @db.Uuid
+  trainingRequestId String   @unique @db.Uuid
+  amountGross       Float
+  commission        Float
+  amountNet         Float
+  earnedAt          DateTime @default(now())
+  salaryId          String?  @db.Uuid
+
+  salary CoachSalary? @relation(fields: [salaryId], references: [id], onDelete: SetNull)
+
+  @@index([coachId])
+  @@index([earnedAt])
+  @@map("coach_earnings")
+}
+
+model CoachSalary {
+  id                String       @id @default(uuid()) @db.Uuid
+  coachId           String       @db.Uuid
+  year              Int
+  month             Int
+  totalGross        Float        @default(0)
+  totalCommission   Float        @default(0)
+  totalNet          Float        @default(0)
+  status            SalaryStatus @default(DUE)
+  paidAt            DateTime?
+  processedByUserId String?      @db.Uuid
+
+  earnings CoachEarning[]
+
+  @@index([coachId])
+  @@index([year, month])
+  @@index([status])
+  @@map("coach_salaries")
+}
+
+model AdminConfig {
+  id                  String   @id @default("singleton")
+  basePriceX          Float
+  ratingMultiplier    Float    @default(0.2)
+  commissionRate      Float    @default(0.1)
+  coachCancelLockDays Int      @default(30)
+  updatedAt           DateTime @updatedAt
+
+  @@map("admin_config")
+}
+
 model SetsLog {
-  id             String        @id @default(uuid()) @db.Uuid
-  exerciseLogId  String        @db.Uuid
+  id             String @id @default(uuid()) @db.Uuid
+  exerciseLogId  String @db.Uuid
   setNumber      Int?
   reps           Int?
   times          Int?
   weight         Float?
-  caloriesBurned Float?        @map("calo_burned")
+  caloriesBurned Float? @map("calo_burned")
 
-  exerciseLog    ExerciseLog   @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade, name: "ExerciseLogSets")
+  exerciseLog ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade, name: "ExerciseLogSets")
 
   @@map("sets_logs")
 }
