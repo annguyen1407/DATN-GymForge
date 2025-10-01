@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../repositories/exercise_log_repository.dart';
 import '../../repositories/meals_repository.dart';
 import '../../models/meal_model.dart';
@@ -515,127 +516,68 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: const Color(0xFF121212),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add Food to ${meal['meal']}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _foodNameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDec('Food Name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _foodCaloriesController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDec('Calories (kcal)'),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: AppButton.text(
-                    label: 'Cancel',
-                    onPressed: () => Navigator.pop(ctx),
-                    size: AppButtonSize.small,
-                    fullWidth: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AppButton.primary(
-                    label: 'Save',
-                    size: AppButtonSize.small,
-                    onPressed: () async {
-                      final name = _foodNameController.text.trim();
-                      final cal = double.tryParse(_foodCaloriesController.text);
-                      if (name.isEmpty || cal == null || cal <= 0) return;
-                      Navigator.pop(ctx);
-                      // Determine meal type from label
-                      final label = meal['meal'] as String? ?? '';
-                      MealType type;
-                      switch (label.toLowerCase()) {
-                        case 'breakfast':
-                          type = MealType.breakfast;
-                          break;
-                        case 'lunch':
-                          type = MealType.lunch;
-                          break;
-                        case 'dinner':
-                          type = MealType.dinner;
-                          break;
-                        default:
-                          type = MealType.snack;
-                      }
-                      // Optimistic local add placeholder
-                      final temp = Meal(
-                        id: 'temp_${DateTime.now().microsecondsSinceEpoch}',
-                        name: name,
-                        calories: cal.toInt(),
-                        protein: null,
-                        carbs: null,
-                        fat: null,
-                        type: type,
-                        eatenAt: widget.selectedDate,
-                      );
-                      setState(() => _meals = [..._meals, temp]);
-                      final created = await _mealsRepo.addMeal(
-                        date: widget.selectedDate,
-                        name: name,
-                        calories: cal.toInt(),
-                        type: type,
-                      );
-                      if (!mounted) return;
-                      if (created != null) {
-                        setState(() {
-                          _meals = [
-                            for (final m in _meals)
-                              if (m.id == temp.id) created else m,
-                          ];
-                        });
-                      } else {
-                        // rollback
-                        setState(() {
-                          _meals = [
-                            for (final m in _meals)
-                              if (m.id != temp.id) m,
-                          ];
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Thêm bữa ăn thất bại')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) {
+        return _AddFoodSheet(
+          mealLabel: meal['meal'] as String? ?? '',
+          onSubmit: (name, calories) async {
+            final label = meal['meal'] as String? ?? '';
+            MealType type;
+            switch (label.toLowerCase()) {
+              case 'breakfast':
+                type = MealType.breakfast;
+                break;
+              case 'lunch':
+                type = MealType.lunch;
+                break;
+              case 'dinner':
+                type = MealType.dinner;
+                break;
+              default:
+                type = MealType.snack;
+            }
+            final temp = Meal(
+              id: 'temp_${DateTime.now().microsecondsSinceEpoch}',
+              name: name,
+              calories: calories,
+              protein: null,
+              carbs: null,
+              fat: null,
+              type: type,
+              eatenAt: widget.selectedDate,
+            );
+            setState(() => _meals = [..._meals, temp]);
+            final created = await _mealsRepo.addMeal(
+              date: widget.selectedDate,
+              name: name,
+              calories: calories,
+              type: type,
+            );
+            if (!mounted) return;
+            if (created != null) {
+              setState(() {
+                _meals = [
+                  for (final m in _meals)
+                    if (m.id == temp.id) created else m,
+                ];
+              });
+            } else {
+              setState(() {
+                _meals = [
+                  for (final m in _meals)
+                    if (m.id != temp.id) m,
+                ];
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Thêm bữa ăn thất bại')),
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -806,6 +748,274 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AddFoodSheet extends StatefulWidget {
+  final String mealLabel;
+  final Future<void> Function(String name, int calories) onSubmit;
+  const _AddFoodSheet({required this.mealLabel, required this.onSubmit});
+
+  @override
+  State<_AddFoodSheet> createState() => _AddFoodSheetState();
+}
+
+class _AddFoodSheetState extends State<_AddFoodSheet> {
+  final _nameController = TextEditingController();
+  final _calController = TextEditingController();
+  bool _submitting = false;
+
+  bool get _validName => _nameController.text.trim().isNotEmpty;
+  int? get _caloriesParsed {
+    final v = int.tryParse(_calController.text.trim());
+    if (v == null || v <= 0) return null;
+    return v;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _calController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    final name = _nameController.text.trim();
+    final cal = _caloriesParsed;
+    if (name.isEmpty || cal == null) return;
+    setState(() => _submitting = true);
+    await widget.onSubmit(name, cal);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final canSave = _validName && _caloriesParsed != null && !_submitting;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 44,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(.18),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Thêm món vào ${widget.mealLabel}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Divider(color: Colors.white.withOpacity(.07), height: 1),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tên món ăn',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _GlassField(
+                    controller: _nameController,
+                    hint: 'Ví dụ: Ức gà áp chảo',
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Calories (kcal)',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _GlassField(
+                    controller: _calController,
+                    hint: 'Ví dụ: 320 (chỉ số)',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 10),
+                  if (!_validName || _caloriesParsed == null)
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          size: 14,
+                          color: Colors.amber,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          !_validName
+                              ? 'Nhập tên món'
+                              : 'Calories phải là số > 0',
+                          style: const TextStyle(
+                            color: Colors.amber,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF181818),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withOpacity(.06),
+                    width: 1,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: Colors.white.withOpacity(.28),
+                          width: 1,
+                        ),
+                        foregroundColor: Colors.white70,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.pop(context),
+                      child: const Text('Hủy'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: canSave
+                            ? const Color(0xFF8854FF)
+                            : const Color(0xFF373737),
+                        foregroundColor: Colors.white,
+                        elevation: canSave ? 4 : 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: canSave ? _handleSave : null,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Lưu món'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final void Function(String)? onChanged;
+  const _GlassField({
+    required this.controller,
+    required this.hint,
+    this.keyboardType,
+    this.textInputAction,
+    this.onChanged,
+    this.inputFormatters,
+  });
+  final List<TextInputFormatter>? inputFormatters;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      inputFormatters: inputFormatters,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.white.withOpacity(.35)),
+        filled: true,
+        fillColor: Colors.white.withOpacity(.06),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Colors.white.withOpacity(.15),
+            width: 1,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFF8854FF), width: 1.2),
+        ),
       ),
     );
   }

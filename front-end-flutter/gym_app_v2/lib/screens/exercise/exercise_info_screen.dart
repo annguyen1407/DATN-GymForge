@@ -3,6 +3,7 @@ import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
 import '../../widgets/exercise_hero_header.dart';
 import '../../core/extensions/color_extensions.dart';
+import '../../core/utils/text_normalizer.dart';
 
 /// Màn hình xem chi tiết bài tập chỉ đọc (không chỉnh sets/reps).
 /// Sử dụng ExerciseHeroHeader thống nhất với các màn khác.
@@ -53,8 +54,9 @@ class _ExerciseInfoScreenState extends State<ExerciseInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final instruction = _exercise?.instruction?.trim();
-    final description = _exercise?.description?.trim();
+    // description = giới thiệu (intro), instruction = hướng dẫn chi tiết
+    final description = _exercise?.description?.trim().normalizedMultiline();
+    final instruction = _exercise?.instruction?.trim().normalizedMultiline();
     return Scaffold(
       backgroundColor: const Color(0xFF0B0C0E),
       body: RefreshIndicator(
@@ -130,18 +132,18 @@ class _ExerciseInfoScreenState extends State<ExerciseInfoScreen> {
                     const _SectionTitle(text: 'Giới thiệu'),
                     const SizedBox(height: 10),
                     _ExpandableBodyText(
-                      text: (instruction != null && instruction.isNotEmpty)
-                          ? instruction
+                      text: (description != null && description.isNotEmpty)
+                          ? description
                           : 'Chưa có giới thiệu cho bài tập này.',
                     ),
                     const SizedBox(height: 24),
                     const _SectionTitle(text: 'Hướng dẫn'),
                     const SizedBox(height: 10),
                     _ExpandableBodyText(
-                      text: (description != null && description.isNotEmpty)
-                          ? description
-                          : (instruction?.isNotEmpty == true
-                                ? instruction!
+                      text: (instruction != null && instruction.isNotEmpty)
+                          ? instruction
+                          : (description?.isNotEmpty == true
+                                ? description!
                                 : 'Chưa có hướng dẫn chi tiết.'),
                     ),
                     const SizedBox(height: 40),
