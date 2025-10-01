@@ -1,10 +1,20 @@
-/// Định nghĩa các hằng số liên quan đến API, ví dụ baseUrl
-class ApiConstants {
-  /// Đổi giá trị này khi deploy backend lên server thật
-  ///
-  // Khi chạy trên IOS Simulator, sử dụng địa chỉ này để kết nối với backend trên máy tính
-  static const String baseUrl = 'http://localhost:3000';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-  // Khi chạy trên Android Emulator, sử dụng địa chỉ này để kết nối với backend trên máy tính
-  //static const String baseUrl = 'http://10.0.2.2:3000';
+/// API constants loaded from environment (.env)
+class ApiConstants {
+  ApiConstants._();
+
+  static String get baseUrl {
+    final v = dotenv.env['API_BASE_URL'];
+    if (v == null || v.isEmpty) {
+      // Fallback để tránh crash nếu quên load .env
+      return 'http://localhost:3000';
+    }
+    // Remove trailing slashes if any (simple manual trim to avoid regex issues)
+    String cleaned = v.trim();
+    while (cleaned.endsWith('/')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
+    }
+    return cleaned;
+  }
 }

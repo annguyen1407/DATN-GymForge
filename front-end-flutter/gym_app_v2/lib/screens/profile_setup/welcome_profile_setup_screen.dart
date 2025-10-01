@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
+import '../../widgets/app_button.dart';
 
 class WelcomeProfileSetupScreen extends StatelessWidget {
   final String userName;
@@ -14,7 +16,7 @@ class WelcomeProfileSetupScreen extends StatelessWidget {
             'assets/images/onboarding_1.png', // Đặt tên file ảnh nền đúng với assets của bạn
             fit: BoxFit.cover,
           ),
-          Container(color: Colors.black.withOpacity(0.5)),
+          Container(color: Colors.black.withOpacityRatio(0.5)),
           SafeArea(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -43,38 +45,22 @@ class WelcomeProfileSetupScreen extends StatelessWidget {
                 const SizedBox(height: 32),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8854FF),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/profile-setup',
-                        );
-                      },
-                      child: const Text(
-                        'Điền thông tin cá nhân của tôi',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ),
+                  child: AppButton.gradient(
+                    label: 'Điền thông tin cá nhân của tôi',
+                    size: AppButtonSize.large,
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, '/profile-setup');
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextButton(
+                AppButton.text(
+                  label: 'Tạm thời bỏ qua',
                   onPressed: () {
-                    // TODO: Xử lý logic "Tạm thời bỏ qua" nếu cần
+                    // TODO: Logic skip profile setup
                   },
-                  child: const Text(
-                    'Tạm thời bỏ qua',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  fullWidth: false,
+                  size: AppButtonSize.small,
                 ),
                 const SizedBox(height: 32),
               ],

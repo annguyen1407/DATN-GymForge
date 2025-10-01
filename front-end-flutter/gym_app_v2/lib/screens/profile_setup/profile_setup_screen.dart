@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../widgets/animations/animated_appear.dart';
+import '../../core/logging/app_logger.dart';
+import '../../widgets/app_button.dart';
 import '../../services/user_service.dart';
+import '../../widgets/app_snack_bar.dart';
+import '../../widgets/date/app_date_picker.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -41,11 +46,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   List<String> get _goalOptions => _goalMap.keys.toList();
   int? _selectedAvatarIndex;
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
+  void _showError(String message) => AppSnackBar.showError(context, message);
 
   bool _validateCurrentStep() {
     switch (_currentStep) {
@@ -182,20 +183,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () {
-            // TODO: Thêm chức năng upload ảnh
-          },
-          icon: const Icon(Icons.add_a_photo, color: Colors.white),
-          label: const Text(
-            'Hoặc thêm ảnh của bạn',
-            style: TextStyle(color: Colors.white),
-          ),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.white24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+        // Upload avatar button (outline style)
+        SizedBox(
+          width: double.infinity,
+          child: AppButton.outline(
+            label: 'Hoặc thêm ảnh của bạn',
+            onPressed: () {
+              // TODO: Thêm chức năng upload ảnh
+            },
+            size: AppButtonSize.medium,
           ),
         ),
         const Spacer(),
@@ -301,25 +297,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         const SizedBox(height: 24),
         GestureDetector(
           onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
+            final picked = await AppDatePicker.show(
+              context,
               initialDate: _selectedDob ?? DateTime(2000, 1, 1),
               firstDate: DateTime(1950),
               lastDate: DateTime.now(),
-              builder: (context, child) => Theme(
-                data: ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Color(0xFF8854FF),
-                    onPrimary: Colors.white,
-                    surface: Colors.black,
-                    onSurface: Colors.white,
-                  ),
-                  dialogTheme: DialogThemeData(
-                    backgroundColor: Colors.grey[900],
-                  ),
-                ),
-                child: child!,
-              ),
+              title: '',
+              hideTitle: true,
+              confirmLabel: 'Lưu',
+              cancelLabel: 'Huỷ',
+              showTodayShortcut: true,
             );
             if (picked != null) setState(() => _selectedDob = picked);
           },
@@ -336,7 +323,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 Text(
                   _selectedDob != null
                       ? '${_selectedDob!.day}/${_selectedDob!.month}/${_selectedDob!.year}'
-                      : 'Chọn ngày sinh',
+                      : 'DD/MM/YYYY',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ],
@@ -536,83 +523,58 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildNextButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8854FF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: _nextStep,
-        child: const Text(
-          'Tiếp tục',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
-      ),
+    return AppButton.primary(
+      label: 'Tiếp tục',
+      onPressed: _nextStep,
+      size: AppButtonSize.large,
+      fullWidth: true,
     );
   }
 
   Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF8854FF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: () async {
-          final address =
-              '${_addressController.text}, ${_cityController.text}, ${_districtController.text}, ${_provinceController.text}';
-          String? expType;
-          if (_intensity >= 1 && _intensity <= 3) {
-            expType = "Beginner";
-          } else if (_intensity >= 4 && _intensity <= 5) {
-            expType = "Intermediate";
-          } else if (_intensity >= 6 && _intensity <= 7) {
-            expType = "Advanced";
-          }
-          String? sexValue = _selectedGender;
-          if (sexValue != null) {
-            sexValue = sexValue.toUpperCase() == 'MALE'
-                ? 'MALE'
-                : (sexValue.toUpperCase() == 'FEMALE' ? 'FEMALE' : null);
-          }
-          final body = {
-            "dateOfBirth": _selectedDob != null
-                ? _selectedDob!.toIso8601String().split('T')[0]
-                : null,
-            "sex": sexValue,
-            "address": address,
-            "weight": double.tryParse(_weightController.text),
-            "height": int.tryParse(_heightController.text),
-            "goal": _selectedGoal != null ? _goalMap[_selectedGoal!] : null,
-            "expType": expType,
-            "profilePicture": null, // luôn truyền null cho avatar
-          };
-          print('PATCH profile body: $body');
-          final success = await UserService.updateProfile(context, body);
-          print('PATCH profile result: $success');
-          if (success) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/main',
-              (route) => false,
-            );
-          } else {
-            _showError('Cập nhật thất bại hoặc token hết hạn!');
-          }
-        },
-        child: const Text(
-          'Lưu',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
-      ),
+    return AppButton.gradient(
+      label: 'Lưu',
+      onPressed: () async {
+        final address =
+            '${_addressController.text}, ${_cityController.text}, ${_districtController.text}, ${_provinceController.text}';
+        String? expType;
+        if (_intensity >= 1 && _intensity <= 3) {
+          expType = "Beginner";
+        } else if (_intensity >= 4 && _intensity <= 5) {
+          expType = "Intermediate";
+        } else if (_intensity >= 6 && _intensity <= 7) {
+          expType = "Advanced";
+        }
+        String? sexValue = _selectedGender;
+        if (sexValue != null) {
+          sexValue = sexValue.toUpperCase() == 'MALE'
+              ? 'MALE'
+              : (sexValue.toUpperCase() == 'FEMALE' ? 'FEMALE' : null);
+        }
+        final body = {
+          "dateOfBirth": _selectedDob != null
+              ? _selectedDob!.toIso8601String().split('T')[0]
+              : null,
+          "sex": sexValue,
+          "address": address,
+          "weight": double.tryParse(_weightController.text),
+          "height": int.tryParse(_heightController.text),
+          "goal": _selectedGoal != null ? _goalMap[_selectedGoal!] : null,
+          "expType": expType,
+          "profilePicture": null, // luôn truyền null cho avatar
+        };
+        AppLogger.debug('PATCH profile body: $body', tag: 'ProfileSetup');
+        final success = await UserService.updateProfile(context, body);
+        if (!mounted) return; // context may be disposed
+        AppLogger.info('PATCH profile result: $success', tag: 'ProfileSetup');
+        if (success) {
+          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+        } else {
+          _showError('Cập nhật thất bại hoặc token hết hạn!');
+        }
+      },
+      size: AppButtonSize.large,
+      fullWidth: true,
     );
   }
 
@@ -635,25 +597,65 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'bước ${_currentStep + 1}/$_totalSteps',
-                    style: const TextStyle(
-                      color: Color(0xFF8854FF),
-                      fontWeight: FontWeight.bold,
+              AnimatedAppear(
+                dy: 10,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 360),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.2),
+                            end: Offset.zero,
+                          ).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: Text(
+                        'bước ${_currentStep + 1}/$_totalSteps',
+                        key: ValueKey(_currentStep),
+                        style: const TextStyle(
+                          color: Color(0xFF8854FF),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _totalSteps,
-                  itemBuilder: (context, index) => _buildStepContent(),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0.05, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey('step_$_currentStep'),
+                    child: AnimatedAppear(
+                      key: ValueKey('appear_$_currentStep'),
+                      dy: 16,
+                      child: _buildStepContent(),
+                    ),
+                  ),
                 ),
               ),
             ],

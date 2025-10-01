@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
 import 'dart:async';
+import '../../widgets/app_button.dart';
 import '../../widgets/exercise_card.dart';
+import '../../utils/workout_completion.dart';
+import '../../services/exercise_logs_service.dart';
+import '../../core/auth/token_manager.dart';
+import '../../core/logging/app_logger.dart';
 
 /// WorkoutSessionScreen: Màn hình tập luyện chính
 /// Hiển thị timer, thông tin hiệp, điều khiển phát nhạc và danh sách bài tập
@@ -8,11 +14,19 @@ class WorkoutSessionScreen extends StatefulWidget {
   final String workoutTitle; // Tên buổi tập
   final List<ExerciseItem> exercises; // Danh sách bài tập
   final int currentExerciseIndex; // Bài tập hiện tại
+  final String workoutPlanId; // Plan id để log
+  final int dayNumber; // Số ngày trong plan
+  final DateTime workoutDayDate; // ngày thực tế của workout day
+  final String workoutDayId; // id của workout day để log chính xác
 
   const WorkoutSessionScreen({
     required this.workoutTitle,
     required this.exercises,
     this.currentExerciseIndex = 0,
+    required this.workoutPlanId,
+    required this.dayNumber,
+    required this.workoutDayDate,
+    required this.workoutDayId,
     super.key,
   });
 
@@ -20,22 +34,24 @@ class WorkoutSessionScreen extends StatefulWidget {
   State<WorkoutSessionScreen> createState() => _WorkoutSessionScreenState();
 }
 
-class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _timerController;
-  late AnimationController _pulseController;
-  Timer? _workoutTimer; // Thay thế AnimationController bằng Timer
+class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
+  static const int kUploadStatusThrottle =
+      2; // chỉ cập nhật trạng thái mỗi 2 log
+  // Chỉ còn sử dụng Timer đơn giản thay vì AnimationController cho hiệu năng & đơn giản.
+  Timer? _workoutTimer; // Timer chính cho hiệp tập hoặc thời gian nghỉ
 
   int currentExerciseIndex = 0;
   int currentSet = 1;
   int timeRemaining = 0; // Bắt đầu với 0, sẽ tính khi bắt đầu tập
   int workoutTime = 0; // Thời gian tập của hiệp hiện tại (đếm xuôi)
   int currentReps = 0; // Số reps thực tế của hiệp hiện tại
+  int currentWeight = 0; // Trọng lượng tạ (kg) dạng số nguyên
   bool isResting = false;
   bool isPlaying = false;
   bool hasStarted = false; // Chưa bắt đầu tập luyện
-  bool isCompleted = false;
   bool isAutoMode = false; // Chế độ auto - chỉ đếm ngược khi bật
+  bool _isUploading = false; // trạng thái upload logs
+  String _uploadStatus = '';
 
   // Lưu trữ thông tin tập luyện
   Map<int, List<Map<String, dynamic>>> workoutData =
@@ -45,30 +61,22 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
   void initState() {
     super.initState();
     currentExerciseIndex = widget.currentExerciseIndex;
-    currentReps =
-        widget.exercises[currentExerciseIndex].repsCount; // Khởi tạo số reps
-
-    _timerController = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Không bắt đầu timer ngay, chờ user bấm play
+    currentReps = widget.exercises[currentExerciseIndex].repsCount;
+    currentWeight = widget.exercises[currentExerciseIndex].weight.round();
   }
 
   @override
   void dispose() {
-    _timerController.dispose();
-    _pulseController.dispose();
-    _workoutTimer?.cancel(); // Hủy timer khi dispose
+    _workoutTimer?.cancel();
     super.dispose();
   }
 
+  /// Getter tiện lợi lấy bài tập hiện tại.
+  ExerciseItem get _currentExercise => widget.exercises[currentExerciseIndex];
+  bool get _isBodyweight =>
+      _currentExercise.weight.round() == 0; // bài tập không dùng tạ
+
+  /// Khởi động timer theo trạng thái hiện tại (nghỉ auto -> đếm ngược, tập -> đếm xuôi)
   void _startTimer() {
     _workoutTimer?.cancel(); // Hủy timer cũ nếu có
 
@@ -96,15 +104,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     }
   }
 
+  /// Dừng timer hiện tại (nếu có)
   void _stopTimer() {
     _workoutTimer?.cancel();
   }
 
-  void _showRepsEditDialog() {
+  /// Dialog chỉnh sửa nhanh reps / weight của set đang chờ log
+  void _showEditSetDialog() {
     if (!hasStarted || isResting || isPlaying) return;
 
     final TextEditingController repsController = TextEditingController(
       text: currentReps.toString(),
+    );
+    final TextEditingController weightController = TextEditingController(
+      text: currentWeight.toString(),
     );
 
     showDialog(
@@ -113,40 +126,72 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
         return AlertDialog(
           backgroundColor: Colors.grey[900],
           title: const Text(
-            'Chỉnh sửa số reps',
+            'Chỉnh sửa set',
             style: TextStyle(color: Colors.white),
           ),
-          content: TextField(
-            controller: repsController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'Số reps',
-              labelStyle: TextStyle(color: Colors.white70),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.purple),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: repsController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Số reps',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.purple),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.purple),
+                  ),
+                ),
               ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.purple),
-              ),
-            ),
+              if (!_isBodyweight) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: weightController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Trọng lượng (kg)',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.purple),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.purple),
+                    ),
+                  ),
+                ),
+              ],
+              // Bodyweight: không hiển thị field weight và cũng không cần note
+            ],
           ),
           actions: [
-            TextButton(
+            AppButton.text(
+              label: 'Hủy',
               onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+              fullWidth: false,
+              size: AppButtonSize.small,
             ),
-            TextButton(
+            AppButton.primary(
+              label: 'Lưu',
               onPressed: () {
                 final newReps = int.tryParse(repsController.text);
-                if (newReps != null && newReps > 0) {
-                  setState(() {
+                final newWeight = int.tryParse(weightController.text);
+                setState(() {
+                  if (newReps != null && newReps > 0) {
                     currentReps = newReps;
-                  });
-                }
+                  }
+                  if (!_isBodyweight && newWeight != null && newWeight >= 0) {
+                    currentWeight = newWeight;
+                  }
+                });
                 Navigator.pop(context);
               },
-              child: const Text('Lưu', style: TextStyle(color: Colors.purple)),
+              size: AppButtonSize.small,
+              fullWidth: false,
             ),
           ],
         );
@@ -154,7 +199,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     );
   }
 
+  /// Hiển thị dialog hoàn thành buổi tập và cho phép upload logs.
   void _showWorkoutCompletedDialog() {
+    // Tính % hoàn thành trước khi hiển thị dialog
+    final completion = computeWorkoutCompletion(
+      plannedExercises: widget.exercises,
+      workoutData: workoutData,
+      params: const WorkoutCompletionCalculatorParams(
+        repValue: 1, // có thể chỉnh theo bodyweight user trong tương lai
+        allowOver100: false,
+        maxIntensityMultiplier: 1.2,
+        hybridAlpha: 0.8,
+      ),
+    );
+
     showDialog(
       context: context,
       barrierDismissible: false, // Không cho phép đóng bằng cách tap outside
@@ -182,6 +240,52 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
                 const Text(
                   'Chúc mừng! Bạn đã hoàn thành buổi tập luyện.',
                   style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                // Summary metrics
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[850],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tỉ lệ hoàn thành: ${completion.hybridPercent.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Volume: ${completion.volumePercent.toStringAsFixed(1)}% | Sets: ${completion.setsPercent.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Load đạt được: ${completion.achievedLoad.toStringAsFixed(1)} / ${completion.targetLoad.toStringAsFixed(1)}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sets: ${completion.totalSetsDone}/${completion.totalSetsPlanned}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -237,29 +341,45 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                // Lưu thông tin tập luyện (TODO: implement save to database)
-                _saveWorkoutData();
-                Navigator.pop(context); // Đóng dialog
-                // Pop về MainScreen (giữ lại tab hiện tại)
-                Navigator.popUntil(context, (route) => route.isFirst);
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            if (_isUploading)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _uploadStatus,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: const Text(
-                'Lưu và hoàn thành',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+            AppButton.primary(
+              label: _isUploading ? 'Đang lưu...' : 'Lưu và hoàn thành',
+              size: AppButtonSize.medium,
+              fullWidth: false,
+              onPressed: _isUploading
+                  ? null
+                  : () async {
+                      final navigator = Navigator.of(context);
+                      await _uploadExerciseLogs();
+                      if (!mounted) return;
+                      navigator.pop(); // close dialog
+                      if (!mounted) return;
+                      navigator.popUntil((route) => route.isFirst);
+                    },
             ),
           ],
         );
@@ -267,20 +387,129 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     );
   }
 
-  void _saveWorkoutData() {
-    // TODO: Implement save to database/API
-    final workoutSummary = {
-      'workoutTitle': widget.workoutTitle,
-      'completedAt': DateTime.now(),
-      'exercises': workoutData,
-      'totalExercises': widget.exercises.length,
-      'completedExercises': workoutData.length,
-    };
+  /// Upload toàn bộ exercise logs từng bài (hiện serialize tối giản để tương thích backend).
+  Future<void> _uploadExerciseLogs() async {
+    // Guard: cần workoutPlanId & dayNumber
+    final planId = widget.workoutPlanId;
+    final dayNum = widget.dayNumber;
 
-    print('Saving workout data: $workoutSummary');
-    // Ở đây sẽ call API để lưu dữ liệu vào backend
+    // Chỉ upload những bài thực sự có log (user đã hoàn thành ít nhất 1 set).
+    // Điều này cho phép user "skip" bài tập bằng cách bấm Next mà không log set nào.
+    final loggedExerciseIndices = workoutData.keys.toSet();
+    final loggedExercises = <ExerciseItem>[];
+    for (int i = 0; i < widget.exercises.length; i++) {
+      if (loggedExerciseIndices.contains(i) &&
+          (workoutData[i]?.isNotEmpty ?? false)) {
+        loggedExercises.add(widget.exercises[i]);
+      }
+    }
+
+    if (loggedExercises.isEmpty) {
+      // Không có gì để upload -> thông báo và thoát
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không có bài tập nào được log.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Validate id chỉ trên các bài có log (bỏ qua bài skip).
+    final missingIds = loggedExercises
+        .where((e) => (e.id == null || e.id!.isEmpty))
+        .toList();
+    if (missingIds.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Một số bài tập chưa có workoutExerciseId - không thể gửi log.',
+          ),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      debugPrint(
+        '[ExerciseLogs] Abort upload: missing workoutExerciseId for ${missingIds.length} logged exercises',
+      );
+      return;
+    }
+    setState(() {
+      _isUploading = true;
+      _uploadStatus = 'Bắt đầu gửi logs...';
+    });
+
+    try {
+      final userId = await TokenManager.instance.getCurrentUserId();
+      final payloads = await ExerciseLogsService.instance.buildPayloads(
+        // Chỉ truyền vào những bài có log
+        exercises: loggedExercises,
+        workoutData: workoutData,
+        workoutPlanId: planId,
+        dayNumber: dayNum,
+        workoutDayDate: widget.workoutDayDate,
+        workoutDayId: widget.workoutDayId,
+        userId: userId,
+      );
+      int success = 0;
+      int failed = 0;
+      for (int i = 0; i < payloads.length; i++) {
+        final p = payloads[i];
+        // Cập nhật status thưa hơn để tránh re-build quá nhiều nếu danh sách dài
+        if (i == 0 ||
+            i == payloads.length - 1 ||
+            i % kUploadStatusThrottle == 0) {
+          if (mounted) {
+            setState(() {
+              _uploadStatus =
+                  'Đang gửi ${i + 1}/${payloads.length}: ${p.exerciseName}';
+            });
+          }
+        }
+        final res = await ExerciseLogsService.instance.createLog(p);
+        if (res.status >= 200 && res.status < 300 && res.error == null) {
+          success++;
+        } else {
+          debugPrint(
+            '[ExerciseLogs] Failed for ${p.exerciseName}: ${res.message}',
+          );
+          failed++;
+        }
+      }
+      setState(() {
+        _uploadStatus = 'Hoàn tất $success/${payloads.length}';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gửi log: thành công $success, thất bại $failed',
+              style: const TextStyle(fontSize: 14),
+            ),
+            backgroundColor: failed == 0
+                ? Colors.green[600]
+                : Colors.orange[700],
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[ExerciseLogs] Exception: $e');
+    } finally {
+      // Trì hoãn 300ms để user thấy trạng thái cuối
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
   }
 
+  /// Bật / tắt chế độ tự động: khi nghỉ sẽ đếm ngược và tự chuyển hiệp.
   void _toggleAutoMode() {
     setState(() {
       isAutoMode = !isAutoMode;
@@ -294,6 +523,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     });
   }
 
+  /// Gọi khi thời gian nghỉ auto kết thúc -> bắt đầu hiệp mới.
   void _handleRestComplete() {
     // Kết thúc nghỉ, bắt đầu hiệp mới (chỉ khi auto mode)
     if (isAutoMode) {
@@ -306,6 +536,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     }
   }
 
+  /// Điều khiển play/pause tùy theo trạng thái hiện tại (nghỉ / tập / chưa bắt đầu)
   void _togglePlayPause() {
     setState(() {
       if (!hasStarted) {
@@ -338,8 +569,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     });
   }
 
+  /// Ghi lại 1 set đã hoàn thành cho bài tập hiện tại.
   void _logSet() {
-    final currentExercise = widget.exercises[currentExerciseIndex];
+    final currentExercise = _currentExercise;
 
     // Lưu thông tin hiệp vào workoutData
     if (!workoutData.containsKey(currentExerciseIndex)) {
@@ -350,11 +582,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
       'set': currentSet,
       'reps': currentReps,
       'time': workoutTime,
-      'weight': currentExercise.weight,
+      'weight': currentWeight,
       'timestamp': DateTime.now(),
     });
 
-    print('Logged set $currentSet: ${workoutTime}s, $currentReps reps');
+    AppLogger.debug(
+      'Logged set $currentSet: ${workoutTime}s, $currentReps reps',
+      tag: 'WorkoutSession',
+    );
 
     if (currentSet < currentExercise.sets) {
       // Chuyển sang hiệp tiếp theo
@@ -379,6 +614,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     }
   }
 
+  /// Chuyển sang bài tập tiếp theo hoặc kết thúc toàn bộ buổi.
   void _nextExercise() {
     if (currentExerciseIndex < widget.exercises.length - 1) {
       setState(() {
@@ -388,14 +624,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
         workoutTime = 0;
         isPlaying = false; // Dừng lại khi chuyển bài tập mới
         hasStarted = false; // Reset trạng thái
-        // Reset currentReps cho bài tập mới
+        // Reset currentReps & weight cho bài tập mới
         currentReps = widget.exercises[currentExerciseIndex].repsCount;
+        currentWeight = widget.exercises[currentExerciseIndex].weight.round();
       });
       _stopTimer();
     } else {
       // Hoàn thành tất cả bài tập
       setState(() {
-        isCompleted = true;
         isPlaying = false;
       });
       _stopTimer();
@@ -403,6 +639,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     }
   }
 
+  /// Quay lại bài tập trước đó (nếu có)
   void _previousExercise() {
     if (currentExerciseIndex > 0) {
       setState(() {
@@ -412,19 +649,22 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
         workoutTime = 0;
         isPlaying = false; // Dừng lại khi chuyển bài tập mới
         hasStarted = false; // Reset trạng thái
-        // Reset currentReps cho bài tập mới
+        // Reset currentReps & weight cho bài tập trước
         currentReps = widget.exercises[currentExerciseIndex].repsCount;
+        currentWeight = widget.exercises[currentExerciseIndex].weight.round();
       });
       _stopTimer();
     }
   }
 
+  /// Định dạng thời gian mm:ss
   String _formatTime(int seconds) {
     int minutes = seconds ~/ 60;
     int remainingSeconds = seconds % 60;
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
+  /// Lấy string hiển thị timer phù hợp với trạng thái.
   String _getTimerDisplay() {
     if (!hasStarted) {
       return '0:00'; // Chưa bắt đầu
@@ -438,379 +678,449 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentExercise = widget.exercises[currentExerciseIndex];
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
-            // Header với tiêu đề và menu
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Text(
-                    currentExercise.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
+            _Header(
+              currentName: _currentExercise.name,
+              onBack: () => Navigator.pop(context),
             ),
-
-            // Hình ảnh bài tập - tạm thời màu đen
-            Container(
-              height: 130,
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.black,
-              ),
-            ),
-
-            // Timer lớn
-            Text(
-              _getTimerDisplay(),
-              style: TextStyle(
-                color: (isResting && isAutoMode) ? Colors.orange : Colors.red,
-                fontSize: 72,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Thông tin hiệp
-            Text(
-              isResting
+            _ExerciseImagePlaceholder(),
+            _TimerPanel(
+              display: _getTimerDisplay(),
+              isResting: isResting,
+              isAutoMode: isAutoMode,
+              infoText: isResting
                   ? isAutoMode
                         ? 'Auto - Nghỉ ngơi: ${_formatTime(timeRemaining)} (Tự động tiếp tục)'
                         : 'Nghỉ ngơi - Bấm Play để tiếp tục'
                   : hasStarted
-                  ? 'Hiệp $currentSet/${widget.exercises[currentExerciseIndex].sets}'
+                  ? 'Hiệp $currentSet/${_currentExercise.sets}'
                   : 'Sẵn sàng - Bấm Play để bắt đầu',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
             ),
-
+            _ExerciseMetaBar(
+              currentWeight: currentWeight,
+              currentReps: currentReps,
+              canEdit: !isPlaying && hasStarted && !isResting,
+              onEdit: _showEditSetDialog,
+              isBodyweight: _isBodyweight,
+            ),
+            _ControlBar(
+              hasStarted: hasStarted,
+              isResting: isResting,
+              isPlaying: isPlaying,
+              isAutoMode: isAutoMode,
+              onReplay10: (hasStarted && !isResting)
+                  ? () => setState(() {
+                      workoutTime = (workoutTime - 10).clamp(0, workoutTime);
+                    })
+                  : null,
+              onPrev: _previousExercise,
+              onNext: _nextExercise,
+              onTogglePlay: (isResting && isAutoMode) ? null : _togglePlayPause,
+              onToggleAuto: _toggleAutoMode,
+            ),
+            _LogSetButton(
+              enabled: hasStarted && !isResting,
+              isLastSet: currentSet >= _currentExercise.sets,
+              currentSet: currentSet,
+              onPressed: _logSet,
+            ),
             const SizedBox(height: 16),
-
-            // Thông tin chi tiết
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Số tạ: ${currentExercise.weight} kg',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  GestureDetector(
-                    onTap: _showRepsEditDialog,
-                    child: Row(
-                      children: [
-                        Text(
-                          'Số rép: $currentReps',
-                          style: TextStyle(
-                            color: (!isPlaying && hasStarted && !isResting)
-                                ? Colors.orange
-                                : Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: (!isPlaying && hasStarted && !isResting)
-                              ? Colors.orange
-                              : Colors.orange,
-                          size: 16,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Điều khiển - gọn hơn
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Replay 10s
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: IconButton(
-                    onPressed: hasStarted && !isResting
-                        ? () {
-                            setState(() {
-                              workoutTime = (workoutTime - 10).clamp(
-                                0,
-                                workoutTime,
-                              );
-                            });
-                          }
-                        : null,
-                    icon: Icon(
-                      Icons.replay_10,
-                      color: hasStarted && !isResting
-                          ? Colors.white
-                          : Colors.grey,
-                      size: 20,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Previous
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: IconButton(
-                    onPressed: _previousExercise,
-                    icon: const Icon(
-                      Icons.skip_previous,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Play/Pause button - nhỏ hơn
-                GestureDetector(
-                  onTap: (isResting && isAutoMode) ? null : _togglePlayPause,
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: (isResting && isAutoMode)
-                          ? Colors.grey[600] // Màu xám khi không thể bấm
-                          : Colors.purple,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      (isResting && !isAutoMode)
-                          ? Icons.play_arrow
-                          : isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Next
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: IconButton(
-                    onPressed: _nextExercise,
-                    icon: const Icon(
-                      Icons.skip_next,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Auto button
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isAutoMode ? Colors.green[800] : Colors.grey[800],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: IconButton(
-                    onPressed: _toggleAutoMode,
-                    icon: Icon(
-                      Icons.autorenew,
-                      color: isAutoMode ? Colors.white : Colors.grey,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Log set button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 140),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: hasStarted && !isResting ? _logSet : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasStarted && !isResting
-                        ? Colors.purple
-                        : Colors.grey[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                  child: Text(
-                    currentSet < widget.exercises[currentExerciseIndex].sets
-                        ? 'Log set $currentSet'
-                        : 'Hoàn thành bài tập',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Workout list
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Workout list',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: widget.exercises.length,
-                      itemBuilder: (context, index) {
-                        final exercise = widget.exercises[index];
-                        final isActive = index == currentExerciseIndex;
-                        final isCompleted = index < currentExerciseIndex;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? Colors.orange
-                                : isCompleted
-                                ? Colors.grey[800]
-                                : Colors.grey[900]?.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              if (isCompleted)
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green,
-                                  size: 20,
-                                ),
-                              if (isCompleted) const SizedBox(width: 12),
-
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      exercise.name,
-                                      style: TextStyle(
-                                        color: isActive
-                                            ? Colors.black
-                                            : Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${exercise.sets} hiệp',
-                                      style: TextStyle(
-                                        color: isActive
-                                            ? Colors.black54
-                                            : Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              if (!isActive && !isCompleted)
-                                const Icon(
-                                  Icons.play_arrow,
-                                  color: Colors.white54,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              child: _WorkoutList(
+                exercises: widget.exercises,
+                currentExerciseIndex: currentExerciseIndex,
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
       ),
+    );
+  }
+}
+
+// --- Extracted UI components ---
+
+class _Header extends StatelessWidget {
+  final String currentName;
+  final VoidCallback onBack;
+  const _Header({required this.currentName, required this.onBack});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: onBack,
+          ),
+          Expanded(
+            child: Text(
+              currentName,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseImagePlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 130,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.black,
+      ),
+    );
+  }
+}
+
+class _TimerPanel extends StatelessWidget {
+  final String display;
+  final bool isResting;
+  final bool isAutoMode;
+  final String infoText;
+  const _TimerPanel({
+    required this.display,
+    required this.isResting,
+    required this.isAutoMode,
+    required this.infoText,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          display,
+          style: TextStyle(
+            color: (isResting && isAutoMode) ? Colors.orange : Colors.red,
+            fontSize: 72,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          infoText,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _ExerciseMetaBar extends StatelessWidget {
+  final int currentWeight;
+  final int currentReps;
+  final bool canEdit;
+  final VoidCallback onEdit;
+  final bool isBodyweight;
+  const _ExerciseMetaBar({
+    required this.currentWeight,
+    required this.currentReps,
+    required this.canEdit,
+    required this.onEdit,
+    required this.isBodyweight,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (!isBodyweight)
+            GestureDetector(
+              onTap: (canEdit && !isBodyweight) ? onEdit : null,
+              child: Text(
+                'Số tạ: $currentWeight kg',
+                style: TextStyle(
+                  color: (canEdit && !isBodyweight)
+                      ? Colors.orange
+                      : Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 0), // giữ layout cân đối
+          GestureDetector(
+            onTap: canEdit ? onEdit : null,
+            child: Row(
+              children: [
+                Text(
+                  'Số rép: $currentReps',
+                  style: TextStyle(
+                    color: canEdit ? Colors.orange : Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.orange, size: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ControlBar extends StatelessWidget {
+  final bool hasStarted;
+  final bool isResting;
+  final bool isPlaying;
+  final bool isAutoMode;
+  final VoidCallback? onReplay10;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final VoidCallback? onTogglePlay;
+  final VoidCallback onToggleAuto;
+  const _ControlBar({
+    required this.hasStarted,
+    required this.isResting,
+    required this.isPlaying,
+    required this.isAutoMode,
+    required this.onReplay10,
+    required this.onPrev,
+    required this.onNext,
+    required this.onTogglePlay,
+    required this.onToggleAuto,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _roundIcon(
+            child: IconButton(
+              onPressed: onReplay10,
+              icon: Icon(
+                Icons.replay_10,
+                color: (hasStarted && !isResting) ? Colors.white : Colors.grey,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _roundIcon(
+            child: IconButton(
+              onPressed: onPrev,
+              icon: const Icon(
+                Icons.skip_previous,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: onTogglePlay,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: (isResting && isAutoMode)
+                    ? Colors.grey[600]
+                    : Colors.purple,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                (isResting && !isAutoMode)
+                    ? Icons.play_arrow
+                    : isPlaying
+                    ? Icons.pause
+                    : Icons.play_arrow,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _roundIcon(
+            child: IconButton(
+              onPressed: onNext,
+              icon: const Icon(Icons.skip_next, color: Colors.white, size: 20),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _roundIcon(
+            color: isAutoMode ? Colors.green[800] : Colors.grey[800],
+            child: IconButton(
+              onPressed: onToggleAuto,
+              icon: Icon(
+                Icons.autorenew,
+                color: isAutoMode ? Colors.white : Colors.grey,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roundIcon({required Widget child, Color? color}) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color ?? Colors.grey[800],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _LogSetButton extends StatelessWidget {
+  final bool enabled;
+  final bool isLastSet;
+  final int currentSet;
+  final VoidCallback onPressed;
+  const _LogSetButton({
+    required this.enabled,
+    required this.isLastSet,
+    required this.currentSet,
+    required this.onPressed,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 140, vertical: 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: AppButton.primary(
+          label: isLastSet ? 'Hoàn thành bài tập' : 'Log set $currentSet',
+          onPressed: enabled ? onPressed : null,
+          size: AppButtonSize.large,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutList extends StatelessWidget {
+  final List<ExerciseItem> exercises;
+  final int currentExerciseIndex;
+  const _WorkoutList({
+    required this.exercises,
+    required this.currentExerciseIndex,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                'Workout list',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: exercises.length,
+            itemBuilder: (context, index) {
+              final exercise = exercises[index];
+              final isActive = index == currentExerciseIndex;
+              final isCompleted = index < currentExerciseIndex;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Colors.orange
+                      : isCompleted
+                      ? Colors.grey[800]
+                      : Colors.grey[900]?.withOpacityRatio(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    if (isCompleted)
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 20,
+                      ),
+                    if (isCompleted) const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            exercise.name,
+                            style: TextStyle(
+                              color: isActive ? Colors.black : Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${exercise.sets} hiệp',
+                            style: TextStyle(
+                              color: isActive ? Colors.black54 : Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isActive && !isCompleted)
+                      const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

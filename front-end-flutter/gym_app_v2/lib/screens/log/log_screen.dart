@@ -1,80 +1,139 @@
+// Clean rebuilt LogScreen after corruption cleanup.
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../../widgets/log_tab.dart';
-import '../../widgets/stats_card.dart';
-import '../../widgets/category_icon.dart';
+import '../../core/extensions/color_extensions.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/today_stat.dart';
+import '../../widgets/skeleton/today_stat_skeleton.dart';
+import '../../repositories/exercise_log_repository.dart';
+import '../../services/api_constants.dart';
+import '../../core/auth/token_manager.dart';
+import '../../services/log_out_service.dart';
+import '../../core/auth/session_guard.dart';
 import '../../widgets/log_workout_time_card.dart';
-import '../../widgets/workout_time_chart.dart';
-import '../../widgets/workout_details_page.dart';
+import '../../widgets/pill_tab_bar.dart';
+import '../../widgets/segmented_pill_switch.dart';
+import 'log_day_screen.dart';
+import '../../widgets/animations/animated_appear.dart';
 
-/// LogScreen: Tab "Log" hiển thị lịch sử tập luyện, thống kê, các nhóm workout đã hoàn thành
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
-
   @override
-  _LogScreenState createState() => _LogScreenState();
+  State<LogScreen> createState() => _LogScreenState();
 }
 
-class _LogScreenState extends State<LogScreen> {
-  // State variable to track the selected tab
-  String _selectedTab = 'Lịch sử';
+class _LogScreenState extends State<LogScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  // State variables for body metrics (placeholder values)
-  double _weight = 70.0; // kg
-  double _height = 175.0; // cm
-  final double _bodyFat = 20.0; // percentage
-  double _oneRepMax = 100.0; // kg
+  double? _weight;
+  double? _height;
+  double? _bodyFat;
+  double? _oneRepMax;
 
-  // Calendar state
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-
-  // State for toggling between LogWorkoutTimeCard and TableCalendar
   bool _showWorkoutTimeCard = true;
+  static const double _historySwitchContentHeight =
+      420; // fixed to prevent jump
 
-  // Mock workout data (replace with backend data)
-  final Map<DateTime, List<Map<String, dynamic>>> _workouts = {
-    DateTime(2025, 8, 1): [
-      {'name': 'Bench Press', 'sets': 3, 'reps': 10, 'weight': 80.0},
-      {'name': 'Squats', 'sets': 4, 'reps': 12, 'weight': 100.0},
-    ],
-    DateTime(2025, 8, 2): [
-      {'name': 'Deadlift', 'sets': 3, 'reps': 8, 'weight': 120.0},
-      {'name': 'Pull-Ups', 'sets': 3, 'reps': 15, 'weight': 0.0},
-    ],
-  };
+  DailyExerciseLogSummary? _dailySummary;
+  bool _loadingSummary = false;
+  String? _summaryError;
+  final _repo = ExerciseLogRepository(baseUrl: ApiConstants.baseUrl);
+  String? _userId;
+  String?
+  _accessToken; // still retrieved but repository no longer needs explicit token
+  bool _authResolving = true;
 
-  // Function to handle tab selection
-  void _onTabSelected(String tab) {
-    setState(() {
-      _selectedTab = tab;
-    });
+  final Map<DateTime, List<Map<String, dynamic>>> _workouts = {};
+  final List<Map<String, dynamic>> _bodyMetricsHistory = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _initAuthAndLoad();
   }
 
-  // Function to toggle between LogWorkoutTimeCard and TableCalendar
-  void _toggleHistoryView(bool showWorkoutTimeCard) {
-    setState(() {
-      _showWorkoutTimeCard = showWorkoutTimeCard;
-    });
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
-  // Function to handle new workout addition
-  void _addWorkout(DateTime date, Map<String, dynamic> workout) {
-    setState(() {
-      if (_workouts.containsKey(date)) {
-        _workouts[date]!.add(workout);
-      } else {
-        _workouts[date] = [workout];
+  void _toggleHistoryView(bool show) =>
+      setState(() => _showWorkoutTimeCard = show);
+
+  Future<void> _initAuthAndLoad() async {
+    try {
+      final tm = TokenManager.instance;
+      final token = await tm.getValidAccessToken();
+      final uid = await tm.getCurrentUserId();
+      if (!mounted) return;
+      if (token == null || uid == null) {
+        setState(() {
+          _authResolving = false;
+          _summaryError = 'Chưa đăng nhập hoặc token hết hạn';
+        });
+        return;
       }
-    });
+      setState(() {
+        _accessToken = token;
+        _userId = uid;
+        _authResolving = false;
+      });
+      await _fetchDailySummary(DateTime.now());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _authResolving = false;
+        _summaryError = 'Lỗi khởi tạo auth: $e';
+      });
+    }
   }
 
-  // Function to show bottom sheet for updating body metrics
-  Future<void> _showBodyMetricsUpdateModal(BuildContext context) async {
-    TextEditingController weightController = TextEditingController();
-    TextEditingController heightController = TextEditingController();
-    TextEditingController oneRepMaxController = TextEditingController();
+  Future<void> _fetchDailySummary(DateTime date) async {
+    if (_accessToken == null || _userId == null) return;
+    setState(() {
+      _loadingSummary = true;
+      _summaryError = null;
+    });
+    try {
+      final res = await _repo.fetchDailySummary(userId: _userId!, date: date);
+      setState(() {
+        _dailySummary = res;
+        if (res != null) {
+          if (res.weight != null) _weight = res.weight;
+          if (res.height != null && res.height! > 0) _height = res.height;
+        }
+      });
+    } catch (e) {
+      setState(() => _summaryError = e.toString());
+      // Trường hợp repo ném lỗi chứa 401 cũ -> sử dụng guard để quyết định
+      if (e.toString().contains('401')) {
+        final decision = await SessionGuard.handlePersistent401(
+          context: context,
+          source: 'dailySummary',
+        );
+        if (decision == UnauthorizedResolution.logout) {
+          return; // đã logout
+        }
+        // softFail: giữ nguyên lỗi cho UI hiển thị
+      }
+    } finally {
+      if (mounted) setState(() => _loadingSummary = false);
+    }
+  }
 
+  void _addWorkout(DateTime date, Map<String, dynamic> workout) {
+    setState(() => (_workouts[date] ??= []).add(workout));
+  }
+
+  Future<void> _showBodyMetricsUpdateModal(BuildContext context) async {
+    final weightController = TextEditingController();
+    final heightController = TextEditingController();
+    final oneRepMaxController = TextEditingController();
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -102,18 +161,7 @@ class _LogScreenState extends State<LogScreen> {
                 decimal: true,
               ),
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Weight (kg)',
-                labelStyle: const TextStyle(color: Colors.white54),
-                border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.white54),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              decoration: _metricInputDecoration('Weight (kg)'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -122,18 +170,7 @@ class _LogScreenState extends State<LogScreen> {
                 decimal: true,
               ),
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Height (cm)',
-                labelStyle: const TextStyle(color: Colors.white54),
-                border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.white54),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              decoration: _metricInputDecoration('Height (cm)'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -142,73 +179,52 @@ class _LogScreenState extends State<LogScreen> {
                 decimal: true,
               ),
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'One-Rep Max (kg)',
-                labelStyle: const TextStyle(color: Colors.white54),
-                border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.white54),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Color(0xFF8854FF)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              decoration: _metricInputDecoration('One-Rep Max (kg)'),
             ),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: AppButton.text(
+                    label: 'Cancel',
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white54),
-                    ),
+                    fullWidth: true,
+                    size: AppButtonSize.small,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ElevatedButton(
+                  child: AppButton.primary(
+                    label: 'Save',
+                    size: AppButtonSize.small,
                     onPressed: () {
-                      // Validate and update weight
-                      final weightInput = weightController.text;
-                      final newWeight = double.tryParse(weightInput);
-                      if (newWeight != null && newWeight > 0) {
+                      final w = double.tryParse(weightController.text);
+                      if (w != null && w > 0) {
                         setState(() {
-                          _weight = newWeight;
+                          _weight = w;
+                          _bodyMetricsHistory.add({
+                            'week': _bodyMetricsHistory.length + 1,
+                            'date': DateTime.now(),
+                            'weight': w,
+                            'oneRepMax': _oneRepMax,
+                          });
                         });
                       }
-                      // Validate and update height
-                      final heightInput = heightController.text;
-                      final newHeight = double.tryParse(heightInput);
-                      if (newHeight != null && newHeight > 0) {
-                        setState(() {
-                          _height = newHeight;
-                        });
+                      final h = double.tryParse(heightController.text);
+                      if (h != null && h > 0) {
+                        setState(() => _height = h);
                       }
-                      // Validate and update 1RM
-                      final oneRepMaxInput = oneRepMaxController.text;
-                      final newOneRepMax = double.tryParse(oneRepMaxInput);
-                      if (newOneRepMax != null && newOneRepMax > 0) {
+                      final r = double.tryParse(oneRepMaxController.text);
+                      if (r != null && r > 0) {
                         setState(() {
-                          _oneRepMax = newOneRepMax;
+                          _oneRepMax = r;
+                          if (_bodyMetricsHistory.isNotEmpty) {
+                            _bodyMetricsHistory.last['oneRepMax'] = r;
+                          }
                         });
                       }
                       Navigator.pop(context);
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8854FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(color: Colors.white),
-                    ),
                   ),
                 ),
               ],
@@ -219,99 +235,87 @@ class _LogScreenState extends State<LogScreen> {
     );
   }
 
+  InputDecoration _metricInputDecoration(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Colors.white54),
+    border: OutlineInputBorder(
+      borderSide: const BorderSide(color: Colors.white54),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderSide: const BorderSide(color: Color(0xFF8854FF)),
+      borderRadius: BorderRadius.circular(8),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tabs chuyển giữa lịch sử và chuyên sâu
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          children: [
+            PillTabBar(
+              controller: _tabController,
+              labels: const ['Lịch sử', 'Chuyên sâu'],
+              horizontalPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              height: kTextTabBarHeight + 10,
+              labelStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              indicatorOpacity: 0.22,
+              borderRadius: 12,
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                physics: const BouncingScrollPhysics(),
                 children: [
-                  LogTab(
-                    label: 'Lịch sử',
-                    selected: _selectedTab == 'Lịch sử',
-                    onTap: () => _onTabSelected('Lịch sử'),
+                  _KeepAliveWrapper(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      child: _buildHistoryContent(),
+                    ),
                   ),
-                  const SizedBox(width: 32),
-                  LogTab(
-                    label: 'Chuyên sâu',
-                    selected: _selectedTab == 'Chuyên sâu',
-                    onTap: () => _onTabSelected('Chuyên sâu'),
+                  _KeepAliveWrapper(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      child: _buildInDepthContent(),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              // Conditional content based on selected tab
-              _selectedTab == 'Lịch sử'
-                  ? _buildHistoryContent()
-                  : _buildInDepthContent(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Content for "Lịch sử" tab
   Widget _buildHistoryContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Thống kê tổng quan
-        const StatsCard(),
+        const _SectionHeader(title: 'Tổng quan hôm nay'),
+        const SizedBox(height: 12),
+        AnimatedAppear(child: _buildTodayStatSection()),
         const SizedBox(height: 24),
-        // Danh sách nhóm workout đã hoàn thành
+        // (Đã bỏ cụm icon danh mục bài tập để giảm nhiễu giao diện)
+        const SizedBox(height: 8),
         const Text(
-          'Workout sets',
+          'Thống kê & thông tin chi tiết',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Your completed workout categories',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            CategoryIcon(
-              icon: Icons.directions_run,
-              color: Color(0xFFB86B5B),
-              label: 'Cardio',
-              count: 3,
-            ),
-            CategoryIcon(
-              icon: Icons.fitness_center,
-              color: Color(0xFF7B5FB2),
-              label: 'Strength',
-              count: 2,
-            ),
-            CategoryIcon(
-              icon: Icons.timer,
-              color: Color(0xFF4CB7A5),
-              label: 'Endurance',
-              count: 2,
-            ),
-            CategoryIcon(
-              icon: Icons.more_horiz,
-              color: Color(0xFF4C7CB7),
-              label: 'More',
-              count: 3,
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        // Workout History Section (toggling between LogWorkoutTimeCard and Calendar)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -321,101 +325,137 @@ class _LogScreenState extends State<LogScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Workout History',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              Center(
+                child: SizedBox(
+                  width: 180,
+                  child: SegmentedPillSwitch(
+                    labels: const ['Ngày', 'Tháng'],
+                    selectedIndex: _showWorkoutTimeCard ? 0 : 1,
+                    onChanged: (i) => _toggleHistoryView(i == 0),
+                    height: 38,
+                    borderRadius: 14,
+                    activeColor: const Color(0xFF8854FF),
+                    backgroundColor: const Color(0xFF202022),
+                    activeTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    inactiveTextStyle: const TextStyle(
+                      color: Colors.white54,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'View your workout time or select a date for details',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
-              ),
               const SizedBox(height: 16),
-              // Toggle Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildToggleButton(
-                    'Workout Time',
-                    _showWorkoutTimeCard,
-                    () => _toggleHistoryView(true),
-                  ),
-                  const SizedBox(width: 16),
-                  _buildToggleButton(
-                    'Calendar',
-                    !_showWorkoutTimeCard,
-                    () => _toggleHistoryView(false),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Conditionally show LogWorkoutTimeCard or TableCalendar
-              _showWorkoutTimeCard
-                  ? const LogWorkoutTimeCard()
-                  : TableCalendar(
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2030, 12, 31),
-                      focusedDay: _focusedDay,
-                      selectedDayPredicate: (day) =>
-                          isSameDay(_selectedDay, day),
-                      onDaySelected: (selectedDay, focusedDay) {
-                        setState(() {
-                          _selectedDay = selectedDay;
-                          _focusedDay = focusedDay;
-                        });
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => WorkoutDetailsPage(
-                              selectedDate: selectedDay,
-                              workouts: _workouts[selectedDay] ?? [],
-                              onWorkoutAdded: (workout) =>
-                                  _addWorkout(selectedDay, workout),
+              SizedBox(
+                height: _historySwitchContentHeight,
+                width: double.infinity,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final isCalendar = child.key == const ValueKey('calendar');
+                    final offsetTween = Tween<Offset>(
+                      begin: Offset(isCalendar ? 0.18 : -0.18, 0),
+                      end: Offset.zero,
+                    );
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: offsetTween.animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _showWorkoutTimeCard
+                      ? SizedBox(
+                          key: const ValueKey('dayCard'),
+                          height: _historySwitchContentHeight,
+                          child: LogWorkoutTimeCard(
+                            userId: _userId,
+                            token: _accessToken,
+                          ),
+                        )
+                      : SizedBox(
+                          key: const ValueKey('calendar'),
+                          height: _historySwitchContentHeight,
+                          child: TableCalendar(
+                            firstDay: DateTime.utc(2020, 1, 1),
+                            lastDay: DateTime.utc(2030, 12, 31),
+                            focusedDay: _focusedDay,
+                            selectedDayPredicate: (day) =>
+                                isSameDay(_selectedDay, day),
+                            onDaySelected: (selectedDay, focusedDay) {
+                              // Only update local selected/focused day without triggering daily summary fetch
+                              setState(() {
+                                _selectedDay = selectedDay;
+                                _focusedDay = focusedDay;
+                              });
+                              if (!mounted) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => LogOfDayScreen(
+                                    selectedDate: selectedDay,
+                                    workouts: _workouts[selectedDay] ?? [],
+                                    onWorkoutAdded: (w) =>
+                                        _addWorkout(selectedDay, w),
+                                    userId: _userId ?? '',
+                                  ),
+                                ),
+                              );
+                            },
+                            calendarStyle: CalendarStyle(
+                              defaultTextStyle: const TextStyle(
+                                color: Colors.white,
+                              ),
+                              weekendTextStyle: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                              selectedDecoration: const BoxDecoration(
+                                color: Color(0xFF8854FF),
+                                shape: BoxShape.circle,
+                              ),
+                              todayDecoration: BoxDecoration(
+                                color: Colors.white.withOpacityRatio(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              outsideTextStyle: const TextStyle(
+                                color: Colors.white54,
+                              ),
+                            ),
+                            headerStyle: const HeaderStyle(
+                              formatButtonVisible: false,
+                              titleTextStyle: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                              leftChevronIcon: Icon(
+                                Icons.chevron_left,
+                                color: Colors.white,
+                              ),
+                              rightChevronIcon: Icon(
+                                Icons.chevron_right,
+                                color: Colors.white,
+                              ),
+                            ),
+                            daysOfWeekStyle: const DaysOfWeekStyle(
+                              weekdayStyle: TextStyle(color: Colors.white54),
+                              weekendStyle: TextStyle(color: Colors.white54),
                             ),
                           ),
-                        );
-                      },
-                      calendarStyle: CalendarStyle(
-                        defaultTextStyle: const TextStyle(color: Colors.white),
-                        weekendTextStyle: const TextStyle(
-                          color: Colors.white70,
                         ),
-                        selectedDecoration: const BoxDecoration(
-                          color: Color(0xFF8854FF),
-                          shape: BoxShape.circle,
-                        ),
-                        todayDecoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        outsideTextStyle: const TextStyle(
-                          color: Colors.white54,
-                        ),
-                      ),
-                      headerStyle: const HeaderStyle(
-                        formatButtonVisible: false,
-                        titleTextStyle: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        leftChevronIcon: Icon(
-                          Icons.chevron_left,
-                          color: Colors.white,
-                        ),
-                        rightChevronIcon: Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                        ),
-                      ),
-                      daysOfWeekStyle: const DaysOfWeekStyle(
-                        weekdayStyle: TextStyle(color: Colors.white54),
-                        weekendStyle: TextStyle(color: Colors.white54),
-                      ),
-                    ),
+                ),
+              ),
             ],
           ),
         ),
@@ -423,57 +463,91 @@ class _LogScreenState extends State<LogScreen> {
     );
   }
 
-  // Helper method to build toggle button
-  Widget _buildToggleButton(
-    String label,
-    bool isSelected,
-    VoidCallback onPressed,
-  ) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected
-              ? const Color(0xFF8854FF)
-              : Colors.grey[800],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white54,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+  Widget _buildTodayStatSection() {
+    if (_authResolving) {
+      return const TodayStatSkeleton(compact: true);
+    }
+    if (_accessToken == null || _userId == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Bạn cần đăng nhập để xem thống kê',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
-        ),
-      ),
+          const SizedBox(height: 8),
+          AppButton.primary(
+            label: 'Đăng nhập lại',
+            size: AppButtonSize.small,
+            onPressed: () async {
+              await LogoutService.logout(
+                context,
+                reason: 'manual_relogin_button',
+              );
+            },
+          ),
+        ],
+      );
+    }
+    if (_loadingSummary) {
+      return const TodayStatSkeleton(compact: true);
+    }
+    if (_summaryError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Load error: $_summaryError',
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          AppButton.outline(
+            label: 'Retry',
+            onPressed: () => _fetchDailySummary(_selectedDay ?? DateTime.now()),
+          ),
+        ],
+      );
+    }
+    final s = _dailySummary;
+    if (s == null) {
+      return const TodayStat(
+        workoutSets: 0,
+        exercisesCount: 0,
+        calories: 0,
+        caloriesIntake: 0,
+        circleLabel: 'Buổi tập',
+        compact: true,
+      );
+    }
+    // Hiển thị số buổi tập (workout day distinct) thay vì tổng lượt (sessions)
+    return TodayStat(
+      workoutSets: s.uniqueSessions,
+      exercisesCount: s.totalExercises,
+      calories: s.caloriesBurned,
+      caloriesIntake: s.caloriesIntake,
+      points: null,
+      workoutTimeMinutes: s.totalWorkoutTimeMinutes,
+      circleLabel: 'Buổi tập',
+      compact: true,
     );
   }
 
-  // Content for "Chuyên sâu" tab
   Widget _buildInDepthContent() {
-    // Calculate BMI: weight (kg) / (height (m) * height (m))
-    final double bmi = _weight / ((_height / 100) * (_height / 100));
-
+    final double? bmi = (_weight != null && _height != null && _height! > 0)
+        ? _weight! / ((_height! / 100) * (_height! / 100))
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'In-depth Analytics',
+          'Phân tích chuyên sâu',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'Detailed insights into your workout performance',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
-        ),
-        const SizedBox(height: 16),
-        // Body Metrics Card
+        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -484,9 +558,8 @@ class _LogScreenState extends State<LogScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               const Text(
-                'Body Metrics',
+                'Chỉ số cơ thể',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -494,60 +567,73 @@ class _LogScreenState extends State<LogScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Update Metrics Button
-              ElevatedButton(
-                onPressed: () => _showBodyMetricsUpdateModal(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8854FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              if (_bodyMetricsHistory.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Chưa có chỉ số',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  minimumSize: const Size(double.infinity, 0), // Full width
+                )
+              else ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [],
                 ),
-                child: const Text(
-                  'Update Metrics',
-                  style: TextStyle(color: Colors.white),
+              ],
+              const SizedBox(height: 12),
+              if (_weight != null ||
+                  _height != null ||
+                  _bodyFat != null ||
+                  _oneRepMax != null)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (_weight != null)
+                      _buildMetricItem(
+                        'Weight',
+                        '${_weight!.toStringAsFixed(1)} kg',
+                      ),
+                    if (_height != null)
+                      _buildMetricItem(
+                        'Height',
+                        '${_height!.toStringAsFixed(1)} cm',
+                      ),
+                    if (bmi != null)
+                      _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
+                    if (_bodyFat != null)
+                      _buildMetricItem(
+                        'Body Fat',
+                        '${_bodyFat!.toStringAsFixed(1)}%',
+                      ),
+                    if (_oneRepMax != null)
+                      _buildMetricItem(
+                        '1RM',
+                        '${_oneRepMax!.toStringAsFixed(1)} kg',
+                      ),
+                  ],
+                )
+              else
+                const Text(
+                  'Chưa có ghi nhận',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
-              ),
               const SizedBox(height: 16),
-              // Metrics Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildMetricItem(
-                    'Weight',
-                    '${_weight.toStringAsFixed(1)} kg',
-                  ),
-                  _buildMetricItem(
-                    'Height',
-                    '${_height.toStringAsFixed(1)} cm',
-                  ),
-                  _buildMetricItem('BMI', bmi.toStringAsFixed(1)),
-                  _buildMetricItem(
-                    'Body Fat',
-                    '${_bodyFat.toStringAsFixed(1)}%',
-                  ),
-                  _buildMetricItem(
-                    '1RM',
-                    '${_oneRepMax.toStringAsFixed(1)} kg',
-                  ),
-                ],
+              AppButton.primary(
+                label: 'Cập nhật chỉ số',
+                onPressed: () => _showBodyMetricsUpdateModal(context),
+                size: AppButtonSize.medium,
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        // Workout Time Chart
-        const WorkoutTimeChart(),
       ],
     );
   }
 
-  // Helper method to build metric item
   Widget _buildMetricItem(String label, String value) {
     return Expanded(
       child: Column(
@@ -570,5 +656,43 @@ class _LogScreenState extends State<LogScreen> {
         ],
       ),
     );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        letterSpacing: .2,
+      ),
+    );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

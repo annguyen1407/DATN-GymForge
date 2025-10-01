@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
+import '../core/extensions/color_extensions.dart';
 
 /// ExerciseCard: Widget hiển thị thông tin một bài tập trong danh sách
 class ExerciseCard extends StatelessWidget {
@@ -18,12 +20,15 @@ class ExerciseCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8), // Giảm margin từ 12 xuống 8
-        padding: const EdgeInsets.all(12), // Giảm padding từ 16 xuống 12
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey[900]?.withOpacity(0.5),
+          color: DesignTokens.surfaceAlt.withOpacityRatio(0.5),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[700]!, width: 0.5),
+          border: Border.all(
+            color: DesignTokens.surfaceOutline.withOpacityRatio(.4),
+            width: 0.5,
+          ),
         ),
         child: Row(
           children: [
@@ -39,7 +44,9 @@ class ExerciseCard extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     : null,
-                color: exercise.image.isEmpty ? Colors.grey[700] : null,
+                color: exercise.image.isEmpty
+                    ? DesignTokens.surfaceMuted
+                    : null,
               ),
               child: exercise.image.isEmpty
                   ? const Icon(
@@ -58,7 +65,7 @@ class ExerciseCard extends StatelessWidget {
                   Text(
                     exercise.name,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: DesignTokens.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
@@ -75,13 +82,13 @@ class ExerciseCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple[600]?.withOpacity(0.5),
+                            color: DesignTokens.brand.withOpacityRatio(0.45),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             mg,
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: DesignTokens.textSecondary,
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
@@ -128,18 +135,18 @@ class ExerciseCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacity(0.6),
+        color: DesignTokens.surfaceMuted.withOpacityRatio(0.6),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.orange, size: 12),
+          Icon(icon, color: DesignTokens.warning, size: 12),
           const SizedBox(width: 3),
           Text(
             text,
             style: const TextStyle(
-              color: Colors.white70,
+              color: DesignTokens.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -152,6 +159,9 @@ class ExerciseCard extends StatelessWidget {
 
 /// Model cho một bài tập trong ngày với các thông số config
 class ExerciseItem {
+  final String? id; // id record của workout day exercise (d.id)
+  final String?
+  exerciseId; // id bài tập gốc (d.exerciseId) dùng để fetch chi tiết
   final String name; // Tên bài tập
   final String reps; // Số rép (giữ để tương thích với code cũ)
   final String image; // Đường dẫn hình ảnh
@@ -162,6 +172,8 @@ class ExerciseItem {
   final List<String> muscleGroupNames; // Nhóm cơ liên quan
 
   const ExerciseItem({
+    this.id,
+    this.exerciseId,
     required this.name,
     required this.reps,
     this.image = '',

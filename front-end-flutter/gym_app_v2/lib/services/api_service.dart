@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_constants.dart';
 import '../core/api/api_client.dart';
+import '../core/logging/app_logger.dart';
 
 /// ApiService: Chỉ xử lý logic gọi API, không liên quan UI
 class ApiService {
@@ -22,32 +23,14 @@ class ApiService {
         body: jsonEncode({'refresh_token': refreshToken}),
       );
       return response.statusCode == 200;
-    } catch (e) {
-      print('[LOGOUT] error: $e');
-      return false;
-    }
-  }
-
-  /// Refresh access token bằng refresh_token (lấy từ secure storage)
-  static Future<Map<String, dynamic>?> refreshToken(String refreshToken) async {
-    try {
-      final url = Uri.parse('${ApiConstants.baseUrl}/auth/refresh');
-      final response = await http.post(
-        url,
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'refresh_token': refreshToken}),
+    } catch (e, st) {
+      AppLogger.error(
+        'Logout error: $e',
+        tag: 'ApiService',
+        stackTrace: st,
+        error: e,
       );
-      final body = jsonDecode(response.body);
-      return {
-        'status': response.statusCode,
-        ...((body is Map<String, dynamic>) ? body : {}),
-      };
-    } catch (e) {
-      print('[REFRESH TOKEN] error: $e');
-      return null;
+      return false;
     }
   }
 
@@ -72,7 +55,7 @@ class ApiService {
     String password,
   ) async {
     try {
-      print('[LOGIN] email: $email, password: $password');
+      AppLogger.info('[LOGIN] email: $email', tag: 'ApiService');
       final url = Uri.parse('${ApiConstants.baseUrl}/auth/login');
       final response = await http.post(
         url,
@@ -89,8 +72,13 @@ class ApiService {
         'status': response.statusCode,
         ...((body is Map<String, dynamic>) ? body : {}),
       };
-    } catch (e) {
-      print('[LOGIN] error: $e');
+    } catch (e, st) {
+      AppLogger.error(
+        'Login error: $e',
+        tag: 'ApiService',
+        stackTrace: st,
+        error: e,
+      );
       return null;
     }
   }
@@ -98,7 +86,7 @@ class ApiService {
   /// Đăng ký, trả về Map chứa access_token và user nếu thành công, null nếu lỗi
   static Future<Map<String, dynamic>?> signup(Map<String, dynamic> body) async {
     try {
-      print('[SIGNUP] body: $body');
+      AppLogger.debug('[SIGNUP] body: $body', tag: 'ApiService');
       final url = Uri.parse('${ApiConstants.baseUrl}/auth/register');
       final response = await http.post(
         url,
@@ -123,8 +111,13 @@ class ApiService {
           ...((resBody is Map<String, dynamic>) ? resBody : {}),
         };
       }
-    } catch (e) {
-      print('[SIGNUP] error: $e');
+    } catch (e, st) {
+      AppLogger.error(
+        'Signup error: $e',
+        tag: 'ApiService',
+        stackTrace: st,
+        error: e,
+      );
       return null;
     }
   }

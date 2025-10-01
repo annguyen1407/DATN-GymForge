@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import 'log_out_service.dart';
+import 'log_out_service.dart'; // still used for fatal flows older callers
 import '../core/auth/token_manager.dart';
 import '../core/api/api_client.dart';
 import '../core/api/api_response.dart';
 import '../core/api/api_mapper.dart';
+import '../core/auth/session_guard.dart';
 
 class UserService {
   /// Wrapper cho http.patch: tự động kiểm tra 401 và logout nếu cần
@@ -32,16 +33,30 @@ class UserService {
   ) async {
     final token = await TokenManager.instance.getValidAccessToken();
     if (token == null) {
-      if (context.mounted) await LogoutService.logout(context);
-      return false;
+      // thử explicit refresh trước khi bỏ cuộc
+      final outcome = await TokenManager.instance.forceRefresh();
+      if (!outcome.ok) {
+        if (context.mounted) {
+          await LogoutService.logout(
+            context,
+            reason: 'no_token_update_profile_fatal',
+          );
+        }
+        return false;
+      }
     }
     final res = await ApiClient.instance.patch(
       '/profile',
       body: jsonEncode(data),
     );
-    if (res == null) return false;
-    if (res.statusCode == 401 && context.mounted) {
-      await LogoutService.logout(context);
+    if (res == null) return false; // unauthorized (no token) path
+    if (res.statusCode == 401) {
+      final decision = await SessionGuard.handlePersistent401(
+        context: context,
+        source: 'updateProfile',
+      );
+      if (decision == UnauthorizedResolution.logout) return false;
+      // softFail hoặc none => không tự logout, trả về false để UI xử lý
       return false;
     }
     return res.statusCode == 200;
@@ -66,10 +81,19 @@ class UserService {
   /// NOTE: Hàm này sẽ tự động logout nếu token hết hạn (401).
   /// Nếu chỉ muốn lấy dữ liệu thô (Map) và không logout, dùng ApiService.getProfile.
   static Future<UserModel?> fetchProfile(BuildContext context) async {
-    final token = await TokenManager.instance.getValidAccessToken();
+    var token = await TokenManager.instance.getValidAccessToken();
     if (token == null) {
-      if (context.mounted) await LogoutService.logout(context);
-      return null;
+      final outcome = await TokenManager.instance.forceRefresh();
+      if (!outcome.ok) {
+        if (context.mounted) {
+          await LogoutService.logout(
+            context,
+            reason: 'no_token_fetch_profile_fatal',
+          );
+        }
+        return null;
+      }
+      token = outcome.pair?.accessToken; // refresh ok
     }
     final response = await ApiClient.instance.requestJson(
       'GET',
@@ -77,8 +101,13 @@ class UserService {
     );
     final user = response.asModel(UserModel.fromJson);
     if (user != null) return user;
-    if (response.error == ApiErrorType.unauthorized && context.mounted) {
-      await LogoutService.logout(context);
+    if (response.error == ApiErrorType.unauthorized) {
+      final decision = await SessionGuard.handlePersistent401(
+        context: context,
+        source: 'fetchProfile',
+      );
+      if (decision == UnauthorizedResolution.logout) return null;
+      return null; // softFail/none: caller thấy null
     }
     return null;
   }

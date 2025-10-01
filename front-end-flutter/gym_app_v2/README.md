@@ -69,21 +69,26 @@ cd DATN-GymForge/front-end-flutter/gym_app_v2
 flutter pub get
 ```
 
-3. **Cấu hình API endpoint:**
+3. **Cấu hình môi trường (.env):**
+  Tạo file `.env` (copy từ `.env.example` nếu có) trong thư mục `gym_app_v2/`:
    
-   Chỉnh sửa file `lib/services/api_constants.dart`:
-   ```dart
-   class ApiConstants {
-     // iOS Simulator - kết nối localhost
-     static const String baseUrl = 'http://localhost:3000';
-     
-     // Android Emulator - sử dụng IP đặc biệt
-     // static const String baseUrl = 'http://10.0.2.2:3000';
-     
-     // Production - domain thật khi deploy
-     // static const String baseUrl = 'https://your-api-domain.com';
-   }
-   ```
+  ```bash
+  cp .env.example .env
+  ```
+  Bên trong khai báo:
+  ```properties
+  API_BASE_URL=http://localhost:3000
+  # Android Emulator có thể dùng: http://10.0.2.2:3000
+  # Production ví dụ: https://api.your-domain.com
+   
+  # Thời gian giữa các lần tự refresh token (giây)
+  REFRESH_INTERVAL_SECONDS=600
+  ```
+  Ứng dụng sẽ tự load `.env` ở `main.dart` và dùng `API_BASE_URL` thông qua `ApiConstants.baseUrl`.
+  - Nếu thiếu hoặc không load được `.env` sẽ fallback `http://localhost:3000`.
+  - Có thể đổi nhanh interval khi test (ví dụ 30s) bằng cách sửa `REFRESH_INTERVAL_SECONDS`.
+   
+  File cũ `api_constants.dart` giờ chỉ còn getter động, KHÔNG sửa tay trực tiếp để tránh lệch môi trường giữa dev / staging / prod.
 
 4. **Chạy ứng dụng:**
 ```bash
@@ -157,13 +162,90 @@ lib/
 - Sau khi tập xong tất cả bài tập, popup hiển thị thống kê chi tiết
 - Bấm "Lưu và hoàn thành" để lưu dữ liệu và quay về màn hình chính
 
+## 🧮 Công thức tính % hoàn thành buổi tập
+
+Hệ thống tính ra ba chỉ số chính để phản ánh mức độ hoàn thành buổi tập: `volumePercent`, `setsPercent` và `hybridPercent`.
+
+### 1. Định nghĩa
+- `targetLoad (T)`: Tổng tải mục tiêu của toàn bộ buổi tập.
+  - Với mỗi bài tập: `perSetTarget = targetReps * (targetWeight > 0 ? targetWeight : repValue)`
+  - `exerciseTargetLoad = perSetTarget * setsPlanned`
+  - `T = Σ exerciseTargetLoad`
+- `achievedLoad (Σ L_i)`: Tổng tải đạt được thực tế từ các set đã log.
+  - Với mỗi set log:
+    - `intensity = clamp( usedWeight / targetWeight, 0, maxIntensityMultiplier )` (nếu có targetWeight > 0, ngược lại = 1)
+    - `load = doneReps * (usedWeight > 0 ? usedWeight : repValue) * intensity`
+    - Cộng dồn vào `achievedLoad`.
+- `totalSetsPlanned`: Tổng số set dự kiến (Σ sets của từng bài).
+- `totalSetsDone`: Số set đã log thực tế.
+- `setsPercent = (totalSetsDone / totalSetsPlanned) * 100` (0 nếu không có set kế hoạch).
+- `volumePercent = (achievedLoad / targetLoad) * 100` (nếu `allowOver100 = false` thì clamp tối đa 100).
+- `hybridPercent = hybridAlpha * volumePercent + (1 - hybridAlpha) * setsPercent`.
+
+### 2. Tham số cấu hình (`WorkoutCompletionCalculatorParams`)
+| Tham số | Ý nghĩa | Giá trị mặc định |
+|--------|---------|------------------|
+| `repValue` | Giá trị thay thế khi bài tập không có `targetWeight` (ví dụ bodyweight) | `1.0` |
+| `allowOver100` | Cho phép `volumePercent` vượt 100% nếu tập nhiều hơn mục tiêu | `false` |
+| `maxIntensityMultiplier` | Giới hạn hệ số cường độ khi nâng nặng hơn target | `1.2` |
+| `hybridAlpha` | Trọng số pha trộn giữa volume và sets trong `hybridPercent` | `0.8` |
+
+### 3. Pseudo code tóm tắt
+```dart
+for each exercise in plannedExercises:
+  perSetTarget = targetReps * (targetWeight > 0 ? targetWeight : repValue)
+  exerciseTargetLoad = perSetTarget * setsPlanned
+  totalTargetLoad += exerciseTargetLoad
+  totalSetsPlanned += setsPlanned
+
+  for each loggedSet:
+    totalSetsDone++
+    intensity = targetWeight > 0 ? usedWeight / targetWeight : 1
+    intensity = intensity.clamp(0, maxIntensityMultiplier)
+    load = doneReps * (usedWeight > 0 ? usedWeight : repValue) * intensity
+    totalAchievedLoad += load
+
+volumePercent = (totalAchievedLoad / totalTargetLoad) * 100
+if !allowOver100: volumePercent = min(volumePercent, 100)
+setsPercent = (totalSetsDone / totalSetsPlanned) * 100
+hybridPercent = hybridAlpha * volumePercent + (1 - hybridAlpha) * setsPercent
+```
+
+### 4. Ví dụ minh họa
+Giả sử buổi tập có 1 bài:
+| Chỉ số | Giá trị |
+|--------|---------|
+| targetWeight | 50 kg |
+| targetReps | 10 |
+| setsPlanned | 3 |
+| perSetTarget | 10 * 50 = 500 |
+| targetLoad | 500 * 3 = 1500 |
+
+Log thực tế 3 set: (10 reps @50), (10 reps @52), (8 reps @55)
+- Set 1: intensity = 50/50 = 1 → load = 10 * 50 * 1 = 500
+- Set 2: intensity = 52/50 = 1.04 → load ≈ 10 * 52 * 1.04 = 540.8
+- Set 3: intensity = 55/50 = 1.1 → load = 8 * 55 * 1.1 = 484
+→ AchievedLoad ≈ 1524.8
+
+`volumePercent = 1524.8 / 1500 * 100 ≈ 101.65%` → clamp thành `100%` (nếu `allowOver100=false`).
+`setsPercent = 3/3 * 100 = 100%`.
+Với `hybridAlpha=0.8`:
+`hybridPercent = 0.8 * 100 + 0.2 * 100 = 100%`.
+
+### 5. Ghi chú mở rộng
+- Có thể bật `allowOver100` để phản ánh nỗ lực vượt mục tiêu.
+- `repValue` có thể map theo bodyweight hoặc ước lượng caloric load trong tương lai.
+- Khi thêm bài tập bodyweight (không có trọng lượng), hệ thống dùng `repValue` thay thế.
+- `hybridAlpha` cao → ưu tiên khối lượng nâng (volume), thấp → cân bằng đều với số set hoàn thành.
+
+Phần tính toán nằm ở file `lib/utils/workout_completion.dart`.
+
 ## 🛠️ Công nghệ và Architecture
 
 ### Frontend Stack:
 - **Framework**: Flutter 3.x
 - **Language**: Dart 3.0+
 - **UI**: Material Design 3
-- **State Management**: StatefulWidget + setState
 - **Local Storage**: SharedPreferences
 - **HTTP Client**: dart:http
 
@@ -172,11 +254,6 @@ lib/
 - **Authentication**: JWT Token
 - **Data Format**: JSON
 
-### Key Features Implementation:
-- **Smart Timer System**: Sử dụng `Timer.periodic` cho độ chính xác cao
-- **Real-time Data**: Lưu trữ chi tiết từng hiệp trong `Map<int, List<Map>>`
-- **Flexible UI**: Dynamic state management cho workout session
-- **Persistent Storage**: Auto-save workout data với timestamp
 
 ## 📊 Luồng dữ liệu chính
 
@@ -218,9 +295,6 @@ Map<int, List<Map<String, dynamic>>> workoutData = {
 ### Thêm tính năng mới:
 1. **Màn hình mới**: Tạo file trong `screens/`, cập nhật routing nếu cần
 2. **API endpoint**: Thêm method trong `api_service.dart`
-3. **Data model**: Tạo model trong `models/` với `fromJson/toJson`
-4. **Reusable widget**: Đặt trong `widgets/` để tái sử dụng
-
 ### Code Standards:
 - Tất cả widget class bắt đầu bằng chữ hoa
 - Method private bắt đầu với `_`
@@ -229,10 +303,6 @@ Map<int, List<Map<String, dynamic>>> workoutData = {
 
 ### Performance Tips:
 - Sử dụng `const` widgets để tránh rebuild không cần thiết
-- Dispose controllers và timers trong `dispose()`
-- Kiểm tra `mounted` trước khi `setState()`
-
-## 🐛 Debug và Troubleshooting
 
 ### Lỗi thường gặp:
 

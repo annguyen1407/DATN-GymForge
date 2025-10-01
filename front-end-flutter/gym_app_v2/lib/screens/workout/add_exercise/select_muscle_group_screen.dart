@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import '../../../repositories/muscle_groups_repository.dart';
 import '../../../models/muscle_group_model.dart';
 import 'select_exercise_screen.dart';
+import '../../../widgets/exercise_group_card.dart';
 
 class SelectMuscleGroupScreen extends StatefulWidget {
   final String workoutPlanId;
   final String workoutDayId;
   final int dayNumber;
+  final List<String>
+  excludedExerciseIds; // danh sách exerciseId đã có trong ngày
   const SelectMuscleGroupScreen({
     super.key,
     required this.workoutPlanId,
     required this.workoutDayId,
     required this.dayNumber,
+    this.excludedExerciseIds = const [],
   });
 
   @override
@@ -44,7 +48,17 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Chọn nhóm cơ'),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Chọn nhóm cơ',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -76,48 +90,70 @@ class _SelectMuscleGroupScreenState extends State<SelectMuscleGroupScreen> {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final list = _all
+                // Build filtered list with synthetic 'All' card at top
+                final filtered = _all
                     .where(
                       (m) =>
                           _query.isEmpty ||
                           m.name.toLowerCase().contains(_query),
                     )
                     .toList();
-                if (list.isEmpty) {
+
+                // Insert synthetic all item (client-side)
+                final totalCount = filtered.fold<int>(
+                  0,
+                  (sum, m) => sum + m.exercisesCount,
+                );
+                final items = [
+                  MuscleGroupModel(
+                    id: '_ALL_',
+                    name: 'Tất cả',
+                    exercisesCount: totalCount,
+                  ),
+                  ...filtered,
+                ];
+
+                if (filtered.isEmpty && _query.isNotEmpty) {
                   return const Center(
                     child: Text(
-                      'Không có nhóm cơ',
+                      'Không tìm thấy nhóm cơ',
                       style: TextStyle(color: Colors.white54),
                     ),
                   );
                 }
-                return ListView.separated(
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(color: Colors.grey[800], height: 1),
+
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 2.9, // match exercise_screen look
+                  ),
+                  itemCount: items.length,
                   itemBuilder: (context, i) {
-                    final mg = list[i];
-                    return ListTile(
-                      title: Text(
-                        mg.name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
+                    final mg = items[i];
+                    return ExerciseGroupCard(
+                      name: mg.name,
+                      count: mg.exercisesCount,
+                      highlight: mg.id == '_ALL_',
+                      onTap: () async {
+                        final navigator = Navigator.of(context);
+                        final created = await navigator.push(
                           MaterialPageRoute(
                             builder: (_) => SelectExerciseScreen(
                               muscleGroup: mg,
                               workoutPlanId: widget.workoutPlanId,
                               workoutDayId: widget.workoutDayId,
                               dayNumber: widget.dayNumber,
+                              excludedExerciseIds: widget.excludedExerciseIds,
                             ),
                           ),
                         );
+                        if (!mounted) return;
+                        if (created != null && mounted) {
+                          navigator.pop(created);
+                        }
                       },
                     );
                   },
