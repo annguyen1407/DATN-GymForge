@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
+    "db:seed:subscriptions": "ts-node ./prisma/seed-subscriptions.ts",
     "db:backfill:workout-days": "ts-node ./scripts/backfill-workout-days.ts",
     "db:backfill:workout-exercise-targets": "ts-node ./scripts/backfill-workout-exercise-targets.ts"
   },

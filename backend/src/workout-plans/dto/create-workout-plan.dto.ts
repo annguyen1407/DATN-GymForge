@@ -45,6 +45,16 @@ export class CreateWorkoutPlanDto {
   @IsBoolean()
   isTemplate?: boolean;
 
+  @ApiProperty({
+    example: false,
+    description: 'If true, cloning/using this template requires Premium (admins/coaches bypass)',
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPremiumOnly?: boolean;
+
   @ApiProperty({ example: 'training-request-uuid', required: false, description: 'Attach to an accepted training request (for visibility enforcement)' })
   @IsOptional()
   @IsUUID()

@@ -28,6 +28,7 @@ describe('CoachesService', () => {
   const mockPrismaService = {
     user: {
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     coach: {
       findUnique: jest.fn(),
@@ -67,12 +68,12 @@ describe('CoachesService', () => {
       status: 'Active',
     };
 
-    it('should create a coach successfully', async () => {
+    it('should create a coach with PENDING status and not grant premium immediately', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.coach.findUnique.mockResolvedValue(null);
-      mockPrismaService.coach.create.mockResolvedValue(mockCoach);
+      mockPrismaService.coach.create.mockResolvedValue({ ...mockCoach, status: 'PENDING' });
 
-      const result = await service.create(createCoachDto);
+      const result = await service.create(createCoachDto as any);
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: createCoachDto.userId },
@@ -81,10 +82,11 @@ describe('CoachesService', () => {
         where: { userId: createCoachDto.userId },
       });
       expect(mockPrismaService.coach.create).toHaveBeenCalledWith({
-        data: createCoachDto,
+        data: expect.objectContaining({ userId: createCoachDto.userId, certification: createCoachDto.certification, status: 'PENDING' }),
         include: { user: true },
       });
-      expect(result).toEqual(mockCoach);
+      expect(result.status).toBe('PENDING');
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if user does not exist', async () => {
@@ -103,8 +105,22 @@ describe('CoachesService', () => {
     it('should throw ConflictException if coach profile already exists', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.coach.findUnique.mockResolvedValue(mockCoach);
-
       await expect(service.create(createCoachDto)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('approve', () => {
+    it('sets coach ACTIVE and grants premium to user', async () => {
+      (mockPrismaService as any).coach.findUnique.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'PENDING', user: { id: 'user-id' } });
+      (mockPrismaService as any).coach.update.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'ACTIVE', user: { id: 'user-id' } });
+
+      const res = await service.approve('coach-id');
+
+      expect(res.status).toBe('ACTIVE');
+      expect((mockPrismaService as any).user.update).toHaveBeenCalledWith({
+        where: { id: 'user-id' },
+        data: { premiumStatus: true, premiumExpiresAt: null },
+      });
     });
   });
 
