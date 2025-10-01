@@ -72,6 +72,15 @@ export class CoachesController {
     return this.coachesService.update(id, updateCoachDto);
   }
 
+  @Patch(':id/approve')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Approve a coach profile and grant premium' })
+  @ApiResponse({ status: 200, description: 'Coach approved' })
+  approve(@Param('id', ParseUUIDPipe) id: string) {
+    return this.coachesService.approve(id);
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
