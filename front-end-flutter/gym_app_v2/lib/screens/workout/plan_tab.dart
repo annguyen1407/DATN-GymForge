@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import '../../widgets/add_action_button.dart';
+import '../../widgets/app_button.dart';
 import '../../repositories/workout_plans_repository.dart';
+import '../../core/auth/token_manager.dart';
 import '../../models/workout_plan_model.dart';
 import '../../widgets/workout_card.dart';
 import 'workout_detail_screen.dart';
@@ -18,8 +22,7 @@ class _PlanTabState extends State<PlanTab> {
   Future<List<WorkoutPlanModel>>?
   _future; // nullable to avoid LateInitializationError
 
-  // TODO: Lấy userId động từ profile (hiện tạm hardcode hoặc inject)
-  static const _placeholderUserId = '489e6bb3-2732-4bc1-bd66-0556e9a1f8b1';
+  String? _userId; // sẽ decode từ JWT
 
   bool _initialLoaded = false;
 
@@ -27,7 +30,7 @@ class _PlanTabState extends State<PlanTab> {
   void initState() {
     super.initState();
     if (widget.isActive) {
-      _triggerFetch();
+      _initAndFetch();
     }
   }
 
@@ -35,20 +38,48 @@ class _PlanTabState extends State<PlanTab> {
   void didUpdateWidget(covariant PlanTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isActive && widget.isActive) {
-      _triggerFetch(force: _initialLoaded);
+      _initAndFetch(force: _initialLoaded);
     }
   }
 
-  void _triggerFetch({bool force = false}) {
+  Future<void> _initAndFetch({bool force = false}) async {
     if (_initialLoaded && !force) return;
+    // Decode userId (sub) từ access token hiện tại
+    final token = await TokenManager.instance.getValidAccessToken();
+    String? userId;
+    if (token != null) {
+      try {
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          final payload = utf8.decode(
+            base64Url.decode(base64Url.normalize(parts[1])),
+          );
+          final map = jsonDecode(payload);
+          if (map is Map && map['sub'] is String) {
+            userId = map['sub'] as String;
+          }
+        }
+      } catch (_) {}
+    }
+    // Nếu không lấy được, giữ nguyên future = null để hiển thị nút tải lại.
+    if (!mounted) return;
+    if (userId == null) {
+      setState(() {
+        _userId = null; // explicit for clarity
+        _future = null; // require user to retry (hoặc show login?)
+        _initialLoaded = true;
+      });
+      return;
+    }
     setState(() {
-      _future = _repo.getPlansByUser(_placeholderUserId);
+      _userId = userId;
+      _future = _repo.getPlansByUser(userId!);
       _initialLoaded = true;
     });
   }
 
   Future<void> _pullToRefresh() async {
-    _triggerFetch(force: true);
+    _initAndFetch(force: true);
     final fut = _future;
     if (fut != null) {
       await fut;
@@ -64,9 +95,13 @@ class _PlanTabState extends State<PlanTab> {
           builder: (context, snapshot) {
             if (_future == null) {
               return Center(
-                child: ElevatedButton(
-                  onPressed: () => _triggerFetch(force: true),
-                  child: const Text('Tải kế hoạch'),
+                child: SizedBox(
+                  width: 200,
+                  child: AppButton.primary(
+                    label: 'Tải kế hoạch',
+                    onPressed: () => _initAndFetch(force: true),
+                    size: AppButtonSize.medium,
+                  ),
                 ),
               );
             }
@@ -76,14 +111,14 @@ class _PlanTabState extends State<PlanTab> {
             if (snapshot.hasError) {
               return _ErrorState(
                 message: 'Lỗi tải kế hoạch',
-                onRetry: () {
-                  _triggerFetch(force: true);
-                },
+                onRetry: () => _initAndFetch(force: true),
               );
             }
-            final data = snapshot.data ?? [];
+            final rawData = snapshot.data ?? [];
+            // Lọc bỏ các plan là template
+            final data = rawData.where((p) => !p.isTemplate).toList();
             if (data.isEmpty) {
-              return _EmptyState(onRefresh: () => _triggerFetch(force: true));
+              return _EmptyState(onRefresh: () => _initAndFetch(force: true));
             }
             return RefreshIndicator(
               onRefresh: _pullToRefresh,
@@ -106,10 +141,7 @@ class _PlanTabState extends State<PlanTab> {
                     description: plan.description,
                     badge: plan.planType,
                     planType: plan.planType,
-                    tags: [
-                      if (plan.userName != null) 'Bởi: ${plan.userName}',
-                      plan.status,
-                    ],
+                    tags: const [], // Removed status & author per requirement
                     onTap: () {
                       Navigator.push(
                         context,
@@ -118,11 +150,15 @@ class _PlanTabState extends State<PlanTab> {
                             planId: plan.id,
                             image: plan.picture ?? '',
                             title: plan.name,
-                            subtitle: plan.userName ?? 'Coach',
+                            subtitle: plan.userName, // bỏ fallback 'Coach'
                             description: plan.description ?? 'Không có mô tả',
                           ),
                         ),
-                      );
+                      ).then((result) {
+                        if (result is Map && result['deleted'] == true) {
+                          _initAndFetch(force: true);
+                        }
+                      });
                     },
                   );
                 },
@@ -133,21 +169,19 @@ class _PlanTabState extends State<PlanTab> {
         Positioned(
           right: 24,
           bottom: 24,
-          child: FloatingActionButton(
-            backgroundColor: Colors.redAccent,
+          child: AddActionButton.circle(
             onPressed: () async {
               final created = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      CreateWorkoutPlanScreen(userId: _placeholderUserId),
+                      CreateWorkoutPlanScreen(userId: _userId ?? 'unknown'),
                 ),
               );
               if (created != null) {
-                _triggerFetch(force: true);
+                _initAndFetch(force: true);
               }
             },
-            child: const Icon(Icons.add, color: Colors.white),
           ),
         ),
       ],
@@ -171,7 +205,12 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRefresh, child: const Text('Tải lại')),
+          AppButton.outline(
+            label: 'Tải lại',
+            onPressed: onRefresh,
+            fullWidth: false,
+            size: AppButtonSize.small,
+          ),
         ],
       ),
     );
@@ -195,7 +234,12 @@ class _ErrorState extends StatelessWidget {
             style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRetry, child: const Text('Thử lại')),
+          AppButton.primary(
+            label: 'Thử lại',
+            onPressed: onRetry,
+            fullWidth: false,
+            size: AppButtonSize.small,
+          ),
         ],
       ),
     );

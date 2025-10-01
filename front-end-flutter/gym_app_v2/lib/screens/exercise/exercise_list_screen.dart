@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../repositories/exercises_repository.dart';
 import '../../models/exercise_model.dart';
 import '../../widgets/search_box.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/exercise_simple_card.dart';
+import '../../widgets/pagination_bar.dart';
+import 'exercise_info_screen.dart';
 
 class ExerciseListScreen extends StatefulWidget {
   final String muscleGroupId;
@@ -23,6 +27,10 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
   List<ExerciseModel> _items = [];
   String _query = '';
   final _searchCtrl = TextEditingController();
+  // Dynamic pagination sizing
+  int _pageSize = 25; // recalculated to fit viewport
+  int _page = 1; // 1-based
+  bool _pageSizeInitialized = false;
 
   @override
   void initState() {
@@ -65,8 +73,46 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
     return _items.where((e) => e.name.toLowerCase().contains(q)).toList();
   }
 
+  int get _totalPages => (_filtered.length / _pageSize).ceil().clamp(1, 999999);
+  List<ExerciseModel> get _pageItems {
+    if (_filtered.isEmpty) return const [];
+    if (_page > _totalPages) _page = _totalPages;
+    final start = (_page - 1) * _pageSize;
+    final end = (start + _pageSize).clamp(0, _filtered.length);
+    return _filtered.sublist(start, end);
+  }
+
+  void _resetPage() => _page = 1;
+  void _changePage(int p) {
+    if (p != _page) setState(() => _page = p);
+  }
+
+  void _recalculatePageSize(BuildContext context) {
+    if (_pageSizeInitialized) return;
+    const estimatedCardHeight = 118.0; // non-compact card a bit taller
+    final media = MediaQuery.of(context);
+    final appBarHeight = kToolbarHeight + media.padding.top;
+    const searchArea = 76.0; // SearchBox area
+    const paginationArea = 70.0;
+    final available =
+        media.size.height - appBarHeight - searchArea - paginationArea;
+    if (available > 220) {
+      final perPage = (available / estimatedCardHeight).floor().clamp(3, 25);
+      if (perPage != _pageSize) {
+        setState(() {
+          _pageSize = perPage;
+          _page = 1;
+          _pageSizeInitialized = true;
+        });
+      } else {
+        _pageSizeInitialized = true;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _recalculatePageSize(context);
     final filtered = _filtered;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -85,8 +131,14 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
             controller: _searchCtrl,
             hint: 'Tìm bài tập...',
             variant: SearchBoxVariant.elevated,
-            onChanged: (v) => setState(() => _query = v.trim()),
-            onClear: () => setState(() => _query = ''),
+            onChanged: (v) => setState(() {
+              _query = v.trim();
+              _resetPage();
+            }),
+            onClear: () => setState(() {
+              _query = '';
+              _resetPage();
+            }),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           ),
           Expanded(
@@ -110,9 +162,15 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        TextButton(
-                          onPressed: _fetch,
-                          child: const Text('Thử lại'),
+                        Center(
+                          child: SizedBox(
+                            width: 160,
+                            child: AppButton.primary(
+                              label: 'Thử lại',
+                              onPressed: _fetch,
+                              size: AppButtonSize.small,
+                            ),
+                          ),
                         ),
                       ],
                     )
@@ -130,167 +188,44 @@ class _ExerciseListScreenState extends State<ExerciseListScreen> {
                         ),
                       ],
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) {
-                        final ex = filtered[i];
-                        return _ExerciseCard(ex: ex);
-                      },
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                            itemCount: _pageItems.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, i) {
+                              final ex = _pageItems[i];
+                              return ExerciseSimpleCard(
+                                exercise: ex,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ExerciseInfoScreen(exerciseId: ex.id),
+                                    ),
+                                  );
+                                },
+                                compact: false,
+                              );
+                            },
+                          ),
+                        ),
+                        PaginationBar(
+                          currentPage: _page,
+                          totalItems: _filtered.length,
+                          pageSize: _pageSize,
+                          onPageChanged: _changePage,
+                          groupSize: 7,
+                        ),
+                      ],
                     ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ExerciseCard extends StatelessWidget {
-  final ExerciseModel ex;
-  const _ExerciseCard({required this.ex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[800]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    ex.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (ex.defaultSets != null && ex.defaultReps != null)
-                  _Chip(text: '${ex.defaultSets}x${ex.defaultReps}')
-                else if (ex.defaultSets != null)
-                  _Chip(text: '${ex.defaultSets} sets'),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: -4,
-              children: [
-                if (ex.restTime != null)
-                  _SmallIconText(
-                    icon: Icons.timer_outlined,
-                    text: '${ex.restTime}s',
-                  ),
-                if (ex.met != null)
-                  _SmallIconText(
-                    icon: Icons.local_fire_department_outlined,
-                    text: '${ex.met} MET',
-                  ),
-                if (ex.defaultWeight != null)
-                  _SmallIconText(
-                    icon: Icons.fitness_center_outlined,
-                    text: '${ex.defaultWeight}kg',
-                  ),
-              ],
-            ),
-            if (ex.description != null && ex.description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                _stripPrefix(ex.description!),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-            if (ex.muscleGroupNames.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: ex.muscleGroupNames
-                    .take(3)
-                    .map((n) => _Tag(text: n))
-                    .toList(),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _stripPrefix(String s) {
-    // Remove known "Mô tả:" prefix if present
-    return s.replaceFirst(RegExp(r'^Mô tả:\s*'), '');
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String text;
-  const _Chip({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.pinkAccent.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.pinkAccent,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _SmallIconText extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _SmallIconText({required this.icon, required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.white54),
-        const SizedBox(width: 3),
-        Text(text, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-      ],
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String text;
-  const _Tag({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[800]!),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white70, fontSize: 11),
       ),
     );
   }

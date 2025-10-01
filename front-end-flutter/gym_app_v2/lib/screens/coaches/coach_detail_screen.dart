@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/extensions/color_extensions.dart';
+import '../../widgets/add_action_button.dart';
 import 'package:flutter/services.dart';
 import '../../widgets/workout_template_card.dart';
 import '../chat/chat_screen.dart';
@@ -29,8 +31,7 @@ class CoachDetailScreen extends StatelessWidget {
           children: [
             // Header với hình nền và thông tin coach
             SizedBox(
-              height:
-                  MediaQuery.of(context).size.height * 0.6, // 60% screen height
+              height: MediaQuery.of(context).size.height * 0.6,
               width: double.infinity,
               child: Stack(
                 children: [
@@ -47,7 +48,7 @@ class CoachDetailScreen extends StatelessWidget {
                       child: Center(
                         child: Icon(
                           Icons.person,
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withOpacityRatio(0.3),
                           size: 150,
                         ),
                       ),
@@ -61,8 +62,8 @@ class CoachDetailScreen extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.8),
+                            Colors.black.withOpacityRatio(0.3),
+                            Colors.black.withOpacityRatio(0.8),
                           ],
                         ),
                       ),
@@ -121,18 +122,10 @@ class CoachDetailScreen extends StatelessWidget {
                             // Action buttons row
                             Row(
                               children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Colors.black,
-                                    size: 28,
-                                  ),
+                                AddActionButton.circle(
+                                  onPressed: () {
+                                    // TODO: Add coach action (e.g., follow / add plan)
+                                  },
                                 ),
                                 const SizedBox(width: 16),
                                 GestureDetector(
@@ -219,8 +212,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/cardio_training.jpg',
                               title: 'Cardio training sets',
-                              author: 'Robert Fox',
-                              rating: 4.8,
                               tag: 'Premium',
                               days: 7,
                               compact: false,
@@ -232,8 +223,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/strength_training.jpg',
                               title: 'Strength training',
-                              author: 'Robert Fox',
-                              rating: 4.6,
                               tag: 'Free',
                               days: 5,
                               compact: false,
@@ -245,8 +234,6 @@ class CoachDetailScreen extends StatelessWidget {
                             child: WorkoutTemplateCard(
                               image: 'assets/images/yoga_training.jpg',
                               title: 'Yoga & Flexibility',
-                              author: 'Robert Fox',
-                              rating: 4.9,
                               tag: 'Premium',
                               days: 10,
                               compact: false,
@@ -386,7 +373,7 @@ class CoachDetailScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[900]!.withOpacity(0.5),
+        color: Colors.grey[900]!.withOpacityRatio(0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[800]!, width: 0.5),
       ),

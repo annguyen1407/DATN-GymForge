@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'services/api_service.dart';
+import 'services/api_service.dart'; // still used for login/logout flows
+import 'core/auth/token_manager.dart';
+import 'core/logging/app_logger.dart';
 // Import các màn hình chính của app
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/welcome/welcome_screen.dart';
@@ -11,18 +13,40 @@ import 'screens/auth/signin/signin_screen.dart';
 import 'screens/profile_setup/profile_setup_screen.dart';
 import 'screens/profile_setup/welcome_profile_setup_screen.dart';
 import 'screens/main_screen.dart';
+import 'core/auth/refresh_scheduler.dart';
 
 // ==== App Config ==== //
-const Duration kTokenRefreshInterval = Duration(
-  seconds: 600,
-); // thời gian refresh token
 const String kAccessTokenKey = 'access_token';
 const String kRefreshTokenKey = 'refresh_token';
 
 /// Entry point của ứng dụng
-final GlobalKey<_MyAppState> myAppKey = GlobalKey<_MyAppState>();
-void main() {
-  runApp(MyApp(key: myAppKey));
+final GlobalKey<MyAppState> myAppKey = GlobalKey<MyAppState>();
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    // If .env missing we just continue with defaults; ApiConstants has fallback.
+    AppLogger.warn('Failed to load .env: $e', tag: 'Env');
+  }
+  // Optional: override refresh interval via env (seconds)
+  final rawInterval = dotenv.env['REFRESH_INTERVAL_SECONDS'];
+  if (rawInterval != null && rawInterval.trim().isNotEmpty) {
+    final seconds = int.tryParse(rawInterval.trim());
+    if (seconds != null && seconds > 0) {
+      RefreshScheduler.instance.interval = Duration(seconds: seconds);
+      AppLogger.info(
+        'Refresh interval overridden from env: ${seconds}s',
+        tag: 'Env',
+      );
+    } else {
+      AppLogger.warn(
+        'Invalid REFRESH_INTERVAL_SECONDS="$rawInterval" (must be positive int)',
+        tag: 'Env',
+      );
+    }
+  }
+  runApp(const MyApp());
 }
 
 /// Widget gốc của app, quản lý trạng thái khởi động và điều hướng màn hình đầu tiên
@@ -30,17 +54,10 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<MyApp> createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
-  // Cho phép gọi từ nơi khác để hủy timer refresh token
-  void cancelRefreshTimer() {
-    _refreshTimer?.cancel();
-    print('Đã hủy timer refresh token');
-  }
-
-  Timer? _refreshTimer;
+class MyAppState extends State<MyApp> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   Widget? _home;
   bool _loading = true;
@@ -53,7 +70,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -66,7 +82,6 @@ class _MyAppState extends State<MyApp> {
         _home = const OnboardingScreen();
         _loading = false;
       });
-      _refreshTimer?.cancel();
       return;
     }
     // Kiểm tra access token
@@ -76,7 +91,6 @@ class _MyAppState extends State<MyApp> {
         _home = const WelcomeScreen();
         _loading = false;
       });
-      _refreshTimer?.cancel();
       return;
     }
     // Nếu có token, thử gọi API lấy profile
@@ -86,9 +100,11 @@ class _MyAppState extends State<MyApp> {
       if (user == null) {
         final refreshToken = await _secureStorage.read(key: kRefreshTokenKey);
         if (refreshToken != null) {
-          final refreshResult = await ApiService.refreshToken(refreshToken);
-          if (refreshResult != null && refreshResult['access_token'] != null) {
-            accessToken = refreshResult['access_token'] as String;
+          final outcome = await TokenManager.instance.forceRefresh(
+            refreshToken: refreshToken,
+          );
+          if (outcome.ok && outcome.pair != null) {
+            accessToken = outcome.pair!.accessToken;
             await prefs.setString(kAccessTokenKey, accessToken);
             user = await ApiService.getProfile(accessToken);
           }
@@ -101,13 +117,18 @@ class _MyAppState extends State<MyApp> {
             _home = WelcomeProfileSetupScreen(userName: userName);
             _loading = false;
           });
-          _refreshTimer?.cancel();
         } else {
-          print('Vào MainScreen, bắt đầu refresh token');
+          AppLogger.info(
+            'Vào MainScreen (cold start), start scheduler',
+            tag: 'App',
+          );
           setState(() {
             _home = const MainScreen();
             _loading = false;
           });
+          // Start fixed-interval scheduler with an immediate refresh attempt.
+          // Fire and forget; errors already logged inside scheduler.
+          RefreshScheduler.instance.start(immediate: true);
         }
       } else {
         // Token hết hạn hoặc refresh thất bại, xóa token và về màn hình welcome
@@ -117,7 +138,6 @@ class _MyAppState extends State<MyApp> {
           _home = const WelcomeScreen();
           _loading = false;
         });
-        _refreshTimer?.cancel();
       }
     } catch (e) {
       await prefs.remove(kAccessTokenKey);
@@ -126,7 +146,6 @@ class _MyAppState extends State<MyApp> {
         _home = const WelcomeScreen();
         _loading = false;
       });
-      _refreshTimer?.cancel();
     }
   }
 
@@ -135,7 +154,16 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Gym App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.black,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
       ),
       // Hiển thị loading khi đang kiểm tra trạng thái, hoặc hiển thị màn hình phù hợp
       home: _loading

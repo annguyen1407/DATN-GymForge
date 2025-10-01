@@ -74,6 +74,32 @@ class WorkoutDayExercisesRepository {
     throw Exception('Request failed: ${res.statusCode}');
   }
 
+  /// Lấy tất cả bài tập thuộc một workout plan (query theo workoutPlanId)
+  /// Backend hỗ trợ endpoint ví dụ:
+  /// GET /workout-plans/exercises?workoutPlanId=PLAN_ID
+  Future<List<WorkoutDayExerciseDto>> getByWorkoutPlan(
+    String workoutPlanId,
+  ) async {
+    final path = '/workout-plans/exercises?workoutPlanId=$workoutPlanId';
+    final res = await ApiClient.instance.get(path);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      try {
+        final decoded = ApiClient.instance.decodeBody(res);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map<String, dynamic>>()
+              .map((e) => WorkoutDayExerciseDto.fromJson(e))
+              .toList();
+        }
+        throw Exception('Unexpected body type');
+      } catch (e) {
+        throw Exception('Decode error: $e');
+      }
+    }
+    throw Exception('Request failed: ${res.statusCode}');
+  }
+
   Future<WorkoutDayExerciseDto?> create({
     required String workoutPlanId,
     required String workoutDayId,
@@ -111,5 +137,54 @@ class WorkoutDayExercisesRepository {
       return null;
     }
     throw Exception('Create failed: ${res.statusCode}');
+  }
+
+  Future<WorkoutDayExerciseDto?> update({
+    required String id, // id của workout day exercise record
+    required String workoutPlanId,
+    required String workoutDayId,
+    required String exerciseId,
+    int? targetSets,
+    int? targetReps,
+    num? targetWeight,
+    int? restTimeSec,
+    int? timePerSetSec,
+    int? order,
+    String? notes,
+  }) async {
+    final path = '/workout-plans/exercises/$id';
+    final body = <String, dynamic>{
+      'workoutPlanId': workoutPlanId,
+      'workoutDayId': workoutDayId,
+      'exerciseId': exerciseId,
+      if (targetSets != null) 'targetSets': targetSets,
+      if (targetReps != null) 'targetReps': targetReps,
+      if (targetWeight != null) 'targetWeight': targetWeight,
+      if (restTimeSec != null) 'restTimeSec': restTimeSec,
+      if (timePerSetSec != null) 'timePerSetSec': timePerSetSec,
+      if (order != null) 'order': order,
+      // notes có thể null -> backend lưu null
+      'notes': notes,
+    };
+    final res = await ApiClient.instance.patch(path, body: body);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      final decoded = ApiClient.instance.decodeBody(res);
+      if (decoded is Map<String, dynamic>) {
+        return WorkoutDayExerciseDto.fromJson(decoded);
+      }
+      return null;
+    }
+    throw Exception('Update failed: ${res.statusCode}');
+  }
+
+  Future<bool> delete(String id) async {
+    final path = '/workout-plans/exercises/$id';
+    final res = await ApiClient.instance.delete(path);
+    if (res == null) throw Exception('Unauthorized');
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return true; // backend có thể trả body hoặc không; chỉ cần status success
+    }
+    throw Exception('Delete failed: ${res.statusCode}');
   }
 }

@@ -148,10 +148,19 @@ class ApiClient {
 
     http.Response res = await _send(method, url, merged, effectiveBody);
     if (res.statusCode == 401) {
+      // Force a refresh explicitly (getValidAccessToken() might have reused an apparently-valid token)
+      final outcome = await TokenManager.instance.forceRefresh();
+      if (outcome.ok && outcome.pair != null) {
+        merged['Authorization'] = 'Bearer ${outcome.pair!.accessToken}';
+        res = await _send(method, url, merged, effectiveBody);
+        return res;
+      }
+      // If refresh failed, do one fallback attempt with whatever token getValidAccessToken returns (in case another caller refreshed)
       final retryToken = await TokenManager.instance.getValidAccessToken();
-      if (retryToken == null) return res;
-      merged['Authorization'] = 'Bearer $retryToken';
-      res = await _send(method, url, merged, effectiveBody);
+      if (retryToken != null && retryToken != token) {
+        merged['Authorization'] = 'Bearer $retryToken';
+        res = await _send(method, url, merged, effectiveBody);
+      }
     }
     return res;
   }

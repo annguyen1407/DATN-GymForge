@@ -10,20 +10,50 @@ class WorkoutDayModel {
   final String workoutPlanId;
   final int? dayNumber; // may be null if backend allows
   final DateTime? date;
+  final String? status; // e.g. PENDING, COMPLETED, SKIPPED
+  final DateTime? completedAt;
 
-  WorkoutDayModel({
+  const WorkoutDayModel({
     required this.id,
     required this.workoutPlanId,
     this.dayNumber,
     this.date,
+    this.status,
+    this.completedAt,
   });
 
+  WorkoutDayModel copyWith({
+    int? dayNumber,
+    DateTime? date,
+    String? status,
+    DateTime? completedAt,
+  }) {
+    return WorkoutDayModel(
+      id: id,
+      workoutPlanId: workoutPlanId,
+      dayNumber: dayNumber ?? this.dayNumber,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
+
   factory WorkoutDayModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      if (v is String && v.isNotEmpty) {
+        return DateTime.tryParse(v);
+      }
+      return null;
+    }
+
     return WorkoutDayModel(
       id: json['id'] as String,
       workoutPlanId: json['workoutPlanId'] as String,
       dayNumber: json['dayNumber'] as int?,
-      date: json['date'] != null ? DateTime.tryParse(json['date']) : null,
+      date: parseDate(json['date']),
+      status: json['status'] as String?,
+      completedAt: parseDate(json['completedAt']),
     );
   }
 }
@@ -31,8 +61,10 @@ class WorkoutDayModel {
 class WorkoutPlansRepository {
   final _api = ApiClient.instance;
 
-  Future<List<WorkoutPlanModel>> getPlans({required String userId}) async {
-    final path = '/workout-plans?userId=$userId';
+  // Repurposed: now returns ONLY template plans (isTemplate == true) for expert usage.
+  // Previously: required userId and returned user-specific plans.
+  Future<List<WorkoutPlanModel>> getPlans() async {
+    const path = '/workout-plans';
     _logReq('GET', path);
     final res = await _api.requestJson('GET', path);
     _logRes(
@@ -45,7 +77,60 @@ class WorkoutPlansRepository {
       preview: res.raw,
     );
     if (!res.ok) return [];
-    // Response is list
+    final all = res.asModelList(WorkoutPlanModel.fromJson);
+    return all.where((p) => p.isTemplate).toList();
+  }
+
+  /// Clone a template workout plan for a user.
+  /// Endpoint: POST /workout-plans/clone-template/{templateId}
+  /// Body: { userId, name, description }
+  Future<WorkoutPlanModel?> cloneTemplate({
+    required String templateId,
+    required String userId,
+    required String name,
+    required String description,
+  }) async {
+    final path = '/workout-plans/clone-template/$templateId';
+    final body = {'userId': userId, 'name': name, 'description': description};
+    _logReq('POST', path, body: body);
+    final res = await _api.requestJson('POST', path, body: body);
+    _logRes(
+      'POST',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutPlanModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // New explicit template endpoint supporting optional planType filter
+  Future<List<WorkoutPlanModel>> getTemplatePlans({String? planType}) async {
+    final query = (planType != null && planType.isNotEmpty)
+        ? '?planType=$planType'
+        : '';
+    final path = '/workout-plans/templates$query';
+    _logReq('GET', path);
+    final res = await _api.requestJson('GET', path);
+    _logRes(
+      'GET',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok) return [];
     return res.asModelList(WorkoutPlanModel.fromJson);
   }
 
@@ -106,6 +191,72 @@ class WorkoutPlansRepository {
     return WorkoutPlanModel.fromJson(res.data as Map<String, dynamic>);
   }
 
+  /// Fetch a single workout plan by id (detail)
+  Future<WorkoutPlanModel?> getPlan(String planId) async {
+    final path = '/workout-plans/$planId';
+    _logReq('GET', path);
+    final res = await _api.requestJson('GET', path);
+    _logRes(
+      'GET',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutPlanModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Update an existing workout plan (partial update allowed).
+  /// Only provided (non-null & non-empty) fields will be sent.
+  Future<WorkoutPlanModel?> updatePlan(
+    String planId, {
+    String? name,
+    String? description,
+    String? planType,
+    String? picture,
+    String? status, // e.g. ACTIVE, ARCHIVED
+    bool? isTemplate,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null && name.isNotEmpty) 'name': name,
+      if (description != null) 'description': description,
+      if (planType != null && planType.isNotEmpty) 'planType': planType,
+      if (picture != null) 'picture': picture,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (isTemplate != null) 'isTemplate': isTemplate,
+    };
+    if (body.isEmpty) return null; // nothing to patch
+    final path = '/workout-plans/$planId';
+    _logReq('PATCH', path, body: body);
+    final res = await _api.requestJson('PATCH', path, body: body);
+    _logRes(
+      'PATCH',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutPlanModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ----------------------------------------------------------------------
   // Plan Days APIs
   // ----------------------------------------------------------------------
@@ -157,6 +308,92 @@ class WorkoutPlansRepository {
     );
     if (!res.ok || res.raw is! Map) return null;
     return WorkoutDayModel.fromJson((res.raw as Map).cast<String, dynamic>());
+  }
+
+  /// Delete a workout plan by id.
+  ///
+  /// Backend now returns the deleted plan JSON (or an error). We parse and
+  /// return the deleted [WorkoutPlanModel] so callers can show richer UX
+  /// (e.g. include the deleted plan name). Returns null on failure.
+  Future<WorkoutPlanModel?> deletePlan(String planId) async {
+    final path = '/workout-plans/$planId';
+    _logReq('DELETE', path);
+    final res = await _api.requestJson('DELETE', path);
+    _logRes(
+      'DELETE',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutPlanModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[API][PARSE][deletePlan] Failed to parse deleted plan: $e');
+      }
+      return null;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Day mutation helpers (PATCH / DELETE)
+  // ------------------------------------------------------------------
+  Future<WorkoutDayModel?> updateDay(
+    String dayId, {
+    required String workoutPlanId,
+    DateTime? date,
+    int? dayNumber,
+  }) async {
+    final body = <String, dynamic>{
+      'workoutPlanId': workoutPlanId,
+      if (date != null) 'date': date.toIso8601String().split('T').first,
+      if (dayNumber != null) 'dayNumber': dayNumber,
+    };
+    final path = '/workout-plans/days/$dayId';
+    _logReq('PATCH', path, body: body);
+    final res = await _api.requestJson('PATCH', path, body: body);
+    _logRes(
+      'PATCH',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutDayModel.fromJson((res.raw as Map).cast<String, dynamic>());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<WorkoutDayModel?> deleteDay(String dayId) async {
+    final path = '/workout-plans/days/$dayId';
+    _logReq('DELETE', path);
+    final res = await _api.requestJson('DELETE', path);
+    _logRes(
+      'DELETE',
+      path,
+      res.status,
+      res.ok,
+      res.error?.name,
+      res.message,
+      preview: res.raw,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      return WorkoutDayModel.fromJson((res.raw as Map).cast<String, dynamic>());
+    } catch (_) {
+      return null;
+    }
   }
 
   // --- Logging Helpers --------------------------------------------------

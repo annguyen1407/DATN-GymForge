@@ -1,8 +1,10 @@
 // Dùng ở: home_screen. Nút khám phá nhanh các tính năng.
 import 'package:flutter/material.dart';
+import '../core/extensions/color_extensions.dart';
 import '../screens/coaches/coaches_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../screens/my_coach/my_coach_screen.dart';
+import 'app_snack_bar.dart';
 
 // File không sử dụng
 /// DiscoverButton: Nút khám phá trên trang Home
@@ -70,8 +72,9 @@ class _DiscoverButtonState extends State<DiscoverButton>
         break;
       default:
         // Fallback
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tính năng ${widget.label} đang phát triển')),
+        AppSnackBar.showInfo(
+          context,
+          'Tính năng ${widget.label} đang phát triển',
         );
     }
   }
@@ -140,24 +143,24 @@ class _DiscoverButtonState extends State<DiscoverButton>
                       ),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.grey[700]!.withOpacity(0.6),
+                        color: Colors.grey[700]!.withOpacityRatio(0.6),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withOpacityRatio(0.5),
                           blurRadius: 16,
                           offset: const Offset(0, 8),
                           spreadRadius: 0,
                         ),
                         BoxShadow(
-                          color: color.withOpacity(0.1),
+                          color: color.withOpacityRatio(0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
                           spreadRadius: 0,
                         ),
                         BoxShadow(
-                          color: Colors.white.withOpacity(0.08),
+                          color: Colors.white.withOpacityRatio(0.08),
                           blurRadius: 1,
                           offset: const Offset(0, -1),
                           spreadRadius: 0,
@@ -169,8 +172,8 @@ class _DiscoverButtonState extends State<DiscoverButton>
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            color.withOpacity(0.15),
-                            color.withOpacity(0.05),
+                            color.withOpacityRatio(0.15),
+                            color.withOpacityRatio(0.05),
                             Colors.transparent,
                           ],
                           stops: const [0.0, 0.7, 1.0],
@@ -178,7 +181,7 @@ class _DiscoverButtonState extends State<DiscoverButton>
                       ),
                       child: Icon(
                         iconData,
-                        color: color.withOpacity(0.9),
+                        color: color.withOpacityRatio(0.9),
                         size: 28,
                       ),
                     ),

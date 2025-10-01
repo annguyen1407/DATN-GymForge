@@ -1,21 +1,10 @@
 // Dùng ở: workout_screen tab "Kế hoạch" và "Chuyên gia". Card hiển thị workout chung.
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
+import '../core/extensions/color_extensions.dart';
+import 'plan_type_badge.dart';
 
-/// Màu theo planType để hiển thị badge & gradient khi thiếu ảnh
-Color _planTypeColor(String? planType) {
-  switch (planType) {
-    case 'STRENGTH':
-      return Colors.redAccent;
-    case 'CARDIO':
-      return Colors.orangeAccent;
-    case 'FLEXIBILITY':
-      return Colors.tealAccent.shade400;
-    case 'COMBINED':
-      return Colors.purpleAccent;
-    default:
-      return Colors.blueGrey.shade400;
-  }
-}
+// NOTE: Legacy color mapping removed. Now gradients derive from PlanTypeBadge.baseColor
 
 /// WorkoutCard: Card hiển thị workout chung cho tab "Kế hoạch" và "Chuyên gia"
 /// Khác với WorkoutTemplateCard (dùng riêng cho tab "Khám phá")
@@ -45,7 +34,7 @@ class WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = badgeColor ?? _planTypeColor(planType ?? badge);
+    final accent = badgeColor ?? PlanTypeBadge.baseColor(planType ?? badge);
     // Danh sách asset hiện có để tránh load asset không tồn tại (giảm spam error log)
     const knownAssets = {
       'assets/images/onboarding_1.png',
@@ -62,14 +51,17 @@ class WorkoutCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF141414),
+          color: DesignTokens.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10, width: 1),
-          boxShadow: const [
+          border: Border.all(
+            color: DesignTokens.surfaceOutline.withOpacityRatio(.25),
+            width: 1,
+          ),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black54,
+              color: Colors.black.withOpacityRatio(.5),
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -96,7 +88,10 @@ class WorkoutCard extends StatelessWidget {
                         height: 140,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [accent.withOpacity(.6), Colors.black87],
+                            colors: [
+                              accent.withOpacityRatio(.55),
+                              Colors.black.withOpacityRatio(.85),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -109,14 +104,17 @@ class WorkoutCard extends StatelessWidget {
                       height: 140,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [accent.withOpacity(.6), Colors.black87],
+                          colors: [
+                            accent.withOpacityRatio(.55),
+                            Colors.black.withOpacityRatio(.85),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                       ),
                       child: Icon(
                         Icons.fitness_center,
-                        color: Colors.white.withOpacity(.4),
+                        color: Colors.white.withOpacityRatio(.4),
                         size: 48,
                       ),
                     ),
@@ -126,8 +124,8 @@ class WorkoutCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.black.withOpacity(0.05),
-                            Colors.black.withOpacity(0.55),
+                            Colors.black.withOpacityRatio(0.06),
+                            Colors.black.withOpacityRatio(0.60),
                           ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -138,32 +136,12 @@ class WorkoutCard extends StatelessWidget {
                   // Badge (nếu có)
                   if (badge != null)
                     Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withOpacity(.9),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withOpacity(.4),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          badge!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      top: 10,
+                      right: 10,
+                      child: PlanTypeBadge(
+                        planType: planType ?? badge,
+                        dense: true,
+                        fontSize: 11,
                       ),
                     ),
                 ],
@@ -179,7 +157,7 @@ class WorkoutCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: DesignTokens.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 17,
                       letterSpacing: .2,
@@ -191,7 +169,7 @@ class WorkoutCard extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: DesignTokens.textSecondary,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w400,
                       ),
@@ -203,8 +181,9 @@ class WorkoutCard extends StatelessWidget {
                     Text(
                       description!,
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: DesignTokens.textSecondary,
                         fontSize: 13,
+                        height: 1.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -224,18 +203,21 @@ class WorkoutCard extends StatelessWidget {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(.06),
+                                color: DesignTokens.surfaceOutline
+                                    .withOpacityRatio(.08),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Colors.white12,
+                                  color: DesignTokens.surfaceOutline
+                                      .withOpacityRatio(.35),
                                   width: 1,
                                 ),
                               ),
                               child: Text(
                                 tag,
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: DesignTokens.textSecondary,
                                   fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
