@@ -9,6 +9,7 @@ import '../../widgets/destructive_confirm_sheet.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/exercise_hero_header.dart';
 import '../../core/utils/text_normalizer.dart';
+import '../../widgets/expandable_body_text.dart';
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -488,30 +489,22 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                       ),
                     const _SectionTitle(text: 'Giới thiệu'),
                     const SizedBox(height: 10),
-                    Text(
-                      (description != null && description.isNotEmpty)
+                    ExpandableBodyText(
+                      text: (description != null && description.isNotEmpty)
                           ? description
                           : 'Chưa có giới thiệu cho bài tập này.',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13.5,
-                        height: 1.45,
-                      ),
+                      trimLines: 6,
                     ),
                     const SizedBox(height: 24),
                     const _SectionTitle(text: 'Hướng dẫn'),
                     const SizedBox(height: 10),
-                    Text(
-                      (instruction != null && instruction.isNotEmpty)
+                    ExpandableBodyText(
+                      text: (instruction != null && instruction.isNotEmpty)
                           ? instruction
                           : (description?.isNotEmpty == true
                                 ? description!
                                 : 'Chưa có hướng dẫn chi tiết.'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13.5,
-                        height: 1.45,
-                      ),
+                      trimLines: 6,
                     ),
                     const SizedBox(height: 28),
                     const _SectionTitle(text: 'Thiết lập mục tiêu'),
