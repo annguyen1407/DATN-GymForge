@@ -1,0 +1,107 @@
+
+#### 2.1.7 Công thức tính phần trăm hoàn thành bài tập gym
+
+Để đánh giá mức độ hoàn thành một bài tập gym, ta sử dụng **công thức Hybrid** , kết hợp giữa **khối lượng tập
+luyện** (training volume) và **số set đã hoàn thành**. Cách này phản ánh công bằng hơn, đặc biệt trong trường hợp
+người tập bỏ hẳn một set.
+
+**1. Định nghĩa**
+    - totalSets: số set mục tiêu.
+    - targetReps: số rep mỗi set mục tiêu.
+    - targetWeight: mức tạ mục tiêu (kg). Nếu không có tạ thìtargetWeight= 0.
+    - doneRepsi: số rep thực hiện trong seti.
+    - usedWeighti: mức tạ thực tế dùng trong seti(0 nếu là bodyweight).
+    - repValue: giá trị quy đổi cho mỗi rep nếu không có tạ (có thể đặt= 1 hoặc bằng trọng lượng cơ thể).
+    - setsCompleted: số set thực hiện có ít nhất một rep.
+**2. Khối lượng mục tiêu (Target Volume)**
+
+```
+T=totalSets×targetReps×max(targetWeight,repValue)
+```
+**3. Khối lượng thực tế (Achieved Volume)** Mỗi setiđược quy đổi thành:
+
+```
+Li=doneRepsi×max(usedWeighti,repValue)×Ii
+```
+```
+Trong đó:
+```
+- Nếu có tạ:Ii=targetWeightusedWeighti.
+- Nếu không có tạ:Ii= 1.
+- Có thể giới hạnIi≤ 1. 2 để tránh vượt quá cao.
+
+```
+Tổng khối lượng thực tế:
+```
+```
+A=
+```
+```
+totalSets
+```
+## ∑
+
+```
+i= 1
+```
+```
+Li
+```
+**4. Công thức Hybrid**
+
+```
+%Hybrid=α×
+```
+###### A
+
+###### T
+
+```
+×100%+( 1 −α)×
+```
+```
+setsCompleted
+totalSets
+```
+###### ×100%
+
+```
+Trong đó:
+```
+- AT×100%: phần trăm hoàn thành theo volume.
+- setsCompletedtotalSets ×100%: phần trăm số set đã hoàn thành.
+- α: hệ số trọng số ( 0 ≤α≤ 1 ), ví dụα= 0. 8.
+**5. Ví dụ minh hoạ**
+_Ví dụ có tạ:_
+- Mục tiêu: 3 set×10 rep×50kg⇒T= 1500.
+- Thực tế:
+**-** Set 1: 10 rep×50kg⇒L 1 = 500.
+**-** Set 2: 8 rep×50kg⇒L 2 = 400.
+**-** Set 3: bỏ hẳn⇒L 3 = 0.
+- A= 900 ,setsCompleted= 2.
+- %Volume= 900 / 1500 × 100 =60%.
+- %Sets= 2 / 3 × 100 ≈ 66 .7%.
+
+
+```
+Khoa Khoa Học & Kỹ Thuật Máy Tính
+```
+- Vớiα= 0. 8 :
+    %Hybrid= 0. 8 × 60 + 0. 2 × 66. 7 ≈ 61 .3%
+
+```
+Ví dụ bodyweight:
+```
+- Mục tiêu: 3 set×10 rep, không tạ,repValue= 1 ⇒T= 30.
+- Thực tế: làm 25 rep tổng trong cả 3 set⇒A= 25 ,setsCompleted= 3.
+- %Volume= 25 / 30 × 100 = 83 .3%.
+- %Sets= 3 / 3 × 100 =100%.
+- Vớiα= 0. 8 :
+    %Hybrid= 0. 8 × 83. 3 + 0. 2 × 100 = 86 .6%
+
+**Kết luận:** Công thức Hybrid cho kết quả cân bằng giữa % khối lượng thực hiện và % số set hoàn thành, phản
+ánh trung thực hơn mức độ hoàn thành bài tập.
+
+
+
+
