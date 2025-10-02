@@ -4,6 +4,8 @@ import '../../core/extensions/color_extensions.dart';
 import '../../widgets/animations/animated_appear.dart';
 import '../../widgets/skeleton/today_stat_skeleton.dart'; // CircleAvatarSkeleton
 import '../../widgets/skeleton/skeleton_box.dart';
+import '../coaches/coaches_screen.dart';
+import '../achievements/achievements_screen.dart';
 
 /// Data model for each discover square.
 class _DiscoverItem {
@@ -24,7 +26,15 @@ class _DiscoverItem {
 class HomeScreen extends StatelessWidget {
   final String userName;
   final bool isLoading;
-  const HomeScreen({super.key, required this.userName, this.isLoading = false});
+  final String? userRole; // 'GYMER' | 'COACH'
+  final VoidCallback? openWorkoutTab; // callback to jump to workout tab
+  const HomeScreen({
+    super.key,
+    required this.userName,
+    this.isLoading = false,
+    this.userRole,
+    this.openWorkoutTab,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -192,47 +202,60 @@ class HomeScreen extends StatelessWidget {
 
   /// Explore 2x2 grid section
   Widget _exploreGrid(bool loading) {
-    final items = <_DiscoverItem>[
-      _DiscoverItem(
-        label: 'Coaches',
-        subtitle: 'Chuyên gia hướng dẫn',
-        icon: Icons.fitness_center,
-        gradient: const [Color(0xFF232526), Color(0xFF414345)],
-        onTap: () {},
-      ),
-      _DiscoverItem(
-        label: 'Thành tựu',
-        subtitle: 'Badges & cột mốc',
-        icon: Icons.emoji_events,
-        gradient: const [
-          Color(0xFF3A1C71),
-          Color(0xFFD76D77),
-          Color(0xFFFFAF7B),
-        ],
-        onTap: () {},
-      ),
-      _DiscoverItem(
-        label: 'Lộ trình',
-        subtitle: 'Kế hoạch & mục tiêu',
-        icon: Icons.route_rounded,
-        gradient: const [Color(0xFF283048), Color(0xFF859398)],
-        onTap: () {},
-      ),
-      _DiscoverItem(
-        label: 'Lịch sử',
-        subtitle: 'Buổi tập đã qua',
-        icon: Icons.history_toggle_off,
-        gradient: const [Color(0xFF141E30), Color(0xFF243B55)],
-        onTap: () {},
-      ),
-    ];
-
+    final dynamicLabel = userRole == 'COACH' ? 'Học viên' : 'PT của tôi';
+    final dynamicSubtitle = userRole == 'COACH'
+        ? 'Danh sách học viên'
+        : 'Theo sát cùng bạn';
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (outerCtx, constraints) {
+        final items = <_DiscoverItem>[
+          _DiscoverItem(
+            label: 'Tìm kiếm PT',
+            subtitle: 'Chuyên gia hướng dẫn',
+            icon: Icons.search_rounded,
+            gradient: const [Color(0xFF232526), Color(0xFF414345)],
+            onTap: () {
+              Navigator.of(
+                outerCtx,
+              ).push(MaterialPageRoute(builder: (_) => const CoachesScreen()));
+            },
+          ),
+          _DiscoverItem(
+            label: 'Thành tựu',
+            subtitle: 'Badges & cột mốc',
+            icon: Icons.emoji_events,
+            gradient: const [
+              Color(0xFF3A1C71),
+              Color(0xFFD76D77),
+              Color(0xFFFFAF7B),
+            ],
+            onTap: () {
+              Navigator.of(outerCtx).push(
+                MaterialPageRoute(builder: (_) => const AchievementsScreen()),
+              );
+            },
+          ),
+          _DiscoverItem(
+            label: 'Lộ trình',
+            subtitle: 'Kế hoạch & mục tiêu',
+            icon: Icons.route_rounded,
+            gradient: const [Color(0xFF283048), Color(0xFF859398)],
+            onTap: () {
+              if (openWorkoutTab != null) openWorkoutTab!();
+            },
+          ),
+          _DiscoverItem(
+            label: dynamicLabel,
+            subtitle: dynamicSubtitle,
+            icon: userRole == 'COACH' ? Icons.group : Icons.person_pin_circle,
+            gradient: const [Color(0xFF141E30), Color(0xFF243B55)],
+            onTap: () {},
+          ),
+        ];
         final width = constraints.maxWidth;
-        const spacing = 22.0;
+        const spacing = 16.0; // more compact spacing
         final tileWidth = (width - spacing) / 2; // two columns
-        const tileHeight = 140.0;
+        const tileHeight = 115.0; // reduced height for compact tiles
         if (loading) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +269,7 @@ class HomeScreen extends StatelessWidget {
                   letterSpacing: .4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
               Wrap(
                 spacing: spacing,
                 runSpacing: spacing,
@@ -283,7 +306,7 @@ class HomeScreen extends StatelessWidget {
                 letterSpacing: .4,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Wrap(
               spacing: spacing,
               runSpacing: spacing,
