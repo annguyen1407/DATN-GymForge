@@ -10,10 +10,17 @@ describe('AdminConfigService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    coach: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
   } as any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // defaults to avoid undefined
+    prisma.coach.findMany.mockResolvedValue([]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminConfigService,
@@ -69,13 +76,30 @@ describe('AdminConfigService', () => {
 
   it('update(): updates after ensuring config exists', async () => {
     // get() is called inside update() → ensure it returns something
-    prisma.adminConfig.findUnique.mockResolvedValueOnce({ id: 'singleton' });
-    const updated = { id: 'singleton', basePriceX: 20 };
+    prisma.adminConfig.findUnique.mockResolvedValueOnce({ id: 'singleton', basePriceX: 10, ratingMultiplier: 0.2 });
+    const updated = { id: 'singleton', basePriceX: 20, ratingMultiplier: 0.2 } as any;
     prisma.adminConfig.update.mockResolvedValueOnce(updated);
 
     const res = await service.update({ basePriceX: 20 });
     expect(prisma.adminConfig.update).toHaveBeenCalledWith({ where: { id: 'singleton' }, data: { basePriceX: 20 } });
     expect(res).toEqual(updated);
+  });
+
+  it('update(): re-computes ACTIVE coaches\' trainingPrice when knobs change', async () => {
+    // before config
+    prisma.adminConfig.findUnique.mockResolvedValueOnce({ id: 'singleton', basePriceX: 10, ratingMultiplier: 0.2 });
+    // updated config
+    prisma.adminConfig.update.mockResolvedValueOnce({ id: 'singleton', basePriceX: 12, ratingMultiplier: 0.3 });
+    // active coaches
+    prisma.coach.findMany.mockResolvedValueOnce([
+      { id: 'c1', averageRating: 4.5 },
+      { id: 'c2', averageRating: 3.0 },
+    ]);
+
+    await service.update({ basePriceX: 12, ratingMultiplier: 0.3 });
+
+    expect(prisma.coach.findMany).toHaveBeenCalledWith({ where: { status: 'ACTIVE' } });
+    expect(prisma.coach.update).toHaveBeenCalledTimes(2);
   });
 });
 
