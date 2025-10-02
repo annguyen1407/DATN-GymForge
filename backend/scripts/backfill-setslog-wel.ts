@@ -7,21 +7,12 @@ async function main() {
   // Keeping this script to avoid build failures and to document that backfill already occurred.
   const setsCount = await prisma.setsLog.count();
   console.log('Backfill no-op: ExerciseLog removed. setsLog rows count =', setsCount);
-}
-
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
 
 
-  // let totalSets = 0;
-  // let assignedSets = 0;
-  // let skippedSets = 0;
+
+// let totalSets = 0;
+//   let assignedSets = 0;
+//   let skippedSets = 0;
 
 //   // Load all ExerciseLogs with their sets
 //   const exerciseLogs = await prisma.exerciseLog.findMany({ include: { setsLog: true } });
@@ -90,3 +81,18 @@ main()
 //   console.log('Backfill SetsLog → WorkoutExerciseLog completed');
 //   console.log({ totalSets, assignedSets, skippedSets, remainingUnassigned: remaining });
 
+
+
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+
+  

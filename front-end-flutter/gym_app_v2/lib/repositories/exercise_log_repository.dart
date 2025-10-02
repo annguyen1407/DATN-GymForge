@@ -39,6 +39,38 @@ class ExerciseLogRepository {
   final String baseUrl;
   ExerciseLogRepository({required this.baseUrl});
 
+  /// Update daily log note for the authenticated user for a specific date.
+  /// Endpoint format (per provided curl example):
+  ///   PATCH /exercise-logs/logs/my/YYYY-MM-DD  { notes: "..." }
+  Future<bool> updateMyDailyLogNote({
+    required DateTime date,
+    required String note,
+  }) async {
+    try {
+      final dateStr = date.toIso8601String().split('T').first;
+      final path = '/exercise-logs/logs/my/$dateStr';
+      final res = await ApiClient.instance.requestJson(
+        'PATCH',
+        path,
+        body: {'notes': note},
+      );
+      if (res.status >= 200 && res.status < 300) return true;
+      AppLogger.warn(
+        'updateMyDailyLogNote failed status ${res.status}',
+        tag: 'ExerciseLogRepo',
+      );
+      return false;
+    } catch (e, st) {
+      AppLogger.error(
+        'updateMyDailyLogNote error: $e',
+        tag: 'ExerciseLogRepo',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
+    }
+  }
+
   // --- Weekly Stats Models ---
   // Represents one day's aggregated stats inside a weekly response.
   // Fields kept minimal for current UI (totalSets, totalCaloriesBurned, totalWorkoutTime)
@@ -180,7 +212,10 @@ class ExerciseLogRepository {
             .round();
       } else if (first['totalWorkoutTime'] is num) {
         final secs = (first['totalWorkoutTime'] as num).toInt();
-        totalWorkoutTimeMinutes = secs ~/ 60; // floor division
+        // Trước đây dùng floor (~/ 60) khiến 165s (~2.75 phút) bị hiển thị 2 phút.
+        // Yêu cầu mới: làm tròn lên để phản ánh thời gian tập tốt hơn (>=1s cũng tính 1 phút).
+        // Công thức ceil cho nguyên dương: (secs + 59) ~/ 60
+        totalWorkoutTimeMinutes = secs <= 0 ? 0 : (secs + 59) ~/ 60;
       }
 
       return DailyExerciseLogSummary(
@@ -214,6 +249,47 @@ class ExerciseLogRepository {
   }
 
   String _fmt(DateTime d) => d.toIso8601String().substring(0, 10);
+
+  // ==== NEW: Fetch sets for a specific workoutExerciseLogId ====
+  Future<List<Map<String, dynamic>>> getSetsForWorkoutExerciseLog(
+    String workoutExerciseLogId,
+  ) async {
+    final path =
+        '/exercise-logs/workout-exercise-logs/$workoutExerciseLogId/sets';
+    try {
+      final apiRes = await ApiClient.instance.requestJson('GET', path);
+      if (apiRes.ok && apiRes.data is List) {
+        final list = (apiRes.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (e) => {
+                'id': e['id'],
+                'setNumber': e['setNumber'],
+                'reps': e['reps'],
+                'times': e['times'],
+                'weight': e['weight'],
+                'caloriesBurned': e['caloriesBurned'],
+              },
+            )
+            .toList();
+        return list;
+      }
+      if (!apiRes.ok) {
+        AppLogger.warn(
+          'Fetch sets failed code=${apiRes.status} err=${apiRes.error}',
+          tag: 'ExerciseLogRepo',
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error(
+        'getSetsForWorkoutExerciseLog error: $e',
+        tag: 'ExerciseLogRepo',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    return [];
+  }
 }
 
 class WeeklyExerciseStats {

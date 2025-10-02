@@ -6,6 +6,7 @@ import '../../../widgets/exercise_hero_header.dart';
 import '../../../repositories/workout_day_exercises_repository.dart';
 import '../../../models/exercise_model.dart';
 import '../../../core/utils/text_normalizer.dart';
+import '../../../widgets/expandable_body_text.dart';
 
 class ConfigureExerciseScreen extends StatefulWidget {
   final String workoutPlanId;
@@ -328,23 +329,23 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                         ),
                       const _SectionTitle(text: 'Giới thiệu'),
                       const SizedBox(height: 10),
-                      Text(
-                        widget.exercise.description?.trim().isNotEmpty == true
+                      ExpandableBodyText(
+                        text:
+                            widget.exercise.description?.trim().isNotEmpty ==
+                                true
                             ? widget.exercise.description!
                                   .trim()
                                   .normalizedMultiline()
                             : 'Chưa có giới thiệu cho bài tập này.',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13.5,
-                          height: 1.45,
-                        ),
+                        trimLines: 6,
                       ),
                       const SizedBox(height: 24),
                       const _SectionTitle(text: 'Hướng dẫn'),
                       const SizedBox(height: 10),
-                      Text(
-                        widget.exercise.instruction?.trim().isNotEmpty == true
+                      ExpandableBodyText(
+                        text:
+                            widget.exercise.instruction?.trim().isNotEmpty ==
+                                true
                             ? widget.exercise.instruction!
                                   .trim()
                                   .normalizedMultiline()
@@ -354,11 +355,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                                         .trim()
                                         .normalizedMultiline()
                                   : 'Chưa có hướng dẫn chi tiết.'),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13.5,
-                          height: 1.45,
-                        ),
+                        trimLines: 6,
                       ),
                       const SizedBox(height: 28),
                       const _SectionTitle(text: 'Thiết lập mục tiêu'),

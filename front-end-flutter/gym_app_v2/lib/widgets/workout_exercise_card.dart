@@ -29,9 +29,7 @@ class WorkoutExerciseCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.grey[900],
           borderRadius: BorderRadius.circular(12),
-          border: isActive
-              ? Border.all(color: Colors.orange, width: 1)
-              : null,
+          border: isActive ? Border.all(color: Colors.orange, width: 1) : null,
         ),
         child: Row(
           children: [
@@ -43,9 +41,7 @@ class WorkoutExerciseCard extends StatelessWidget {
                 color: _getIconBackgroundColor(),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Center(
-                child: _buildExerciseIcon(),
-              ),
+              child: Center(child: _buildExerciseIcon()),
             ),
             const SizedBox(width: 12),
             // Thông tin bài tập
@@ -64,10 +60,7 @@ class WorkoutExerciseCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
@@ -94,11 +87,7 @@ class WorkoutExerciseCard extends StatelessWidget {
   /// Xây dựng icon trong container bài tập
   Widget _buildExerciseIcon() {
     if (isCompleted) {
-      return const Icon(
-        Icons.check,
-        color: Colors.white,
-        size: 20,
-      );
+      return const Icon(Icons.check, color: Colors.white, size: 20);
     } else {
       return Text(
         '$exerciseNumber',
@@ -114,11 +103,7 @@ class WorkoutExerciseCard extends StatelessWidget {
   /// Xây dựng icon trạng thái bên phải
   Widget _buildStatusIcon() {
     if (isCompleted) {
-      return const Icon(
-        Icons.check_circle,
-        color: Colors.green,
-        size: 20,
-      );
+      return const Icon(Icons.check_circle, color: Colors.green, size: 20);
     } else if (isActive) {
       return const Icon(
         Icons.play_circle_outline,

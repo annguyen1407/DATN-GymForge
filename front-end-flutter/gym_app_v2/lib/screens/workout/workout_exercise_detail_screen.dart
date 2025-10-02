@@ -95,16 +95,10 @@ class _WorkoutExerciseDetailScreenState
     switch (action) {
       case DayAction.edit:
         if (!mounted) return;
-        // Nếu chưa có ngày (placeholder) -> không cho chỉnh sửa (cần backend set trước hoặc tạo mới).
-        if (_displayDate == 'Chưa có ngày') {
-          AppSnackBar.showWarning(
-            context,
-            'Ngày này chưa được thiết lập. Hãy đặt ngày ở backend hoặc tạo ngày trước.',
-          );
-          return;
-        }
-        final initial =
-            AppDateUtils.parseIsoOrDisplay(_displayDate) ?? DateTime.now();
+        // Trước đây chặn khi ngày là 'Chưa có ngày'. Giờ cho phép thiết lập luôn.
+        final initial = _displayDate == 'Chưa có ngày'
+            ? DateTime.now()
+            : (AppDateUtils.parseIsoOrDisplay(_displayDate) ?? DateTime.now());
         final picked = await AppDatePicker.show(
           context,
           initialDate: initial,

@@ -46,7 +46,6 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
   final _bodyHeightController = TextEditingController();
   final _foodNameController = TextEditingController();
   final _foodCaloriesController = TextEditingController();
-  final _newNoteController = TextEditingController();
 
   late TabController _tabController;
   late Map<String, dynamic> _bodyMetrics;
@@ -150,7 +149,6 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     _bodyHeightController.dispose();
     _foodNameController.dispose();
     _foodCaloriesController.dispose();
-    _newNoteController.dispose();
     super.dispose();
   }
 
@@ -334,85 +332,7 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
     ),
   );
 
-  // Notes UI extracted to NotesTab widget
-
-  Future<void> _showEditNoteModal() async {
-    // Pre-fill with existing first note (or empty)
-    _newNoteController.text = _notes.isNotEmpty ? _notes.first : '';
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Chỉnh sửa ghi chú',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _newNoteController,
-              maxLines: 5,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDec('Nhập ghi chú...'),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: AppButton.text(
-                    label: 'Hủy',
-                    onPressed: () => Navigator.pop(ctx),
-                    size: AppButtonSize.small,
-                    fullWidth: true,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AppButton.primary(
-                    label: 'Lưu',
-                    size: AppButtonSize.small,
-                    onPressed: () {
-                      final text = _newNoteController.text.trim();
-                      setState(() {
-                        if (_notes.isEmpty) {
-                          if (text.isNotEmpty) _notes.add(text);
-                        } else {
-                          if (text.isNotEmpty) {
-                            _notes[0] = text;
-                          } else {
-                            // If cleared, remove note
-                            _notes.clear();
-                          }
-                        }
-                      });
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Legacy note modal removed; editing handled inside NotesTab and value passed back.
 
   Future<void> _showEditBodyMetrics() async {
     final w = _bodyMetrics['weight'];
@@ -631,7 +551,15 @@ class _LogOfDayScreenState extends State<LogOfDayScreen>
               children: [
                 NotesTab(
                   note: _notes.isNotEmpty ? _notes.first : null,
-                  onEdit: _showEditNoteModal,
+                  onEdit: (updated) {
+                    setState(() {
+                      _notes.clear();
+                      if (updated != null && updated.trim().isNotEmpty) {
+                        _notes.add(updated.trim());
+                      }
+                    });
+                  },
+                  date: widget.selectedDate,
                 ),
                 PlansTab(
                   plans: _planData,

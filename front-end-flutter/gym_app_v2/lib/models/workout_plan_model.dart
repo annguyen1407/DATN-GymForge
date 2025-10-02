@@ -10,6 +10,9 @@ class WorkoutPlanModel {
   final String status; // e.g., ACTIVE
   final int days;
   final bool isTemplate;
+  // Whether this template is only available to premium users.
+  // Backend field expected: isPremiumOnly (optional). Defaults to false when absent.
+  final bool isPremiumOnly;
   final int exercisesCount;
   final String? userName;
   final String? userEmail;
@@ -24,6 +27,7 @@ class WorkoutPlanModel {
     required this.status,
     required this.days,
     required this.isTemplate,
+    required this.isPremiumOnly,
     required this.exercisesCount,
     this.userName,
     this.userEmail,
@@ -42,6 +46,7 @@ class WorkoutPlanModel {
       status: json['status'] as String? ?? 'UNKNOWN',
       days: (json['days'] is int) ? json['days'] as int : 0,
       isTemplate: json['isTemplate'] as bool? ?? false,
+      isPremiumOnly: json['isPremiumOnly'] as bool? ?? false,
       exercisesCount: count is Map && count['exercises'] is int
           ? count['exercises'] as int
           : 0,
