@@ -442,6 +442,7 @@ model Exercise {
   description          String?
   instruction          String?
   videoUrl             String?
+  gifUrl               String?
   met                  Float?
   defaultWeight        Float?  @map("weight")
   defaultSets          Int?    @map("sets")
