@@ -126,7 +126,7 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
     final plan = _detail ?? widget.plan;
     final exercisesCount = _exercises.length; // override if loaded
     final totalHeight = MediaQuery.of(context).size.height;
-    const bottomBarHeight = 84.0; // approx including safe area
+    const bottomBarHeight = 0; // approx including safe area
     const headerHeight = 250.0; // reduced
     final availableListHeight =
         totalHeight - bottomBarHeight - headerHeight - 295;

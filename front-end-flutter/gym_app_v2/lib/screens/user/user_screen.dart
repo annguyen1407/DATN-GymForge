@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// Removed mock Apple-like purchase UI (temporary simplification)
 import '../../core/logging/app_logger.dart';
 import '../../widgets/app_button.dart';
 import '../../repositories/subscriptions_repository.dart';
@@ -189,7 +190,7 @@ class _UserScreenState extends State<UserScreen> {
   }
 
   Future<void> _openSubscriptionPlans() async {
-    showModalBottomSheet(
+    final result = await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -197,6 +198,10 @@ class _UserScreenState extends State<UserScreen> {
         return const _SubscriptionPlansSheet();
       },
     );
+    if (result == 'upgraded') {
+      // Refetch profile to reflect new premium status (mock upgrade)
+      _fetchProfile();
+    }
   }
 
   List<Widget> _buildMenuSection({
@@ -462,8 +467,8 @@ class _PlanCard extends StatelessWidget {
             size: AppButtonSize.small,
             fullWidth: false,
             onPressed: () {
+              // Directly return selected plan (no simulated Apple sheet now)
               Navigator.pop(context, plan);
-              // TODO purchase flow
             },
           ),
         ],

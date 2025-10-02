@@ -39,6 +39,38 @@ class ExerciseLogRepository {
   final String baseUrl;
   ExerciseLogRepository({required this.baseUrl});
 
+  /// Update daily log note for the authenticated user for a specific date.
+  /// Endpoint format (per provided curl example):
+  ///   PATCH /exercise-logs/logs/my/YYYY-MM-DD  { notes: "..." }
+  Future<bool> updateMyDailyLogNote({
+    required DateTime date,
+    required String note,
+  }) async {
+    try {
+      final dateStr = date.toIso8601String().split('T').first;
+      final path = '/exercise-logs/logs/my/$dateStr';
+      final res = await ApiClient.instance.requestJson(
+        'PATCH',
+        path,
+        body: {'notes': note},
+      );
+      if (res.status >= 200 && res.status < 300) return true;
+      AppLogger.warn(
+        'updateMyDailyLogNote failed status ${res.status}',
+        tag: 'ExerciseLogRepo',
+      );
+      return false;
+    } catch (e, st) {
+      AppLogger.error(
+        'updateMyDailyLogNote error: $e',
+        tag: 'ExerciseLogRepo',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
+    }
+  }
+
   // --- Weekly Stats Models ---
   // Represents one day's aggregated stats inside a weekly response.
   // Fields kept minimal for current UI (totalSets, totalCaloriesBurned, totalWorkoutTime)
