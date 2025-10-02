@@ -20,6 +20,13 @@ enum Gender {
   OTHER
 }
 
+// Availability preference for training time of day
+enum AvailableTime {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
 enum TrainingRequestStatus {
   PENDING
   ACCEPTED
@@ -122,6 +129,10 @@ model User {
   oneRm            Float?       @map("1RM")
   expType          String?
   sex              Gender?
+  // Preferences for coach recommendation
+  preferredCoachGender Gender?
+  trainingBudget       Float?
+  availableTime        AvailableTime?
 
   // Email verification fields
   isEmailVerified             Boolean?  @default(false)
@@ -176,6 +187,8 @@ model Coach {
   feedbackCount      Int?    @default(0)
   isOpenToTraining   Boolean @default(false)
   trainingPrice      Float?
+  // Coach areas of expertise used for matching with user's FitnessGoal
+  expertises         FitnessGoal[]
 
   user                 User              @relation("UserCoach", fields: [userId], references: [id])
   appointments         Appointment[]
@@ -429,6 +442,7 @@ model Exercise {
   description          String?
   instruction          String?
   videoUrl             String?
+  gifUrl               String?
   met                  Float?
   defaultWeight        Float?  @map("weight")
   defaultSets          Int?    @map("sets")

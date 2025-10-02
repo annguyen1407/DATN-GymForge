@@ -31,6 +31,11 @@ export class CreateExerciseDto {
   @IsUrl()
   videoUrl?: string;
 
+
+  @ApiProperty({ example: 'https://example.com/pushup.gif', required: false })
+  @IsOptional()
+  @IsUrl()
+  gifUrl?: string;
   @ApiProperty({ example: 3.5, description: 'Metabolic equivalent of task', required: false })
   @IsOptional()
   @IsNumber()
