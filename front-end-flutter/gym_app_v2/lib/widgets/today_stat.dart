@@ -115,7 +115,7 @@ class TodayStat extends StatelessWidget {
                   icon: Icons.fitness_center,
                   color: DesignTokens.info,
                   value: exercisesCount.toString(),
-                  label: 'Số bài tập',
+                  label: 'Số lượt tập',
                   compact: compact,
                 ),
                 SizedBox(height: compact ? 8 : 12),

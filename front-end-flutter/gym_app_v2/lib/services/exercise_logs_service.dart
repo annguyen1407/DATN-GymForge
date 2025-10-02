@@ -3,6 +3,38 @@ import '../core/api/api_response.dart';
 import '../widgets/exercise_card.dart';
 import '../core/auth/token_manager.dart';
 
+class ExerciseStreak {
+  final int currentStreak;
+  final int longestStreak;
+  final DateTime? lastWorkoutDate;
+
+  ExerciseStreak({
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.lastWorkoutDate,
+  });
+
+  factory ExerciseStreak.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      if (v is String && v.isNotEmpty) {
+        try {
+          return DateTime.parse(v);
+        } catch (_) {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    return ExerciseStreak(
+      currentStreak: (json['currentStreak'] ?? 0) as int,
+      longestStreak: (json['longestStreak'] ?? 0) as int,
+      lastWorkoutDate: parseDate(json['lastWorkoutDate']),
+    );
+  }
+}
+
 class ExerciseSetLogPayload {
   final int setNumber;
   final int reps;
@@ -99,6 +131,50 @@ class ExerciseLogPayload {
 class ExerciseLogsService {
   ExerciseLogsService._();
   static final ExerciseLogsService instance = ExerciseLogsService._();
+
+  Future<ApiResponse<ExerciseStreak>> getMyStreaks() async {
+    // Correct endpoint per backend controller (@Get('streaks/my')).
+    // Add fallback to legacy path without /my if first call 404 (for backward compatibility).
+    final primaryPath = '/exercise-logs/streaks/my';
+    final legacyPath = '/exercise-logs/streaks';
+    ApiResponse<dynamic> res = await ApiClient.instance.requestJson(
+      'GET',
+      primaryPath,
+    );
+    if (res.status == 404) {
+      // Fallback attempt
+      final fallback = await ApiClient.instance.requestJson('GET', legacyPath);
+      // Only replace if fallback succeeded (2xx)
+      if (fallback.status >= 200 && fallback.status < 300) {
+        res = fallback;
+      }
+    }
+    if (res.data is Map) {
+      try {
+        final streak = ExerciseStreak.fromJson(
+          res.data as Map<String, dynamic>,
+        );
+        return ApiResponse<ExerciseStreak>(
+          status: res.status,
+          data: streak,
+          raw: res.raw,
+        );
+      } catch (e) {
+        return ApiResponse<ExerciseStreak>(
+          status: res.status,
+          error: ApiErrorType.decode,
+          message: 'Decode streak failed: $e',
+          raw: res.raw,
+        );
+      }
+    }
+    return ApiResponse<ExerciseStreak>(
+      status: res.status,
+      error: res.error ?? ApiErrorType.unknown,
+      message: res.message ?? 'Unexpected streak response',
+      raw: res.raw,
+    );
+  }
 
   Future<ApiResponse<dynamic>> createLog(ExerciseLogPayload payload) async {
     final res = await ApiClient.instance.requestJson(

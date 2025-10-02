@@ -8,7 +8,8 @@ import '../../widgets/animations/animated_appear.dart';
 
 /// WorkoutScreen: Tab "Workout" hiển thị các nhóm workout, tab, search, category icon
 class WorkoutScreen extends StatefulWidget {
-  const WorkoutScreen({super.key});
+  final int initialTabIndex; // 0: Khám phá, 1: Kế hoạch, 2: Chuyên gia
+  const WorkoutScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -21,7 +22,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   @override
   void initState() {
     super.initState();
-    _controller = TabController(length: 3, vsync: this);
+    _controller = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _controller.addListener(() {
       if (mounted) setState(() {}); // rebuild to update isActive flag
     });

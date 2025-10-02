@@ -212,7 +212,10 @@ class ExerciseLogRepository {
             .round();
       } else if (first['totalWorkoutTime'] is num) {
         final secs = (first['totalWorkoutTime'] as num).toInt();
-        totalWorkoutTimeMinutes = secs ~/ 60; // floor division
+        // Trước đây dùng floor (~/ 60) khiến 165s (~2.75 phút) bị hiển thị 2 phút.
+        // Yêu cầu mới: làm tròn lên để phản ánh thời gian tập tốt hơn (>=1s cũng tính 1 phút).
+        // Công thức ceil cho nguyên dương: (secs + 59) ~/ 60
+        totalWorkoutTimeMinutes = secs <= 0 ? 0 : (secs + 59) ~/ 60;
       }
 
       return DailyExerciseLogSummary(
@@ -246,6 +249,47 @@ class ExerciseLogRepository {
   }
 
   String _fmt(DateTime d) => d.toIso8601String().substring(0, 10);
+
+  // ==== NEW: Fetch sets for a specific workoutExerciseLogId ====
+  Future<List<Map<String, dynamic>>> getSetsForWorkoutExerciseLog(
+    String workoutExerciseLogId,
+  ) async {
+    final path =
+        '/exercise-logs/workout-exercise-logs/$workoutExerciseLogId/sets';
+    try {
+      final apiRes = await ApiClient.instance.requestJson('GET', path);
+      if (apiRes.ok && apiRes.data is List) {
+        final list = (apiRes.data as List)
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (e) => {
+                'id': e['id'],
+                'setNumber': e['setNumber'],
+                'reps': e['reps'],
+                'times': e['times'],
+                'weight': e['weight'],
+                'caloriesBurned': e['caloriesBurned'],
+              },
+            )
+            .toList();
+        return list;
+      }
+      if (!apiRes.ok) {
+        AppLogger.warn(
+          'Fetch sets failed code=${apiRes.status} err=${apiRes.error}',
+          tag: 'ExerciseLogRepo',
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error(
+        'getSetsForWorkoutExerciseLog error: $e',
+        tag: 'ExerciseLogRepo',
+        error: e,
+        stackTrace: st,
+      );
+    }
+    return [];
+  }
 }
 
 class WeeklyExerciseStats {

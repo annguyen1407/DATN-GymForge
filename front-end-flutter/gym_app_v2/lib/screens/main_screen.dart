@@ -20,6 +20,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; // Tab hiện tại
+  int _workoutInitialTab = 0; // 0: Khám phá, 1: Kế hoạch, 2: Chuyên gia
   UserModel? _user; // Thông tin user lấy từ API
   bool _loading = true; // Trạng thái loading khi fetch user
 
@@ -54,8 +55,26 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> tabs = [
-      HomeScreen(userName: _user?.name ?? '', isLoading: _loading),
-      const WorkoutScreen(),
+      HomeScreen(
+        userName: _user?.name ?? '',
+        isLoading: _loading,
+        openWorkoutTab: () {
+          setState(() {
+            _workoutInitialTab = 0;
+            _selectedIndex = 1;
+          });
+        },
+        openWorkoutPlanTab: () {
+          setState(() {
+            _workoutInitialTab = 1;
+            _selectedIndex = 1;
+          });
+        },
+      ),
+      WorkoutScreen(
+        key: ValueKey('workout-$_workoutInitialTab'),
+        initialTabIndex: _workoutInitialTab,
+      ),
       const ExerciseScreen(),
       const LogScreen(),
       const UserScreen(),
