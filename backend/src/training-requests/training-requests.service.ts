@@ -9,25 +9,40 @@ export class TrainingRequestsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createTrainingRequestDto: CreateTrainingRequestDto): Promise<TrainingRequest> {
-    // Verify gymer and coach exist
-    const [gymer, coach] = await Promise.all([
-      this.prisma.gymer.findUnique({ where: { id: createTrainingRequestDto.gymerId } }),
-      this.prisma.coach.findUnique({ where: { id: createTrainingRequestDto.coachId } }),
-    ]);
+    // Resolve gymer and coach by id or userId
+    const gymer = createTrainingRequestDto.gymerId
+      ? await this.prisma.gymer.findUnique({ where: { id: createTrainingRequestDto.gymerId } })
+      : (createTrainingRequestDto.gymerUserId
+        ? await this.prisma.gymer.findUnique({ where: { userId: createTrainingRequestDto.gymerUserId } })
+        : null);
+
+    const coach: any = createTrainingRequestDto.coachId
+      ? await this.prisma.coach.findUnique({ where: { id: createTrainingRequestDto.coachId } })
+      : (createTrainingRequestDto.coachUserId
+        ? await this.prisma.coach.findUnique({ where: { userId: createTrainingRequestDto.coachUserId } })
+        : null);
 
     if (!gymer) throw new NotFoundException('Gymer not found');
     if (!coach) throw new NotFoundException('Coach not found');
 
-    // Check if there's already a pending request between these users
-    const existingRequest = await this.prisma.trainingRequest.findFirst({
+    // Coach must be ACTIVE and open to training
+    if (coach.status !== 'ACTIVE') {
+      throw new ConflictException('Coach is not active/approved');
+    }
+    if (!coach.isOpenToTraining) {
+      throw new ConflictException('Coach is not open to training');
+    }
+
+    // Prevent duplicate active training
+    const existingAccepted = await this.prisma.trainingRequest.findFirst({
       where: {
-        gymerId: createTrainingRequestDto.gymerId,
-        coachId: createTrainingRequestDto.coachId,
-        status: TrainingRequestStatus.PENDING,
+        gymerId: gymer.id,
+        coachId: coach.id,
+        status: TrainingRequestStatus.ACCEPTED,
       },
     });
-    if (existingRequest) {
-      throw new ConflictException('A pending training request already exists between these users');
+    if (existingAccepted) {
+      throw new ConflictException('An active training already exists between these users');
     }
 
     // Load pricing config
@@ -36,23 +51,28 @@ export class TrainingRequestsService {
       throw new ConflictException('Admin pricing configuration (basePriceX) is not set');
     }
 
-    const R = coach.averageRating ?? 0;
-    const X = config.basePriceX;
-    const alpha = config.ratingMultiplier ?? 0.2;
-    let price = X * (1 + alpha * ((R - 3) / 2));
-    price = Math.round(price * 100) / 100; // 2 decimals
+    // Use cached price if present, otherwise compute
+    let price = coach.trainingPrice ?? 0;
+    if (!price) {
+      const R = coach.averageRating ?? 0;
+      const X = config.basePriceX;
+      const alpha = config.ratingMultiplier ?? 0.2;
+      price = Math.round((X * (1 + alpha * ((R - 3) / 2))) * 100) / 100;
+    }
 
     const cancelWindowDays = config.coachCancelLockDays ?? 30;
     const trainingDate = (createTrainingRequestDto as any).trainingDate
       ? new Date((createTrainingRequestDto as any).trainingDate)
       : undefined;
 
+    const commissionRate = config.commissionRate ?? 0.1;
+
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.trainingRequest.create({
         data: {
-          gymerId: createTrainingRequestDto.gymerId,
-          coachId: createTrainingRequestDto.coachId,
-          status: TrainingRequestStatus.PENDING,
+          gymerId: gymer.id,
+          coachId: coach.id,
+          status: TrainingRequestStatus.ACCEPTED,
           quotedPrice: price,
           trainingDate: trainingDate,
           cancelWindowDays,
@@ -66,7 +86,20 @@ export class TrainingRequestsService {
           coachId: coach.id,
           amount: price,
           method: PaymentMethod.APPLE_IAP,
-          status: PaymentStatus.PENDING,
+          status: PaymentStatus.COMPLETED,
+          capturedAt: new Date(),
+        },
+      });
+
+      const commission = Math.round(price * commissionRate * 100) / 100;
+      const net = Math.round((price - commission) * 100) / 100;
+      await tx.coachEarning.create({
+        data: {
+          coachId: coach.id,
+          trainingRequestId: created.id,
+          amountGross: price,
+          commission,
+          amountNet: net,
         },
       });
 
@@ -252,90 +285,11 @@ export class TrainingRequestsService {
   }
 
   async accept(id: string, currentUserId?: string): Promise<TrainingRequest> {
-    const trainingRequest = await this.findOne(id);
-
-    // Only the coach can accept the request
-    if (currentUserId) {
-      const user = await this.prisma.user.findUnique({ where: { id: currentUserId }, include: { coachProfile: true } });
-      if (user?.coachProfile?.id !== trainingRequest.coachId && user?.role !== 'ADMIN') {
-        throw new ForbiddenException('Only the coach can accept this training request');
-      }
-    }
-
-    if (trainingRequest.status !== TrainingRequestStatus.PENDING) {
-      throw new ConflictException('Only pending requests can be accepted');
-    }
-
-    const config = await this.prisma.adminConfig.findUnique({ where: { id: 'singleton' } });
-    const c = config?.commissionRate ?? 0.1;
-
-    return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.trainingPayment.findUnique({ where: { trainingRequestId: id } });
-      if (!payment) throw new NotFoundException('Training payment not found');
-
-      await tx.trainingPayment.update({
-        where: { trainingRequestId: id },
-        data: { status: PaymentStatus.COMPLETED, capturedAt: new Date() },
-      });
-
-      const commission = Math.round(payment.amount * c * 100) / 100;
-      const net = Math.round((payment.amount - commission) * 100) / 100;
-      await tx.coachEarning.create({
-        data: {
-          coachId: trainingRequest.coachId,
-          trainingRequestId: id,
-          amountGross: payment.amount,
-          commission,
-          amountNet: net,
-        },
-      });
-
-      return tx.trainingRequest.update({
-        where: { id },
-        data: { status: TrainingRequestStatus.ACCEPTED },
-        include: {
-          gymer: { include: { user: { select: { id: true, name: true, email: true, phoneNumber: true } } } },
-          coach: { include: { user: { select: { id: true, name: true, email: true, phoneNumber: true } } } },
-          trainingPayment: true,
-        },
-      });
-    });
+    throw new ConflictException('Deprecated: requests are auto-accepted at creation');
   }
 
   async reject(id: string, currentUserId?: string): Promise<TrainingRequest> {
-    const trainingRequest = await this.findOne(id);
-
-    // Only the coach can reject the request
-    if (currentUserId) {
-      const user = await this.prisma.user.findUnique({ where: { id: currentUserId }, include: { coachProfile: true } });
-      if (user?.coachProfile?.id !== trainingRequest.coachId && user?.role !== 'ADMIN') {
-        throw new ForbiddenException('Only the coach can reject this training request');
-      }
-    }
-
-    if (trainingRequest.status !== TrainingRequestStatus.PENDING) {
-      throw new ConflictException('Only pending requests can be rejected');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const payment = await tx.trainingPayment.findUnique({ where: { trainingRequestId: id } });
-      if (!payment) throw new NotFoundException('Training payment not found');
-
-      await tx.trainingPayment.update({
-        where: { trainingRequestId: id },
-        data: { status: PaymentStatus.REFUNDED, refundedAt: new Date() },
-      });
-
-      return tx.trainingRequest.update({
-        where: { id },
-        data: { status: TrainingRequestStatus.REJECTED },
-        include: {
-          gymer: { include: { user: { select: { id: true, name: true, email: true, phoneNumber: true } } } },
-          coach: { include: { user: { select: { id: true, name: true, email: true, phoneNumber: true } } } },
-          trainingPayment: true,
-        },
-      });
-    });
+    throw new ConflictException('Deprecated: requests are auto-accepted at creation');
   }
 
   async cancel(id: string, currentUserId: string | undefined, reason?: string): Promise<TrainingRequest> {

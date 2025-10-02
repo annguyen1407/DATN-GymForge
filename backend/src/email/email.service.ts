@@ -62,4 +62,18 @@ export class EmailService {
       },
     });
   }
+
+  async sendCoachApprovedNotification(email: string, name: string): Promise<void> {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Your Coach Account Has Been Approved - GymForge',
+      template: 'coach-approved',
+      context: {
+        name,
+        appName: 'GymForge',
+        dashboardUrl: `${this.configService.get('FRONTEND_URL')}/coach/dashboard`,
+      },
+    });
+  }
+
 }
