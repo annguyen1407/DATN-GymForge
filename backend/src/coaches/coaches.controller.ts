@@ -8,11 +8,15 @@ import {
   Delete,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CoachesService } from './coaches.service';
 import { CreateCoachDto } from './dto/create-coach.dto';
 import { UpdateCoachDto } from './dto/update-coach.dto';
+import { UpdateOpenToTrainingDto } from './dto/update-open-to-training.dto';
+import { ListCoachesQueryDto } from './dto/list-coaches.query';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -37,10 +41,10 @@ export class CoachesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all coaches' })
-  @ApiResponse({ status: 200, description: 'List of all coaches' })
-  findAll() {
-    return this.coachesService.findAll();
+  @ApiOperation({ summary: 'Get all coaches (with sort/filter)' })
+  @ApiResponse({ status: 200, description: 'List of coaches' })
+  findAll(@Query() query: ListCoachesQueryDto) {
+    return this.coachesService.findAll(query);
   }
 
   @Get(':id')
@@ -70,6 +74,15 @@ export class CoachesController {
     @Body() updateCoachDto: UpdateCoachDto,
   ) {
     return this.coachesService.update(id, updateCoachDto);
+  }
+
+  @Patch('me/open-to-training')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.COACH)
+  @ApiOperation({ summary: 'Toggle coach open-to-training status (self)' })
+  @ApiResponse({ status: 200, description: 'Coach readiness updated' })
+  updateOpenToTraining(@Body() dto: UpdateOpenToTrainingDto, @CurrentUser() user: any) {
+    return this.coachesService.updateOpenToTraining(user.id, dto.isOpenToTraining);
   }
 
   @Patch(':id/approve')

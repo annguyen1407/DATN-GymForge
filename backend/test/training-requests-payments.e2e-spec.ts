@@ -23,6 +23,7 @@ const emailServiceMock: Partial<EmailService> = {
   sendPasswordResetOTP: async () => {},
   sendWelcomeEmail: async () => {},
   sendPasswordChangedNotification: async () => {},
+  sendCoachApprovedNotification: async () => {},
 };
 
 // Increase default Jest timeout for e2e
@@ -97,13 +98,25 @@ describe('Training Requests + Payments (e2e)', () => {
       .get('/admin-config')
       .set(auth(adminToken))
       .expect(200);
+
+    // Approve coach (ACTIVE) and set open-to-training
+    await request(app.getHttpServer())
+      .patch(`/coaches/${coachId}/approve`)
+      .set(auth(adminToken))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch('/coaches/me/open-to-training')
+      .set(auth(coachToken))
+      .send({ isOpenToTraining: true })
+      .expect(200);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('creates training request -> payment PENDING', async () => {
+  it('creates training request -> immediately ACCEPTED and payment COMPLETED', async () => {
     const res = await request(app.getHttpServer())
       .post('/training-requests')
       .set(auth(gymerToken))
@@ -113,13 +126,13 @@ describe('Training Requests + Payments (e2e)', () => {
     expect(res.body).toMatchObject({
       gymerId,
       coachId,
-      status: TrainingRequestStatus.PENDING,
+      status: TrainingRequestStatus.ACCEPTED,
     });
 
     const trId = res.body.id;
     const payment = await prisma.trainingPayment.findFirst({ where: { trainingRequestId: trId } });
     expect(payment).toBeTruthy();
-    expect(payment!.status).toBe(PaymentStatus.PENDING);
+    expect(payment!.status).toBe(PaymentStatus.COMPLETED);
   });
 
   // Helper to create a fresh gymer for isolation per test
@@ -135,10 +148,10 @@ describe('Training Requests + Payments (e2e)', () => {
     return { token, userId, gymerId: prof!.id };
   }
 
-  it('accept flow: completes payment, creates earning, sets ACCEPTED', async () => {
-    // Use a fresh gymer to avoid duplicate PENDING conflicts
+  it('auto-accept on create: payment COMPLETED and earning created', async () => {
     const g = await createGymerActor();
 
+    // Approve this gymer's coach readiness is already set globally
     const create = await request(app.getHttpServer())
       .post('/training-requests')
       .set(auth(g.token))
@@ -147,12 +160,11 @@ describe('Training Requests + Payments (e2e)', () => {
 
     const trId = create.body.id as string;
 
-    const accept = await request(app.getHttpServer())
+    // Accept endpoint is deprecated
+    await request(app.getHttpServer())
       .post(`/training-requests/${trId}/accept`)
       .set(auth(coachToken))
-      .expect(201);
-
-    expect(accept.body.status).toBe(TrainingRequestStatus.ACCEPTED);
+      .expect(409);
 
     const payment = await prisma.trainingPayment.findFirst({ where: { trainingRequestId: trId } });
     expect(payment!.status).toBe(PaymentStatus.COMPLETED);
@@ -162,7 +174,7 @@ describe('Training Requests + Payments (e2e)', () => {
     expect(earning!.coachId).toBe(coachId);
   });
 
-  it('reject flow: refunds payment, sets REJECTED', async () => {
+  it('reject endpoint is deprecated (409)', async () => {
     const g = await createGymerActor();
 
     const create = await request(app.getHttpServer())
@@ -173,21 +185,13 @@ describe('Training Requests + Payments (e2e)', () => {
 
     const trId = create.body.id as string;
 
-    const reject = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/training-requests/${trId}/reject`)
       .set(auth(coachToken))
-      .expect(201);
-
-    expect(reject.body.status).toBe(TrainingRequestStatus.REJECTED);
-
-    const payment = await prisma.trainingPayment.findFirst({ where: { trainingRequestId: trId } });
-    expect(payment!.status).toBe(PaymentStatus.REFUNDED);
-
-    const earning = await prisma.coachEarning.findFirst({ where: { trainingRequestId: trId } });
-    expect(earning).toBeNull();
+      .expect(409);
   });
 
-  it('cancel flow: sets CANCELED without changing payment (still PENDING)', async () => {
+  it('cancel flow: sets CANCELED and payment remains COMPLETED (no refund)', async () => {
     const g = await createGymerActor();
 
     const create = await request(app.getHttpServer())
@@ -208,7 +212,7 @@ describe('Training Requests + Payments (e2e)', () => {
     expect(cancel.body.status).toBe(TrainingRequestStatus.CANCELED);
 
     const payment = await prisma.trainingPayment.findFirst({ where: { trainingRequestId: trId } });
-    expect(payment!.status).toBe(PaymentStatus.PENDING);
+    expect(payment!.status).toBe(PaymentStatus.COMPLETED);
   });
 });
 

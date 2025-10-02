@@ -48,24 +48,25 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
     }
 
     const elCols = await getColumns('exercise_logs');
-    const logIdCol = pickCol(elCols, 'workoutLogId', 'logId');
-    const weCol = pickCol(elCols, 'workoutExerciseId');
-    const dateCol = pickCol(elCols, 'date', 'dateLogged');
+    const logIdCol = pickCol(elCols, 'workoutLogId', 'logId', 'workout_log_id', 'log_id');
+    const weCol = pickCol(elCols, 'workoutExerciseId', 'workout_exercise_id');
+    const dateCol = pickCol(elCols, 'date', 'dateLogged', 'date_logged');
     const progressCol = pickCol(elCols, 'progressPercent');
     const caloCol = pickCol(elCols, 'calo_burned', 'caloriesBurned');
     const dayCol = pickCol(elCols, 'dayNumber');
     const totalTimeCol = pickCol(elCols, 'totalTime');
 
-    if (!logIdCol || !weCol || !dateCol) {
-      console.error('[backfill] Required columns missing on exercise_logs. Need workoutLogId/logId, workoutExerciseId, and date/dateLogged. Aborting.');
+    if (!logIdCol) {
+      console.error('[backfill] Required columns missing on exercise_logs. Need workoutLogId/logId (or snake_case). Aborting.');
       process.exitCode = 1;
       return;
     }
 
     console.log('[backfill] Using column mapping:', { logIdCol, weCol, dateCol, progressCol, caloCol, dayCol, totalTimeCol });
 
-    // 1) Insert missing WorkoutExerciseLog rows inferred from exercise_logs (if no matching WEL exists by (logId, workoutExerciseId, date))
-    const insertWelSQL = `
+    // 1) Insert missing WorkoutExerciseLog rows inferred from exercise_logs (only if we have enough columns)
+    const canInsertWel = Boolean(weCol && dateCol);
+    const insertWelSQL = canInsertWel ? `
       INSERT INTO "workout_exercise_logs" ("logId","workoutExerciseId","date","progressPercent","calo_burned","dayNumber","totalTime")
       SELECT el.${logIdCol}, el.${weCol}, el.${dateCol},
              ${progressCol ?? 'NULL'},
@@ -78,10 +79,10 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
        AND wel."workoutExerciseId" = el.${weCol}
        AND wel."date" = el.${dateCol}
       WHERE wel.id IS NULL;
-    `;
+    ` : null;
 
-    // 2) Update sets_logs to point at the newly created/matched WEL, based on the same join key
-    const updateSetsSQL = `
+    // 2) Update sets_logs to point at the newly created/matched WEL, based on the same join key (only if we have enough columns)
+    const updateSetsSQL = canInsertWel ? `
       UPDATE "sets_logs" s
       SET "workoutExerciseLogId" = wel.id
       FROM "workout_exercise_logs" wel
@@ -90,7 +91,7 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
         AND wel."workoutExerciseId" = el.${weCol}
         AND wel."date" = el.${dateCol}
         AND (s."workoutExerciseLogId" IS NULL OR s."workoutExerciseLogId" <> wel.id);
-    `;
+    ` : null;
 
     // 3) Recompute WEL.totalTime from sets_logs (sum of times)
     const recomputeWelTimeSQL = `
@@ -131,8 +132,16 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
     console.log('[backfill] Before:', beforeCounts?.[0]);
 
     // Deterministic mapping by (logId, workoutExerciseId, date)
-    await prisma.$executeRawUnsafe(insertWelSQL);
-    await prisma.$executeRawUnsafe(updateSetsSQL);
+    if (insertWelSQL) {
+      await prisma.$executeRawUnsafe(insertWelSQL);
+    } else {
+      console.log('[backfill] Skipping WEL insertion (missing workoutExerciseId or date columns)');
+    }
+    if (updateSetsSQL) {
+      await prisma.$executeRawUnsafe(updateSetsSQL);
+    } else {
+      console.log('[backfill] Skipping direct sets mapping (missing workoutExerciseId or date columns)');
+    }
 
     // Fallback heuristic mapping (per legacy script): for any remaining sets that still have exerciseLogId but no WEL, assign to closest-time WEL per day
     const remainingSetsRes = await prisma.$queryRawUnsafe<any[]>(
@@ -153,7 +162,7 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
       for (const row of dayRows) {
         const logId = row.log_id;
         const wels = await prisma.$queryRawUnsafe<any[]>(
-          `SELECT id, COALESCE("totalTime",0) AS total_time FROM "workout_exercise_logs" WHERE "logId" = $1`,
+          `SELECT id, COALESCE("totalTime",0) AS total_time FROM "workout_exercise_logs" WHERE "logId" = $1::uuid`,
           logId
         );
         if (!wels || wels.length === 0) {
@@ -166,7 +175,7 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
           `SELECT el.id, COALESCE(SUM(s.times),0) AS sum_times, COUNT(*) AS set_count
            FROM "exercise_logs" el
            JOIN "sets_logs" s ON s."exerciseLogId" = el.id
-           WHERE el.${logIdCol} = $1 AND s."workoutExerciseLogId" IS NULL
+           WHERE el.${logIdCol} = $1::uuid AND s."workoutExerciseLogId" IS NULL
            GROUP BY el.id`,
           logId
         );
@@ -195,7 +204,7 @@ function pickCol(cols: Set<string>, ...candidates: string[]): string | null {
           if (chosenWelId) {
             assignedWelIds.add(chosenWelId);
             await prisma.$executeRawUnsafe(
-              `UPDATE "sets_logs" SET "workoutExerciseLogId" = $1 WHERE "exerciseLogId" = $2 AND "workoutExerciseLogId" IS NULL`,
+              `UPDATE "sets_logs" SET "workoutExerciseLogId" = $1::uuid WHERE "exerciseLogId" = $2::uuid AND "workoutExerciseLogId" IS NULL`,
               chosenWelId,
               el.id
             );

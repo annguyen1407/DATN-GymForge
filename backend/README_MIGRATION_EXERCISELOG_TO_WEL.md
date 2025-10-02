@@ -55,17 +55,22 @@ Use this when you might have legacy ExerciseLog data and want strict safety with
 
 Run exactly in this order, from the backend folder (requires .env with DATABASE_URL set):
 
-1) Add the nullable link
-   - npm run prisma:migrate -- --name add-setslog-link-to-wel
+If Prisma shows a failed migration message, first run:
+- npx prisma migrate resolve --rolled-back 20251001140227_drop_exerciselog_and_require_setslog_wel
 
-2) Backfill legacy data with raw SQL (auto-detects columns and skips if nothing to do)
-   - npm run db:backfill:exerciselog-to-wel
+1) Apply the first migration only (adds the nullable link)
+- npx prisma db execute --file prisma/migrations/20251001140009_add_setslog_link_to_wel/migration.sql --schema prisma/schema.prisma
+- npx prisma migrate resolve --applied 20251001140009_add_setslog_link_to_wel
 
-3) Drop ExerciseLog and require SetsLog->WEL
-   - npm run prisma:migrate -- --name drop-exerciselog-and-require-setslog-wel
+2) Backfill legacy data (auto-detects columns and skips if nothing to do)
+- npm run db:backfill:exerciselog-to-wel
+
+3) Apply the destructive migration (drop ExerciseLog, require SetsLog->WEL)
+- npx prisma db execute --file prisma/migrations/20251001140227_drop_exerciselog_and_require_setslog_wel/migration.sql --schema prisma/schema.prisma
+- npx prisma migrate resolve --applied 20251001140227_drop_exerciselog_and_require_setslog_wel
 
 4) Rebuild
-   - npm run build
+- npm run build
 
 If any step fails, stop and DM the backend dev. Do NOT proceed to the next step.
 

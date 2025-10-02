@@ -99,6 +99,14 @@ export class AuthService {
       throw new UnauthorizedException('Please verify your email address before logging in. Check your inbox for the verification email.');
     }
 
+    // Block login for unapproved coaches
+    if (user.role === UserRole.COACH) {
+      const coach = await this.prisma.coach.findUnique({ where: { userId: user.id } });
+      if (!coach || coach.status !== 'ACTIVE') {
+        throw new UnauthorizedException('Coach account is pending admin approval.');
+      }
+    }
+
     return await this.generateAuthResponse(user);
   }
 
@@ -284,6 +292,13 @@ export class AuthService {
   }
 
   async googleLogin(user: User): Promise<AuthResponseDto> {
+    // Block login for unapproved coaches (OAuth path)
+    if (user.role === UserRole.COACH) {
+      const coach = await this.prisma.coach.findUnique({ where: { userId: user.id } });
+      if (!coach || coach.status !== 'ACTIVE') {
+        throw new UnauthorizedException('Coach account is pending admin approval.');
+      }
+    }
     return await this.generateAuthResponse(user);
   }
 

@@ -168,12 +168,14 @@ model User {
 }
 
 model Coach {
-  id            String  @id @default(uuid()) @db.Uuid
-  userId        String  @unique @db.Uuid
-  certification String?
-  status        String?
-  averageRating Float?  @default(0)
-  feedbackCount Int?    @default(0)
+  id                 String  @id @default(uuid()) @db.Uuid
+  userId             String  @unique @db.Uuid
+  certification      String?
+  status             String? // PENDING | ACTIVE | REJECTED (string for backward-compat)
+  averageRating      Float?  @default(0)
+  feedbackCount      Int?    @default(0)
+  isOpenToTraining   Boolean @default(false)
+  trainingPrice      Float?
 
   user                 User              @relation("UserCoach", fields: [userId], references: [id])
   appointments         Appointment[]

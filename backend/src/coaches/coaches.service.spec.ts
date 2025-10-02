@@ -3,10 +3,12 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { CoachesService } from './coaches.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import { EmailService } from '../email/email.service';
 
 describe('CoachesService', () => {
   let service: CoachesService;
   let prismaService: PrismaService;
+  let emailService: EmailService;
 
   const mockUser = {
     id: 'user-id',
@@ -43,18 +45,19 @@ describe('CoachesService', () => {
   };
 
   beforeEach(async () => {
+    const emailMock: Partial<EmailService> = { sendCoachApprovedNotification: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CoachesService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EmailService, useValue: emailMock },
       ],
     }).compile();
 
     service = module.get<CoachesService>(CoachesService);
     prismaService = module.get<PrismaService>(PrismaService);
+    emailService = module.get<EmailService>(EmailService) as any;
   });
 
   afterEach(() => {
@@ -110,9 +113,10 @@ describe('CoachesService', () => {
   });
 
   describe('approve', () => {
-    it('sets coach ACTIVE and grants premium to user', async () => {
-      (mockPrismaService as any).coach.findUnique.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'PENDING', user: { id: 'user-id' } });
-      (mockPrismaService as any).coach.update.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'ACTIVE', user: { id: 'user-id' } });
+    it('sets coach ACTIVE, computes price, sends email, and grants premium to user', async () => {
+      (mockPrismaService as any).coach.findUnique.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'PENDING', user: { id: 'user-id', email: 'e', name: 'n' } });
+      (mockPrismaService as any).coach.update.mockResolvedValue({ id: 'coach-id', userId: 'user-id', status: 'ACTIVE', user: { id: 'user-id', email: 'e', name: 'n' } });
+      (mockPrismaService as any).adminConfig = { findUnique: jest.fn().mockResolvedValue({ basePriceX: 10, ratingMultiplier: 0.2 }) };
 
       const res = await service.approve('coach-id');
 
@@ -121,6 +125,7 @@ describe('CoachesService', () => {
         where: { id: 'user-id' },
         data: { premiumStatus: true, premiumExpiresAt: null },
       });
+      expect((emailService as any).sendCoachApprovedNotification).toHaveBeenCalled();
     });
   });
 
@@ -131,7 +136,7 @@ describe('CoachesService', () => {
 
       const result = await service.findAll();
 
-      expect(mockPrismaService.coach.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaService.coach.findMany).toHaveBeenCalledWith(expect.objectContaining({
         include: {
           user: {
             select: {
@@ -151,7 +156,7 @@ describe('CoachesService', () => {
             },
           },
         },
-      });
+      }));
       expect(result).toEqual(coaches);
     });
   });
