@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/logging/app_logger.dart';
-import '../../core/extensions/color_extensions.dart';
 import '../../widgets/app_button.dart';
+import '../../repositories/subscriptions_repository.dart';
+import '../../models/subscription_plan_model.dart';
 import '../../widgets/animations/animated_appear.dart';
 import '../../widgets/skeleton/skeleton_box.dart';
 import 'package:flutter/services.dart';
@@ -118,64 +119,7 @@ class _UserScreenState extends State<UserScreen> {
                         ),
                       ),
               ),
-              const SizedBox(height: 24),
-              AnimatedAppear(
-                delay: const Duration(milliseconds: 120),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                  child: _loading
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            SkeletonBox(
-                              width: 70,
-                              height: 70,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
-                            ),
-                            SkeletonBox(
-                              width: 70,
-                              height: 70,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
-                            ),
-                            SkeletonBox(
-                              width: 70,
-                              height: 70,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            _UserStat(
-                              icon: Icons.timer,
-                              value: '10',
-                              label: 'Total Time (h)',
-                              color: Colors.blue,
-                            ),
-                            _UserStat(
-                              icon: Icons.star,
-                              value: '3/28',
-                              label: 'Goals Achieved',
-                              color: Colors.amber,
-                            ),
-                            _UserStat(
-                              icon: Icons.emoji_events,
-                              value: '5/15',
-                              label: 'Badge Collected',
-                              color: Colors.red,
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 36),
               AnimatedAppear(
                 delay: const Duration(milliseconds: 180),
                 child: _SectionTitle(title: 'Tài khoản'),
@@ -183,14 +127,8 @@ class _UserScreenState extends State<UserScreen> {
               ..._buildMenuSection(
                 loading: _loading,
                 items: const [
-                  _UserMenuItem(
-                    icon: Icons.person,
-                    text: 'Chỉnh sửa tài khoản',
-                  ),
-                  _UserMenuItem(
-                    icon: Icons.badge,
-                    text: 'Chỉnh sửa thông tin người dùng',
-                  ),
+                  _UserMenuItem(text: 'Chỉnh sửa tài khoản'),
+                  _UserMenuItem(text: 'Chỉnh sửa thông tin người dùng'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -198,15 +136,16 @@ class _UserScreenState extends State<UserScreen> {
                 delay: const Duration(milliseconds: 220),
                 child: _SectionTitle(title: 'General'),
               ),
-              ..._buildMenuSection(
-                loading: _loading,
-                items: const [
-                  _UserMenuItem(
-                    icon: Icons.subscriptions,
-                    text: 'Subscription',
-                  ),
-                ],
-              ),
+              if (_loading)
+                ..._buildMenuSection(
+                  loading: true,
+                  items: const [_UserMenuItem(text: 'Subscription')],
+                )
+              else if (_shouldShowSubscriptionButton())
+                _UserMenuItem(
+                  text: 'Nâng cấp Premium',
+                  onTap: _openSubscriptionPlans,
+                ),
               const Spacer(),
               AnimatedAppear(
                 delay: const Duration(milliseconds: 260),
@@ -242,6 +181,24 @@ class _UserScreenState extends State<UserScreen> {
     );
   }
 
+  bool _shouldShowSubscriptionButton() {
+    // Giả định role gymer đến từ backend (chưa có trong UserModel => tạm dự phòng bằng premiumStatus logic).
+    // Nếu sau này có field role trong UserModel thì bổ sung kiểm tra: _user.role == 'GYMER'
+    if (_user == null) return false;
+    return !_user!.premiumStatus; // chỉ hiện khi chưa premium
+  }
+
+  Future<void> _openSubscriptionPlans() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return const _SubscriptionPlansSheet();
+      },
+    );
+  }
+
   List<Widget> _buildMenuSection({
     required bool loading,
     required List<_UserMenuItem> items,
@@ -270,45 +227,7 @@ class _UserScreenState extends State<UserScreen> {
   }
 }
 
-class _UserStat extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-  const _UserStat({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CircleAvatar(
-          backgroundColor: color.withOpacityRatio(0.15),
-          child: Icon(icon, color: color),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-}
+// Stats removed per request
 
 class _SectionTitle extends StatelessWidget {
   final String title;
@@ -332,17 +251,223 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _UserMenuItem extends StatelessWidget {
-  final IconData icon;
   final String text;
-  const _UserMenuItem({required this.icon, required this.text});
+  final VoidCallback? onTap;
+  const _UserMenuItem({required this.text, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF8854FF)),
       title: Text(text, style: const TextStyle(color: Colors.white)),
       trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-      onTap: () {},
+      onTap: onTap ?? () {},
+    );
+  }
+}
+
+class _SubscriptionPlansSheet extends StatefulWidget {
+  const _SubscriptionPlansSheet();
+
+  @override
+  State<_SubscriptionPlansSheet> createState() =>
+      _SubscriptionPlansSheetState();
+}
+
+class _SubscriptionPlansSheetState extends State<_SubscriptionPlansSheet> {
+  late Future<List<SubscriptionPlanModel>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = SubscriptionsRepository.instance.listPlans();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF12101A),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: Colors.white12, width: 1),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const Text(
+                'Chọn gói Premium',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: FutureBuilder<List<SubscriptionPlanModel>>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return _errorState();
+                    }
+                    final plans = snapshot.data ?? [];
+                    if (plans.isEmpty) {
+                      return _emptyState();
+                    }
+                    return ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: plans.length,
+                      itemBuilder: (ctx, i) => _PlanCard(plan: plans[i]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _errorState() => Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      const Text('Lỗi tải gói', style: TextStyle(color: Colors.white70)),
+      const SizedBox(height: 12),
+      AppButton.outline(
+        label: 'Thử lại',
+        onPressed: () {
+          setState(() {
+            _future = SubscriptionsRepository.instance.listPlans();
+          });
+        },
+      ),
+    ],
+  );
+
+  Widget _emptyState() => const Center(
+    child: Text('Chưa có gói nào', style: TextStyle(color: Colors.white70)),
+  );
+}
+
+class _PlanCard extends StatelessWidget {
+  final SubscriptionPlanModel plan;
+  const _PlanCard({required this.plan});
+
+  String _formatPrice(int price, String currency) {
+    final s = price.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final reverseIndex = s.length - i;
+      buf.write(s[i]);
+      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+        buf.write('.');
+      }
+    }
+    return '${buf.toString()} $currency';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF512DA8), Color(0xFF6A35C8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            offset: const Offset(0, 6),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  plan.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.schedule, color: Colors.white70, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${plan.durationMonths} tháng',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _formatPrice(plan.price, plan.currency),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          AppButton.gradient(
+            label: 'Chọn gói này',
+            size: AppButtonSize.small,
+            fullWidth: false,
+            onPressed: () {
+              Navigator.pop(context, plan);
+              // TODO purchase flow
+            },
+          ),
+        ],
+      ),
     );
   }
 }

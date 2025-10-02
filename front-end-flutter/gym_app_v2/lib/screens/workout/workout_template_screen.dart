@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/extensions/color_extensions.dart';
 import '../../models/workout_plan_model.dart';
 import '../../repositories/workout_plans_repository.dart';
+import '../../services/user_service.dart';
+import '../../models/user_model.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/app_button.dart';
 import '../../repositories/workout_day_exercises_repository.dart';
@@ -88,10 +90,16 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
     if (_cloning) return;
     setState(() => _cloning = true);
     try {
-      // For now we reuse template name/description; could prompt user later.
+      // Always use the current logged-in user's id (not the template owner)
+      final UserModel? me = await UserService.fetchProfile(context);
+      if (me == null) {
+        if (!mounted) return;
+        AppSnackBar.showError(context, 'Không lấy được thông tin người dùng');
+        return;
+      }
       final cloned = await _repo.cloneTemplate(
         templateId: template.id,
-        userId: template.userId, // userId is non-null in model
+        userId: me.id,
         name: template.name,
         description: template.description ?? '',
       );
@@ -104,7 +112,10 @@ class _WorkoutTemplateScreenState extends State<WorkoutTemplateScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      AppSnackBar.showError(context, 'Lỗi: $e');
+      final msg = e.toString().contains('403')
+          ? 'Bạn chỉ có thể tạo kế hoạch cho chính bạn'
+          : 'Lỗi: $e';
+      AppSnackBar.showError(context, msg);
     } finally {
       if (mounted) setState(() => _cloning = false);
     }

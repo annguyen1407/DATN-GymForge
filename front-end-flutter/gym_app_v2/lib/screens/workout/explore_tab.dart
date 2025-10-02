@@ -1,10 +1,13 @@
 // Removed imports for template cards & sections (exclusive/quick) after cleanup.
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../../repositories/workout_plans_repository.dart';
 import '../../models/workout_plan_model.dart';
 import '../../widgets/workout_card.dart';
 import '../../widgets/plan_type_badge.dart';
 import '../../widgets/search_box.dart';
+import '../../services/user_service.dart';
+import '../../models/user_model.dart';
 import 'workout_template_screen.dart';
 
 class ExploreTab extends StatefulWidget {
@@ -20,8 +23,11 @@ class _ExploreTabState extends State<ExploreTab> {
 
   // Raw data fetched once
   List<WorkoutPlanModel> _allTemplates = [];
-  // Derived filtered list
-  List<WorkoutPlanModel> _filtered = [];
+  // Derived filtered lists
+  List<WorkoutPlanModel> _freeTemplates = [];
+  List<WorkoutPlanModel> _premiumTemplates = [];
+
+  UserModel? _user; // to read premiumStatus
 
   String? _selectedPlanType; // null = all
   String _searchTerm = '';
@@ -69,8 +75,10 @@ class _ExploreTabState extends State<ExploreTab> {
       _error = false;
     });
     try {
+      final profile = await UserService.fetchProfile(context);
       final data = await _repo.getTemplatePlans();
       if (!mounted) return;
+      _user = profile;
       _allTemplates = data;
       _applyFilters();
       setState(() {
@@ -86,15 +94,38 @@ class _ExploreTabState extends State<ExploreTab> {
   }
 
   void _applyFilters() {
-    List<WorkoutPlanModel> result = _allTemplates;
+    // Free plans respect filters always
+    Iterable<WorkoutPlanModel> baseFree = _allTemplates.where(
+      (p) => !p.isPremiumOnly,
+    );
     if (_selectedPlanType != null) {
-      result = result.where((p) => p.planType == _selectedPlanType).toList();
+      baseFree = baseFree.where((p) => p.planType == _selectedPlanType);
     }
     if (_searchTerm.isNotEmpty) {
       final q = _searchTerm.toLowerCase();
-      result = result.where((p) => p.name.toLowerCase().contains(q)).toList();
+      baseFree = baseFree.where((p) => p.name.toLowerCase().contains(q));
     }
-    _filtered = result;
+    _freeTemplates = baseFree.toList();
+
+    // Premium plans: if user is not premium, ignore filters (show teaser set)
+    final isPremiumUser = _user?.premiumStatus ?? false;
+    if (!isPremiumUser) {
+      _premiumTemplates = _allTemplates.where((p) => p.isPremiumOnly).toList();
+    } else {
+      Iterable<WorkoutPlanModel> basePremium = _allTemplates.where(
+        (p) => p.isPremiumOnly,
+      );
+      if (_selectedPlanType != null) {
+        basePremium = basePremium.where((p) => p.planType == _selectedPlanType);
+      }
+      if (_searchTerm.isNotEmpty) {
+        final q = _searchTerm.toLowerCase();
+        basePremium = basePremium.where(
+          (p) => p.name.toLowerCase().contains(q),
+        );
+      }
+      _premiumTemplates = basePremium.toList();
+    }
   }
 
   void _onSelect(String? planType) {
@@ -107,9 +138,11 @@ class _ExploreTabState extends State<ExploreTab> {
 
   Future<void> _refresh() async {
     try {
+      final profile = await UserService.fetchProfile(context);
       final data = await _repo.getTemplatePlans();
       if (!mounted) return;
       setState(() {
+        _user = profile;
         _allTemplates = data;
         _applyFilters();
       });
@@ -149,6 +182,15 @@ class _ExploreTabState extends State<ExploreTab> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // "All" icon
+                Expanded(
+                  child: Center(
+                    child: _AllCategoryIcon(
+                      active: _selectedPlanType == null,
+                      onTap: () => _onSelect(null),
+                    ),
+                  ),
+                ),
                 for (final c in _categories) ...[
                   Expanded(
                     child: Center(
@@ -176,48 +218,269 @@ class _ExploreTabState extends State<ExploreTab> {
               if (_error) {
                 return _ExploreErrorState(onRetry: _loadInitial);
               }
-              if (_filtered.isEmpty) {
+              if (_freeTemplates.isEmpty && _premiumTemplates.isEmpty) {
                 return _ExploreEmptyState(onRefresh: _loadInitial);
               }
               return RefreshIndicator(
                 onRefresh: _refresh,
                 color: Colors.redAccent,
-                child: ListView.builder(
+                child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-                  itemCount: _filtered.length,
-                  itemBuilder: (context, index) {
-                    final plan = _filtered[index];
-                    final subtitle =
-                        '${plan.days} ngày • ${plan.exercisesCount} bài tập';
-                    return WorkoutCard(
-                      image: plan.picture ?? '',
-                      title: plan.name,
-                      subtitle: subtitle,
-                      description: plan.description,
-                      badge: plan.planType,
-                      planType: plan.planType,
-                      tags: const [], // removed author & status per requirement
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => WorkoutTemplateScreen(plan: plan),
-                          ),
-                        );
-                        if (result != null) {
-                          // Optionally refresh or insert new plan; for now just reload data list.
-                          _refresh();
-                        }
-                      },
-                    );
-                  },
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
+                  children: [
+                    if (_freeTemplates.isNotEmpty) ...[
+                      _SectionHeader(title: 'Miễn phí'),
+                      SizedBox(
+                        height: 250,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                          scrollDirection: Axis.horizontal,
+                          itemBuilder: (context, index) {
+                            final plan = _freeTemplates[index];
+                            final subtitle =
+                                '${plan.days} ngày • ${plan.exercisesCount} bài tập';
+                            return SizedBox(
+                              width: 270,
+                              child: WorkoutCard(
+                                image: plan.picture ?? '',
+                                title: plan.name,
+                                subtitle: subtitle,
+                                description: plan.description,
+                                badge: plan.planType,
+                                planType: plan.planType,
+                                tags: const [],
+                                compact: true,
+                                onTap: () async {
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          WorkoutTemplateScreen(plan: plan),
+                                    ),
+                                  );
+                                  if (result != null) {
+                                    _refresh();
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 16),
+                          itemCount: _freeTemplates.length,
+                        ),
+                      ),
+                    ],
+                    if (_premiumTemplates.isNotEmpty) ...[
+                      _SectionHeader(title: 'Premium'),
+                      SizedBox(height: 250, child: _buildPremiumList()),
+                    ],
+                  ],
                 ),
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .3,
+        ),
+      ),
+    );
+  }
+}
+
+class _AllCategoryIcon extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+  const _AllCategoryIcon({required this.active, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final accent = Colors.blueAccent;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: active
+                    ? [accent.withOpacity(.35), accent.withOpacity(.15)]
+                    : [accent.withOpacity(.20), accent.withOpacity(.08)],
+              ),
+              border: Border.all(
+                color: active ? accent : Colors.white.withOpacity(.08),
+                width: active ? 2 : 1,
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: accent.withOpacity(.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(.6),
+                        blurRadius: 8,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+            ),
+            child: Icon(
+              Icons.apps,
+              color: active ? Colors.white : accent.withOpacity(.9),
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tất cả',
+            style: TextStyle(
+              fontSize: 12.2,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+              color: active ? Colors.white : Colors.white70,
+              letterSpacing: .3,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+extension on _ExploreTabState {
+  Widget _buildPremiumList() {
+    final isPremium = _user?.premiumStatus ?? false;
+    List<WorkoutPlanModel> display = _premiumTemplates;
+    if (!isPremium && display.length > 3) {
+      display = display.take(3).toList();
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      scrollDirection: Axis.horizontal,
+      itemBuilder: (context, index) {
+        final plan = display[index];
+        final subtitle = '${plan.days} ngày • ${plan.exercisesCount} bài tập';
+        final locked = !isPremium; // lock all premium if user not premium
+        return SizedBox(
+          width: 270,
+          child: Stack(
+            children: [
+              // Card base (no text readability leak when locked due to blur overlay below)
+              WorkoutCard(
+                image: plan.picture ?? '',
+                title: plan.name,
+                subtitle: subtitle,
+                description: plan.description,
+                badge: plan.planType,
+                planType: plan.planType,
+                tags: const [],
+                compact: true,
+                onTap: locked
+                    ? () {
+                        // TODO: Optionally open upgrade bottom sheet
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Nâng cấp Premium để truy cập kế hoạch này',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    : () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => WorkoutTemplateScreen(plan: plan),
+                          ),
+                        );
+                        if (result != null) _refresh();
+                      },
+              ),
+              if (locked)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      children: [
+                        // Strong blur to hide text details
+                        BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                          child: Container(color: Colors.black.withOpacity(.1)),
+                        ),
+                        // Gradient & lock label
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(.65),
+                                Colors.black.withOpacity(.30),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.lock,
+                                  color: Colors.white70,
+                                  size: 34,
+                                ),
+                                SizedBox(height: 10),
+                                Text(
+                                  'Premium',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    letterSpacing: .5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+      separatorBuilder: (_, __) => const SizedBox(width: 16),
+      itemCount: display.length,
     );
   }
 }

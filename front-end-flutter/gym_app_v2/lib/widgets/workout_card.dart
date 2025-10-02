@@ -18,6 +18,8 @@ class WorkoutCard extends StatelessWidget {
   final List<String>? tags;
   final VoidCallback? onTap;
   final String? planType; // thêm để map màu & placeholder
+  // Khi dùng trong horizontal carousel cần card thấp hơn -> compact=true
+  final bool compact;
 
   const WorkoutCard({
     required this.image,
@@ -29,13 +31,13 @@ class WorkoutCard extends StatelessWidget {
     this.tags,
     this.onTap,
     this.planType,
+    this.compact = false,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final accent = badgeColor ?? PlanTypeBadge.baseColor(planType ?? badge);
-    // Danh sách asset hiện có để tránh load asset không tồn tại (giảm spam error log)
     const knownAssets = {
       'assets/images/onboarding_1.png',
       'assets/images/onboarding_2.png',
@@ -44,12 +46,16 @@ class WorkoutCard extends StatelessWidget {
     };
     final effectiveImage = (image.isNotEmpty && knownAssets.contains(image))
         ? image
-        : ''; // nếu không thuộc danh sách -> dùng placeholder gradient
-
+        : '';
+    final imageHeight = compact ? 110.0 : 140.0;
+    final padTop = compact ? 12.0 : 14.0;
+    final padBottom = compact ? 12.0 : 16.0;
+    final titleSize = compact ? 16.0 : 17.0;
+    final descLines = compact ? 1 : 2;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: EdgeInsets.only(bottom: compact ? 0 : 16),
         decoration: BoxDecoration(
           color: DesignTokens.surface,
           borderRadius: BorderRadius.circular(16),
@@ -68,7 +74,6 @@ class WorkoutCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Phần ảnh header
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
@@ -76,16 +81,15 @@ class WorkoutCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  // Ảnh hoặc placeholder gradient
                   if (effectiveImage.isNotEmpty)
                     Image.asset(
                       effectiveImage,
                       width: double.infinity,
-                      height: 140,
+                      height: imageHeight,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         width: double.infinity,
-                        height: 140,
+                        height: imageHeight,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -101,7 +105,7 @@ class WorkoutCard extends StatelessWidget {
                   else
                     Container(
                       width: double.infinity,
-                      height: 140,
+                      height: imageHeight,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -118,7 +122,6 @@ class WorkoutCard extends StatelessWidget {
                         size: 48,
                       ),
                     ),
-                  // Overlay mờ để chữ nổi bật
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -133,7 +136,6 @@ class WorkoutCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Badge (nếu có)
                   if (badge != null)
                     Positioned(
                       top: 10,
@@ -147,23 +149,22 @@ class WorkoutCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Phần thông tin workout
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, padTop, 16, padBottom),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tên workout
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: DesignTokens.textPrimary,
                       fontWeight: FontWeight.w700,
-                      fontSize: 17,
+                      fontSize: titleSize,
                       letterSpacing: .2,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  // Subtitle (nếu có)
                   if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -173,9 +174,10 @@ class WorkoutCard extends StatelessWidget {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  // Description (nếu có)
                   if (description != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -185,12 +187,11 @@ class WorkoutCard extends StatelessWidget {
                         fontSize: 13,
                         height: 1.3,
                       ),
-                      maxLines: 2,
+                      maxLines: descLines,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  // Tags (nếu có)
-                  if (tags != null && tags!.isNotEmpty) ...[
+                  if (!compact && tags != null && tags!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
