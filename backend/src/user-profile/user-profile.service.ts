@@ -33,6 +33,10 @@ export class UserProfileService {
         expType: createUserProfileDto.expType,
         biography: createUserProfileDto.biography,
         profilePicture: createUserProfileDto.profilePicture,
+        // preferences
+        preferredCoachGender: (createUserProfileDto as any).preferredCoachGender,
+        trainingBudget: (createUserProfileDto as any).trainingBudget,
+        availableTime: (createUserProfileDto as any).availableTime as any,
       },
       select: {
         id: true,
@@ -57,7 +61,13 @@ export class UserProfileService {
       },
     });
 
-    return updatedUser;
+    return {
+      ...updatedUser,
+      // Include preference fields even if not selected (pre-migration safety)
+      preferredCoachGender: (updatedUser as any)?.preferredCoachGender ?? null,
+      trainingBudget: (updatedUser as any)?.trainingBudget ?? null,
+      availableTime: (updatedUser as any)?.availableTime ?? null,
+    } as any;
   }
 
   async updateProfile(userId: string, currentUserId: string, updateUserProfileDto: UpdateUserProfileDto): Promise<UserProfileDto> {
@@ -80,8 +90,8 @@ export class UserProfileService {
       where: { id: userId },
       data: {
         ...(updateUserProfileDto.phoneNumber !== undefined && { phoneNumber: updateUserProfileDto.phoneNumber }),
-        ...(updateUserProfileDto.dateOfBirth !== undefined && { 
-          dateOfBirth: updateUserProfileDto.dateOfBirth ? new Date(updateUserProfileDto.dateOfBirth) : null 
+        ...(updateUserProfileDto.dateOfBirth !== undefined && {
+          dateOfBirth: updateUserProfileDto.dateOfBirth ? new Date(updateUserProfileDto.dateOfBirth) : null
         }),
         ...(updateUserProfileDto.sex !== undefined && { sex: updateUserProfileDto.sex }),
         ...(updateUserProfileDto.address !== undefined && { address: updateUserProfileDto.address }),
@@ -91,6 +101,10 @@ export class UserProfileService {
         ...(updateUserProfileDto.expType !== undefined && { expType: updateUserProfileDto.expType }),
         ...(updateUserProfileDto.biography !== undefined && { biography: updateUserProfileDto.biography }),
         ...(updateUserProfileDto.profilePicture !== undefined && { profilePicture: updateUserProfileDto.profilePicture }),
+        // preferences
+        ...((updateUserProfileDto as any).preferredCoachGender !== undefined && { preferredCoachGender: (updateUserProfileDto as any).preferredCoachGender }),
+        ...((updateUserProfileDto as any).trainingBudget !== undefined && { trainingBudget: (updateUserProfileDto as any).trainingBudget }),
+        ...((updateUserProfileDto as any).availableTime !== undefined && { availableTime: (updateUserProfileDto as any).availableTime as any }),
       },
       select: {
         id: true,
@@ -115,7 +129,12 @@ export class UserProfileService {
       },
     });
 
-    return updatedUser;
+    return {
+      ...updatedUser,
+      preferredCoachGender: (updatedUser as any)?.preferredCoachGender ?? null,
+      trainingBudget: (updatedUser as any)?.trainingBudget ?? null,
+      availableTime: (updatedUser as any)?.availableTime ?? null,
+    } as any;
   }
 
   async getProfile(userId: string): Promise<UserProfileDto> {
@@ -148,7 +167,12 @@ export class UserProfileService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return {
+      ...user,
+      preferredCoachGender: (user as any)?.preferredCoachGender ?? null,
+      trainingBudget: (user as any)?.trainingBudget ?? null,
+      availableTime: (user as any)?.availableTime ?? null,
+    } as any;
   }
 
   async deleteProfile(userId: string): Promise<DeleteProfileResponseDto> {

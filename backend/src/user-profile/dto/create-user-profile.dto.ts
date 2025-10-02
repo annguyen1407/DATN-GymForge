@@ -2,6 +2,12 @@ import { IsOptional, IsString, IsEnum, IsDateString, IsNumber, IsUrl } from 'cla
 import { ApiProperty } from '@nestjs/swagger';
 import { Gender, FitnessGoal } from '@prisma/client';
 
+enum AvailableTimeDto {
+  MORNING = 'MORNING',
+  AFTERNOON = 'AFTERNOON',
+  EVENING = 'EVENING',
+}
+
 export class CreateUserProfileDto {
   @ApiProperty({ example: '+1234567890', required: false })
   @IsOptional()
@@ -52,4 +58,20 @@ export class CreateUserProfileDto {
   @IsOptional()
   @IsUrl()
   profilePicture?: string;
+
+  // Recommendation preferences
+  @ApiProperty({ description: 'Preferred coach gender', enum: Gender, required: false })
+  @IsOptional()
+  @IsEnum(Gender)
+  preferredCoachGender?: Gender;
+
+  @ApiProperty({ description: 'Budget per session', example: 200000, required: false })
+  @IsOptional()
+  @IsNumber()
+  trainingBudget?: number;
+
+  @ApiProperty({ description: 'Preferred training time of day', enum: AvailableTimeDto, required: false })
+  @IsOptional()
+  @IsEnum(AvailableTimeDto)
+  availableTime?: AvailableTimeDto;
 }
