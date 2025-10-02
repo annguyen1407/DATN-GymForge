@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole, Gender, FitnessGoal } from '@prisma/client';
 
+enum AvailableTimeDto {
+  MORNING = 'MORNING',
+  AFTERNOON = 'AFTERNOON',
+  EVENING = 'EVENING',
+}
+
 export class UserProfileDto {
   @ApiProperty({ 
     description: 'User unique identifier',
@@ -109,27 +115,37 @@ export class UserProfileDto {
   })
   profilePicture: string | null;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User premium status',
     example: false,
     nullable: true
   })
   premiumStatus: boolean | null;
 
-  @ApiProperty({ 
+  // Recommendation preferences
+  @ApiProperty({ description: 'Preferred coach gender', enum: Gender, nullable: true })
+  preferredCoachGender: Gender | null;
+
+  @ApiProperty({ description: 'Budget per session', example: 200000, nullable: true })
+  trainingBudget: number | null;
+
+  @ApiProperty({ description: 'Preferred training time of day', enum: AvailableTimeDto, nullable: true })
+  availableTime: AvailableTimeDto | null;
+
+  @ApiProperty({
     description: 'Email verification status',
     example: true,
     nullable: true
   })
   isEmailVerified: boolean | null;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Account creation timestamp',
     example: '2024-01-01T00:00:00.000Z'
   })
   createdAt: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Last update timestamp',
     example: '2024-01-01T00:00:00.000Z'
   })

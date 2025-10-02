@@ -41,10 +41,10 @@ export class CoachesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all coaches (with sort/filter)' })
+  @ApiOperation({ summary: 'Get all coaches (with sort/filter or recommended for current user)' })
   @ApiResponse({ status: 200, description: 'List of coaches' })
-  findAll(@Query() query: ListCoachesQueryDto) {
-    return this.coachesService.findAll(query);
+  findAll(@Query() query: ListCoachesQueryDto, @CurrentUser() user: any) {
+    return this.coachesService.findAll(query, user?.id);
   }
 
   @Get(':id')

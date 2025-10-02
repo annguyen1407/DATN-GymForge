@@ -3,10 +3,10 @@ import { IsBoolean, IsIn, IsNumber, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class ListCoachesQueryDto {
-  @ApiPropertyOptional({ enum: ['price', 'rating', 'name'], description: 'Sort by: price (trainingPrice), rating (averageRating), or name (user.name)' })
+  @ApiPropertyOptional({ enum: ['price', 'rating', 'name', 'recommended'], description: 'Sort by: price, rating, name, or recommended (score-based)' })
   @IsOptional()
-  @IsIn(['price', 'rating', 'name'])
-  sortBy?: 'price' | 'rating' | 'name';
+  @IsIn(['price', 'rating', 'name', 'recommended'])
+  sortBy?: 'price' | 'rating' | 'name' | 'recommended';
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'asc' })
   @IsOptional()
@@ -31,4 +31,3 @@ export class ListCoachesQueryDto {
   @IsBoolean()
   isOpenToTraining?: boolean;
 }
-
