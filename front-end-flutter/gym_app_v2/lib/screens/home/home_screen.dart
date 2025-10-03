@@ -1,6 +1,9 @@
 import 'package:flutter/services.dart';
 import 'dart:math';
 import '../../services/exercise_logs_service.dart';
+import '../../repositories/current_user_repository.dart';
+import '../../repositories/training_requests_repository.dart';
+import '../coaches/coach_detail_screen.dart';
 import 'package:flutter/material.dart';
 import '../../core/extensions/color_extensions.dart';
 import '../../widgets/animations/animated_appear.dart';
@@ -96,18 +99,162 @@ class _HomeScreenState extends State<HomeScreen> {
     _Motivation('Xây nền đúng', 'Nền tảng vững mang lại tăng trưởng bền lâu.'),
   ];
 
+  Future<ExerciseStreak>? _streakFuture;
+  bool _ptLoading = false;
+  String? _resolvedRole; // added for dynamic role resolution
+
   @override
   void initState() {
     super.initState();
     final r = Random();
     _motivationIndex = r.nextInt(_motivations.length);
     _motivation = _motivations[_motivationIndex];
+    _resolveRoleIfNeeded();
   }
 
   bool get isLoading => widget.isLoading;
   String get userName => widget.userName;
   String? get userRole => widget.userRole;
-  Future<ExerciseStreak>? _streakFuture;
+
+  Future<void> _resolveRoleIfNeeded() async {
+    if (widget.userRole != null) {
+      _resolvedRole = widget.userRole;
+      return;
+    }
+    final profile = await CurrentUserRepository().fetchProfile();
+    if (!mounted) return;
+    setState(() => _resolvedRole = profile?.role);
+  }
+
+  Future<void> _handlePtCardTap(BuildContext ctx) async {
+    if (_ptLoading) return;
+    setState(() => _ptLoading = true);
+    try {
+      final currentRepo = CurrentUserRepository();
+      final trRepo = TrainingRequestsRepository();
+      final profile = await currentRepo.fetchProfile();
+      if (profile == null) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(content: Text('Không lấy được thông tin người dùng.')),
+        );
+        return;
+      }
+      if (profile.role == 'COACH') {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text('Tính năng học viên cho Coach sẽ sớm có.'),
+          ),
+        );
+        return;
+      }
+      final entity = await currentRepo.fetchRoleEntity();
+      if (entity is! GymerByUserResult) {
+        ScaffoldMessenger.of(
+          ctx,
+        ).showSnackBar(const SnackBar(content: Text('Bạn không phải gymer.')));
+        return;
+      }
+      final accepted = await trRepo.fetchAcceptedByGymer(gymerId: entity.id);
+      if (accepted.isEmpty) {
+        ScaffoldMessenger.of(
+          ctx,
+        ).showSnackBar(const SnackBar(content: Text('Bạn chưa có PT nào.')));
+        return;
+      }
+      if (accepted.length == 1) {
+        final coach = accepted.first['coach'] as Map?;
+        final coachId = coach?['id'];
+        if (coachId is String && coachId.isNotEmpty) {
+          if (!mounted) return;
+          Navigator.of(ctx).push(
+            MaterialPageRoute(
+              builder: (_) => CoachDetailScreen(coachId: coachId),
+            ),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
+      await showModalBottomSheet(
+        context: ctx,
+        backgroundColor: const Color(0xFF121214),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (bCtx) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Chọn PT',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...accepted.map((req) {
+                    final coach = req['coach'] as Map?;
+                    final user = coach != null ? coach['user'] as Map? : null;
+                    final coachName = (user?['name'] ?? 'Coach') as String;
+                    final coachId = coach?['id'] as String?;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Color(0xFF2A2A2E),
+                        child: Icon(Icons.person, color: Colors.white),
+                      ),
+                      title: Text(
+                        coachName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white54,
+                      ),
+                      onTap: coachId == null
+                          ? null
+                          : () {
+                              Navigator.pop(bCtx);
+                              Navigator.of(ctx).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      CoachDetailScreen(coachId: coachId),
+                                ),
+                              );
+                            },
+                    );
+                  }),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _ptLoading = false);
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -566,10 +713,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Explore 2x2 grid section
   Widget _exploreGrid(bool loading) {
-    final dynamicLabel = userRole == 'COACH' ? 'Học viên' : 'PT của tôi';
-    final dynamicSubtitle = userRole == 'COACH'
+    final role = _resolvedRole ?? userRole;
+    final dynamicLabel = role == 'COACH' ? 'Học viên của tôi' : 'PT của tôi';
+    final dynamicSubtitle = role == 'COACH'
         ? 'Danh sách học viên'
         : 'Theo sát cùng bạn';
+
     return LayoutBuilder(
       builder: (outerCtx, constraints) {
         final items = <_DiscoverItem>[
@@ -613,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: dynamicSubtitle,
             icon: userRole == 'COACH' ? Icons.group : Icons.person_pin_circle,
             gradient: const [Color(0xFF141E30), Color(0xFF243B55)],
-            onTap: () {},
+            onTap: () => _handlePtCardTap(outerCtx),
           ),
         ];
         final width = constraints.maxWidth;
@@ -674,9 +823,36 @@ class _HomeScreenState extends State<HomeScreen> {
             Wrap(
               spacing: spacing,
               runSpacing: spacing,
-              children: items
-                  .map((i) => _exploreSquare(i, tileWidth, tileHeight))
-                  .toList(),
+              children: items.map((i) {
+                final widgetTile = _exploreSquare(i, tileWidth, tileHeight);
+                if (i.label == dynamicLabel) {
+                  return Stack(
+                    children: [
+                      widgetTile,
+                      if (_ptLoading)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                              color: Colors.black.withOpacity(.35),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 26,
+                                height: 26,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+                return widgetTile;
+              }).toList(),
             ),
           ],
         );
