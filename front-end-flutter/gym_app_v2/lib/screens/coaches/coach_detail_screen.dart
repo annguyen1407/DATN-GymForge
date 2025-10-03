@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../repositories/coaches_repository.dart';
+import '../../repositories/feedbacks_repository.dart';
+import '../../repositories/current_user_repository.dart';
+import '../../repositories/training_requests_repository.dart';
+import '../../widgets/app_button.dart';
 import '../../models/coach_model.dart';
+import '../../models/feedback_model.dart';
 import '../chat/chat_screen.dart';
 
 class CoachDetailScreen extends StatefulWidget {
@@ -15,16 +20,79 @@ class CoachDetailScreen extends StatefulWidget {
 
 class _CoachDetailScreenState extends State<CoachDetailScreen> {
   final _repo = CoachesRepository();
+  final _feedbackRepo = FeedbacksRepository();
+  final _currentUserRepo = CurrentUserRepository();
+  final _trainingRepo = TrainingRequestsRepository();
   CoachModel? _coach;
   bool _loading = true;
   bool _error = false;
   String? _errorMsg;
 
+  // Feedback state
+  bool _fbLoading = false;
+  bool _fbError = false;
+  String? _fbErrorMsg;
+  List<FeedbackModel> _feedbacks = [];
+
+  // Current user context
+  String? _currentUserId;
+  String? _currentUserRole; // COACH | GYMER | ADMIN
+  String? _currentUserName;
+
+  // Training request state
+  bool _trainingLoading = false; // spinner for indicator
+  bool? _trainingAccepted; // null => not loaded or not gymer
+  bool _hasAcceptedElsewhere =
+      false; // already has an accepted contract with another coach
+
   @override
   void initState() {
     super.initState();
-    _coach = widget.initial;
-    _fetch();
+    // If initial coach given, use it while refreshing in background
+    if (widget.initial != null) {
+      _coach = widget.initial;
+      _loading = false;
+      // still perform a refresh to get latest data
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+    } else {
+      _fetch();
+    }
+    _bootstrapCurrentUser();
+  }
+
+  Future<void> _bootstrapCurrentUser() async {
+    final profile = await _currentUserRepo.fetchProfile();
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = profile?.id;
+      _currentUserRole = profile?.role;
+      _currentUserName = profile?.name;
+    });
+    // If gymer, load training status + eligibility
+    if (profile?.role == 'GYMER') {
+      final roleEntity = await _currentUserRepo.fetchRoleEntity();
+      if (!mounted) return;
+      if (roleEntity is GymerByUserResult) {
+        _fetchTrainingStatus(gymerId: roleEntity.id, coachId: widget.coachId);
+        _checkTrainingEligibility(roleEntity.id);
+      }
+    }
+  }
+
+  Future<void> _fetchTrainingStatus({
+    required String gymerId,
+    required String coachId,
+  }) async {
+    setState(() {
+      _trainingLoading = true;
+    });
+    final list = await _trainingRepo.fetch(gymerId: gymerId, coachId: coachId);
+    if (!mounted) return;
+    final accepted = list.any((r) => r.status == 'ACCEPTED');
+    setState(() {
+      _trainingAccepted = accepted;
+      _trainingLoading = false;
+    });
   }
 
   Future<void> _fetch() async {
@@ -50,6 +118,23 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
         _loading = false;
       });
     }
+    // After coach loaded, load feedbacks
+    if (data != null) _fetchFeedbacks();
+  }
+
+  Future<void> _fetchFeedbacks({bool force = false}) async {
+    final coachId = widget.coachId;
+    setState(() {
+      _fbLoading = true;
+      _fbError = false;
+      _fbErrorMsg = null;
+    });
+    final list = await _feedbackRepo.fetchByCoach(coachId, forceRefresh: force);
+    if (!mounted) return;
+    setState(() {
+      _feedbacks = list;
+      _fbLoading = false;
+    });
   }
 
   @override
@@ -70,36 +155,49 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
 
   Widget _content(CoachModel coach) {
     final name = coach.user?.name ?? '—';
-    final ratingVal = (coach.averageRating ?? 0).toStringAsFixed(1);
-    final trainings = coach.appointmentsCount; // using appointments as proxy
-    final gymers =
-        coach.trainingRequestsSentCount; // or different count if available
+    final bio = (coach.user?.biography?.trim().isNotEmpty ?? false)
+        ? coach.user!.biography!.trim()
+        : 'Chưa có mô tả.';
+    final rating = (coach.averageRating ?? 0).toStringAsFixed(1);
+    final trainings = coach.appointmentsCount;
+    final gymers = coach.trainingRequestsSentCount; // placeholder
     final rateCount = coach.feedbacksCount;
-    // Figma layout: large header with overlay stats row + below: Rate section + reviews list
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 370,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF3A3A3D), Color(0xFF1B1B1D)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-                // Top bar
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 4,
-                  left: 4,
-                  right: 4,
-                  child: Row(
+    return Stack(
+      children: [
+        // Full background gradient covers entire screen (eliminates black gap)
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF3A3A3D), Color(0xFF1B1B1D)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+        ),
+        // Header with reserved avatar space (transparent now)
+        Container(
+          height: 400,
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 24,
+            left: 20,
+            right: 20,
+            bottom: 8,
+          ),
+          child: Stack(
+            children: [
+              // Reserved space for future avatar (kept empty intentionally)
+              const Align(
+                alignment: Alignment(0, -0.15),
+                child: SizedBox(width: 150, height: 150),
+              ),
+              // Top bar & info overlay at bottom
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
@@ -107,7 +205,7 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
                         onPressed: () => Navigator.pop(context),
                       ),
                       const Text(
-                        'Huấn luyện viên của tôi',
+                        'Huấn luyện viên',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -117,147 +215,120 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
                       const SizedBox(width: 48),
                     ],
                   ),
-                ),
-                // Avatar
-                Align(
-                  alignment: const Alignment(0, -0.15),
-                  child: Container(
-                    width: 170,
-                    height: 170,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(.55),
-                          blurRadius: 24,
-                          offset: const Offset(0, 14),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                            height: 1.05,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          bio,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.75),
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            if (_currentUserRole != 'COACH')
+                              _trainingRequestIndicator(),
+                            const SizedBox(width: 12),
+                            _roundButton(
+                              icon: Icons.message,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      coachName: name,
+                                      coachImage:
+                                          coach.user?.profilePicture ?? '',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _statItem('$trainings', 'Trainings'),
+                                  _statItem('$gymers', 'Gymers'),
+                                  _statItem(rating, 'Rate'),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 86,
-                    ),
                   ),
-                ),
-                // Name + subtitle + actions + stats row
-                Positioned(
-                  left: 20,
-                  right: 20,
-                  bottom: 28,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'PT cá nhân',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(.75),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          _roundButton(icon: Icons.add, onTap: () {}),
-                          const SizedBox(width: 14),
-                          _roundButton(
-                            icon: Icons.message,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    coachName: name,
-                                    coachImage:
-                                        coach.user?.profilePicture ?? '',
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          Expanded(child: _statItem('$trainings', 'Trainings')),
-                          Expanded(child: _statItem('$gymers', 'Gymers')),
-                          Expanded(child: _statItem(ratingVal, 'Rate')),
-                        ],
-                      ),
-                    ],
-                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Fixed feedback panel (sits above gradient)
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.55,
+            decoration: BoxDecoration(
+              color: const Color(0xFF141416),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(.45),
+                  blurRadius: 32,
+                  offset: const Offset(0, -6),
                 ),
               ],
             ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              // Rate section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Rate',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Rate',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      _ratingBadge(ratingVal, rateCount),
-                    ],
-                  ),
-                  _commentButton(),
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Reviews placeholder list (static for now)
-              _reviewCard(
-                name: 'Quỳnh Như',
-                comment: 'Huấn luyện viên rất tốt',
-                rating: 5,
-                date: '4/4/2025',
-              ),
-              const SizedBox(height: 14),
-              _reviewCard(
-                name: 'Quỳnh Thu',
-                comment: 'Huấn luyện viên tạm được',
-                rating: 4,
-                date: '4/4/2025',
-              ),
-              const SizedBox(height: 14),
-              _reviewCard(
-                name: 'Trâm Anh',
-                comment: 'Huấn luyện viên rất tốt',
-                rating: 5,
-                date: '4/4/2025',
-              ),
-              const SizedBox(height: 60),
-            ]),
+                        const SizedBox(width: 10),
+                        _ratingBadge(rating, rateCount),
+                      ],
+                    ),
+                    _commentButton(disabled: _isCommentDisabled()),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(child: _buildFeedbackList()),
+              ],
+            ),
           ),
         ),
       ],
@@ -276,6 +347,201 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
           border: Border.all(color: Colors.white.withOpacity(.1), width: 1),
         ),
         child: Icon(icon, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
+  Widget _trainingRequestIndicator() {
+    // If still loading training status
+    if (_trainingLoading) {
+      return Container(
+        width: 50,
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(.08),
+          border: Border.all(color: Colors.white.withOpacity(.1), width: 1),
+        ),
+        child: const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+      );
+    }
+    // If no data loaded (e.g., user not gymer), hide
+    if (_trainingAccepted == null) {
+      return const SizedBox.shrink();
+    }
+    if (_trainingAccepted == true) {
+      return Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.green.withOpacity(.18),
+          border: Border.all(color: Colors.green.withOpacity(.4), width: 1),
+        ),
+        child: const Icon(Icons.check, color: Colors.greenAccent, size: 28),
+      );
+    }
+    if (_hasAcceptedElsewhere) {
+      return const SizedBox.shrink();
+    }
+    return _roundButton(
+      icon: Icons.add,
+      onTap: _openCreateTrainingRequestDialog,
+    );
+  }
+
+  Future<void> _checkTrainingEligibility(String gymerId) async {
+    final anyAccepted = await _trainingRepo.hasAnyAcceptedElsewhere(
+      gymerId: gymerId,
+    );
+    if (!mounted) return;
+    setState(() => _hasAcceptedElsewhere = anyAccepted);
+  }
+
+  Future<void> _openCreateTrainingRequestDialog() async {
+    final roleEntity = await _currentUserRepo.fetchRoleEntity();
+    if (roleEntity is! GymerByUserResult) return;
+    if (_hasAcceptedElsewhere) return; // already in a contract
+    bool submitting = false;
+    final now = DateTime.now();
+    final endDate = now.add(const Duration(days: 30));
+    final coachName = _coach?.user?.name ?? 'Coach';
+    final price = _coach?.trainingPrice;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF101012),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(22, 20, 22, 20 + bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Xác nhận hợp đồng',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _contractInfoRow(
+                    'Gymer',
+                    (_currentUserName != null && _currentUserName!.isNotEmpty)
+                        ? _currentUserName!
+                        : 'Gymer',
+                  ),
+                  _contractInfoRow('Coach', coachName),
+                  _contractInfoRow('Bắt đầu', _formatDateTime(now)),
+                  _contractInfoRow('Kết thúc', _formatDateTime(endDate)),
+                  if (price != null)
+                    _contractInfoRow('Giá', '${price.toStringAsFixed(0)} đ'),
+                  const SizedBox(height: 26),
+                  AppButton.primary(
+                    label: 'Đồng ý',
+                    onPressed: submitting
+                        ? null
+                        : () async {
+                            setSt(() => submitting = true);
+                            final created = await _trainingRepo.create(
+                              gymerId: roleEntity.id,
+                              coachId: widget.coachId,
+                              trainingDate: now.toUtc(),
+                            );
+                            if (!mounted) return;
+                            if (created != null) {
+                              Navigator.pop(ctx, true);
+                            } else {
+                              setSt(() => submitting = false);
+                            }
+                          },
+                    loading: submitting,
+                    fullWidth: true,
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton.outline(
+                    label: 'Hủy',
+                    onPressed: submitting
+                        ? null
+                        : () => Navigator.pop(ctx, false),
+                    fullWidth: true,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((success) async {
+      if (success == true) {
+        final roleEntity2 = await _currentUserRepo.fetchRoleEntity();
+        if (roleEntity2 is GymerByUserResult) {
+          await _fetchTrainingStatus(
+            gymerId: roleEntity2.id,
+            coachId: widget.coachId,
+          );
+          await _checkTrainingEligibility(roleEntity2.id);
+        }
+        setState(() {});
+      }
+    });
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _contractInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withOpacity(.55),
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -325,36 +591,51 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
     );
   }
 
-  Widget _commentButton() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4A00E0).withOpacity(.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+  bool _isCommentDisabled() {
+    if (_currentUserId == null) return false; // cannot determine
+    // Disable if current user is this coach user OR has a feedback either as gymer or coach participant
+    final coachUserId = _coach?.user?.id;
+    final already = _feedbacks.any(
+      (f) =>
+          f.gymer?.user?.id == _currentUserId ||
+          f.coach?.user?.id == _currentUserId,
+    );
+    return _currentUserId == coachUserId || already;
+  }
+
+  Widget _commentButton({bool disabled = false}) {
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {},
           borderRadius: BorderRadius.circular(18),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 26, vertical: 14),
-            child: Text(
-              'Comment',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A00E0).withOpacity(.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: disabled ? null : () => _openFeedbackDialog(),
+            borderRadius: BorderRadius.circular(18),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+              child: Text(
+                'Feedback',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -447,6 +728,237 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
       ),
     );
   }
+
+  Future<void> _openFeedbackDialog() async {
+    if (_coach == null || _currentUserId == null) return;
+    // Need gymer id to post (current user must be gymer). For now attempt fetch role entity again.
+    final roleEntity = await _currentUserRepo.fetchRoleEntity();
+    String? gymerId;
+    if (roleEntity is GymerByUserResult) gymerId = roleEntity.id;
+    if (gymerId == null) {
+      // Not a gymer – ignore
+      return;
+    }
+    double tempRating = 5;
+    final controller = TextEditingController();
+    bool submitting = false;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF101012),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final filled = i < tempRating.round();
+                      return GestureDetector(
+                        onTap: submitting
+                            ? null
+                            : () =>
+                                  setSt(() => tempRating = (i + 1).toDouble()),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            filled ? Icons.star : Icons.star_border,
+                            size: 30,
+                            color: const Color(0xFFFFB347),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.07),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(.08)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: TextField(
+                      controller: controller,
+                      enabled: !submitting,
+                      maxLines: 5,
+                      minLines: 4,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.35,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Your comment ...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(.4),
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 46,
+                    child: AppButton.primary(
+                      label: 'Comment',
+                      loading: submitting,
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              final text = controller.text.trim();
+                              if (text.isEmpty) return;
+                              setSt(() => submitting = true);
+                              final created = await _feedbackRepo
+                                  .createFeedback(
+                                    gymerId: gymerId!,
+                                    coachId: _coach!.id,
+                                    rating: tempRating.clamp(1, 5),
+                                    content: text,
+                                  );
+                              if (!mounted) return;
+                              if (created != null) {
+                                Navigator.pop(ctx, true);
+                              } else {
+                                setSt(() => submitting = false);
+                              }
+                            },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((success) async {
+      if (success == true) {
+        // Refresh list (force)
+        await _fetchFeedbacks(force: true);
+        setState(() {}); // to re-evaluate disabled state
+      }
+    });
+  }
+
+  Widget _buildFeedbackList() {
+    if (_fbLoading) {
+      return ListView.builder(
+        itemCount: 3,
+        itemBuilder: (_, i) => Padding(
+          padding: EdgeInsets.only(bottom: i == 2 ? 0 : 14),
+          child: Container(
+            height: 86,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.05),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.08),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 12,
+                        width: 80,
+                        color: Colors.white.withOpacity(.1),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 10,
+                        width: double.infinity,
+                        color: Colors.white.withOpacity(.06),
+                      ),
+                      const Spacer(),
+                      Container(
+                        height: 10,
+                        width: 90,
+                        color: Colors.white.withOpacity(.08),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (_fbError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _fbErrorMsg ?? 'Lỗi tải đánh giá',
+              style: TextStyle(color: Colors.white.withOpacity(.7)),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _fetchFeedbacks(force: true),
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_feedbacks.isEmpty) {
+      return Center(
+        child: Text(
+          'Chưa có đánh giá nào',
+          style: TextStyle(color: Colors.white.withOpacity(.6)),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: _feedbacks.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
+      itemBuilder: (_, i) {
+        final f = _feedbacks[i];
+        final name = f.gymer?.user?.name ?? '—';
+        final comment = f.content ?? '';
+        final dateStr =
+            '${f.createdAt.day}/${f.createdAt.month}/${f.createdAt.year}';
+        return _reviewCard(
+          name: name,
+          comment: comment,
+          rating: f.rating,
+          date: dateStr,
+        );
+      },
+    );
+  }
   // Removed old metric/expertise/section/action widgets (streamlined per Figma)
 
   Widget _skeleton() {
@@ -482,20 +994,12 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withOpacity(.85),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: EdgeInsets.zero,
               ),
-              onPressed: _fetch,
-              child: const Text(
-                'Thử lại',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              onPressed: () {},
+              child: AppButton.primary(label: 'Thử lại', onPressed: _fetch),
             ),
           ],
         ),
