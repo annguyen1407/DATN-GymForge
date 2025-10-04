@@ -57,6 +57,27 @@ class TrainingRequestsRepository {
     }
   }
 
+  /// Fetch all ACCEPTED training requests for a gymer (across all coaches)
+  Future<List<Map<String, dynamic>>> fetchAcceptedByGymer({
+    required String gymerId,
+  }) async {
+    final path = '/training-requests?gymerId=$gymerId&status=ACCEPTED';
+    if (kDebugMode) debugPrint('[API][REQ] GET $path');
+    final res = await _api.requestJson('GET', path);
+    if (!res.ok || res.raw is! List) return [];
+    try {
+      return (res.raw as List)
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[API][ERR] acceptedByGymer parse: $e');
+      }
+      return [];
+    }
+  }
+
   Future<TrainingRequestModel?> create({
     required String gymerId,
     required String coachId,
