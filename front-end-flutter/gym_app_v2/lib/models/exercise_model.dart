@@ -7,6 +7,7 @@ class ExerciseModel {
   final String? description;
   final String? instruction;
   final String? videoUrl;
+  final String? gifUrl; // mới: đường dẫn gif minh họa (Firebase Storage URL)
   final double? met;
   final int? defaultWeight;
   final int? defaultSets;
@@ -24,6 +25,7 @@ class ExerciseModel {
     this.description,
     this.instruction,
     this.videoUrl,
+    this.gifUrl,
     this.met,
     this.defaultWeight,
     this.defaultSets,
@@ -57,6 +59,7 @@ class ExerciseModel {
       description: json['description'] as String?,
       instruction: json['instruction'] as String?,
       videoUrl: json['videoUrl'] as String?,
+      gifUrl: json['gifUrl'] as String?,
       met: json['met'] is num ? (json['met'] as num).toDouble() : null,
       defaultWeight: json['defaultWeight'] as int?,
       defaultSets: json['defaultSets'] as int?,

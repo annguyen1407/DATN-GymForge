@@ -181,15 +181,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: AppButton.outline(
-                label: 'Tạo bài tập riêng',
-                size: AppButtonSize.large,
-                leadingIcon: Icons.add,
-                onPressed: () {},
-              ),
-            ),
           ],
         ),
       ),

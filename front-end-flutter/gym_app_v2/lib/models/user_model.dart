@@ -8,6 +8,11 @@ class UserModel {
   final String? phoneNumber;
   final bool premiumStatus;
   final String? sex;
+  final String? biography;
+  final String? role; // e.g. GYMER / COACH / ADMIN
+  final double? weight; // latest weight snapshot (kg)
+  final int? height; // cm
+  final double? oneRM; // optional
 
   UserModel({
     required this.id,
@@ -19,6 +24,11 @@ class UserModel {
     this.phoneNumber,
     required this.premiumStatus,
     this.sex,
+    this.biography,
+    this.role,
+    this.weight,
+    this.height,
+    this.oneRM,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +42,13 @@ class UserModel {
       phoneNumber: json['phoneNumber'],
       premiumStatus: json['premiumStatus'] ?? false,
       sex: json['sex'],
+      biography: json['biography'],
+      role: json['role'],
+      weight: (json['weight'] is num)
+          ? (json['weight'] as num).toDouble()
+          : null,
+      height: json['height'] is num ? (json['height'] as num).toInt() : null,
+      oneRM: (json['oneRM'] is num) ? (json['oneRM'] as num).toDouble() : null,
     );
   }
 }

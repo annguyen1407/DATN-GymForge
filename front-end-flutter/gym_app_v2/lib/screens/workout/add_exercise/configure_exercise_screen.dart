@@ -7,6 +7,7 @@ import '../../../repositories/workout_day_exercises_repository.dart';
 import '../../../models/exercise_model.dart';
 import '../../../core/utils/text_normalizer.dart';
 import '../../../widgets/expandable_body_text.dart';
+// youtube player preview card removed – video được embed trực tiếp trong hero header
 
 class ConfigureExerciseScreen extends StatefulWidget {
   final String workoutPlanId;
@@ -265,17 +266,13 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
     return _AnimatedIconButton(icon: icon, onTap: onTap);
   }
 
-  // Summary card removed; replaced by hero header + sections.
-
-  // Removed old _heroHeader; using shared ExerciseHeroHeader
-
   @override
   Widget build(BuildContext context) {
+    final videoUrl = widget.exercise.videoUrl;
     return Stack(
       children: [
         Scaffold(
           backgroundColor: const Color(0xFF0B0C0E),
-          // AppBar removed for immersive header
           body: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 120),
             child: Column(
@@ -285,6 +282,7 @@ class _ConfigureExerciseScreenState extends State<ConfigureExerciseScreen> {
                   title: widget.exercise.name,
                   muscleGroups: widget.exercise.muscleGroupNames,
                   onBack: () => Navigator.pop(context),
+                  videoUrl: videoUrl,
                 ),
                 const SizedBox(height: 22),
                 Padding(

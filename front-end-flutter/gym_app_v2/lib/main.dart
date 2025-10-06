@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'services/api_service.dart'; // still used for login/logout flows
 import 'core/auth/token_manager.dart';
 import 'core/logging/app_logger.dart';
@@ -23,11 +25,20 @@ const String kRefreshTokenKey = 'refresh_token';
 final GlobalKey<MyAppState> myAppKey = GlobalKey<MyAppState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Load environment variables
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
-    // If .env missing we just continue with defaults; ApiConstants has fallback.
     AppLogger.warn('Failed to load .env: $e', tag: 'Env');
+  }
+  // Initialize Firebase (core)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    AppLogger.info('Firebase initialized', tag: 'Firebase');
+  } catch (e) {
+    AppLogger.warn('Firebase init failed: $e', tag: 'Firebase');
   }
   // Optional: override refresh interval via env (seconds)
   final rawInterval = dotenv.env['REFRESH_INTERVAL_SECONDS'];

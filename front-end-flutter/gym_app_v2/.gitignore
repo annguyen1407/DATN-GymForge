@@ -44,6 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+
 # ==============================
 # Documentation (Selective Ignore)
 # Mirror of root .gitignore so local commits inside this subfolder also skip
@@ -56,4 +57,9 @@ app.*.map.json
 
 ARCHITECTURE.md
 BACKEND_SCHEMA_REFERENCE.md
+
+ios 
+package-lock.json
+pubspec.lock
+pubspec.yaml
 

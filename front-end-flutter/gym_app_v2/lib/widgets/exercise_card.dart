@@ -165,11 +165,13 @@ class ExerciseItem {
   final String name; // Tên bài tập
   final String reps; // Số rép (giữ để tương thích với code cũ)
   final String image; // Đường dẫn hình ảnh
+  final String gifUrl; // Đường dẫn GIF động minh họa động tác (có thể trống)
   final int sets; // Số hiệp
   final int repsCount; // Số reps dạng số
   final int weight; // Trọng lượng (kg)
   final int restTime; // Thời gian nghỉ (giây)
   final List<String> muscleGroupNames; // Nhóm cơ liên quan
+  final double met; // MET cơ bản của bài tập (M_base)
 
   const ExerciseItem({
     this.id,
@@ -177,10 +179,12 @@ class ExerciseItem {
     required this.name,
     required this.reps,
     this.image = '',
+    this.gifUrl = '',
     this.sets = 3,
     this.repsCount = 12,
     this.weight = 40,
     this.restTime = 120,
     this.muscleGroupNames = const [],
+    this.met = 0,
   });
 }

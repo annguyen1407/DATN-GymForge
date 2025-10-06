@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:firebase_storage/firebase_storage.dart';
 // Removed mock Apple-like purchase UI (temporary simplification)
 import '../../core/logging/app_logger.dart';
 import '../../widgets/app_button.dart';
@@ -11,6 +14,7 @@ import 'package:flutter/services.dart';
 import '../../services/log_out_service.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
+import 'user_info_screen.dart';
 
 /// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
 class UserScreen extends StatefulWidget {
@@ -23,11 +27,98 @@ class UserScreen extends StatefulWidget {
 class _UserScreenState extends State<UserScreen> {
   UserModel? _user;
   bool _loading = true;
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
     super.initState();
     _fetchProfile();
+  }
+
+  void _openAvatarPreview(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        child: Container(
+          color: Colors.black.withOpacity(0.9),
+          alignment: Alignment.center,
+          child: Hero(
+            tag: 'user_avatar_preview',
+            child: InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(url, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startAvatarPickFlow() async {
+    if (_uploadingAvatar) return;
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return; // cancelled
+    setState(() => _uploadingAvatar = true);
+    try {
+      final raw = await picked.readAsBytes();
+      img.Image? decoded = img.decodeImage(raw);
+      if (decoded == null) throw Exception('Không đọc được ảnh');
+      final minSide = decoded.width < decoded.height
+          ? decoded.width
+          : decoded.height;
+      final cropX = (decoded.width - minSide) ~/ 2;
+      final cropY = (decoded.height - minSide) ~/ 2;
+      decoded = img.copyCrop(
+        decoded,
+        x: cropX,
+        y: cropY,
+        width: minSide,
+        height: minSide,
+      );
+      if (decoded.width > 512) {
+        decoded = img.copyResize(decoded, width: 512, height: 512);
+      }
+      final jpg = img.encodeJpg(decoded, quality: 85);
+      final userId = _user?.id ?? 'unknown';
+      final ref = FirebaseStorage.instance.ref().child('avatars/$userId.jpg');
+      await ref.putData(
+        jpg,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public,max-age=604800',
+        ),
+      );
+      final url = await ref.getDownloadURL();
+      final ok = await UserService.updateProfile(context, {
+        'profilePicture': url,
+      });
+      if (ok) {
+        await _fetchProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cập nhật avatar thành công')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cập nhật avatar thất bại')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   Future<void> _fetchProfile() async {
@@ -69,30 +160,63 @@ class _UserScreenState extends State<UserScreen> {
                           borderRadius: BorderRadius.all(Radius.circular(48)),
                         )
                       else
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundColor: Colors.white24,
-                          backgroundImage:
-                              _user?.profilePicture != null &&
-                                  _user!.profilePicture!.isNotEmpty
-                              ? NetworkImage(_user!.profilePicture!)
-                              : null,
+                        GestureDetector(
+                          onTap: () {
+                            if (_user?.profilePicture != null &&
+                                _user!.profilePicture!.isNotEmpty) {
+                              _openAvatarPreview(_user!.profilePicture!);
+                            } else {
+                              // If no avatar yet, trigger upload flow directly (will implement with icon tap later)
+                            }
+                          },
+                          child: Hero(
+                            tag: 'user_avatar_preview',
+                            child: CircleAvatar(
+                              radius: 48,
+                              backgroundColor: Colors.white24,
+                              backgroundImage:
+                                  _user?.profilePicture != null &&
+                                      _user!.profilePicture!.isNotEmpty
+                                  ? NetworkImage(_user!.profilePicture!)
+                                  : null,
+                              child:
+                                  (_user?.profilePicture == null ||
+                                      _user!.profilePicture!.isEmpty)
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Colors.white54,
+                                      size: 40,
+                                    )
+                                  : null,
+                            ),
+                          ),
                         ),
                       if (!_loading)
                         Positioned(
                           bottom: 0,
                           right: 0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 20,
+                          child: GestureDetector(
+                            onTap: () {
+                              _startAvatarPickFlow();
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                (_user?.profilePicture != null &&
+                                        _user!.profilePicture!.isNotEmpty)
+                                    ? Icons.edit
+                                    : Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ),
                         ),
@@ -120,18 +244,63 @@ class _UserScreenState extends State<UserScreen> {
                         ),
                       ),
               ),
-              const SizedBox(height: 36),
+              // Biography centered directly below username (if any)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _loading
+                    ? const SizedBox(height: 0, width: 0)
+                    : (_user?.biography != null && _user!.biography!.isNotEmpty)
+                    ? Padding(
+                        key: const ValueKey('bio'),
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: Text(
+                            _user!.biography!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              height: 1.35,
+                            ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 28),
               AnimatedAppear(
-                delay: const Duration(milliseconds: 180),
+                delay: const Duration(milliseconds: 140),
+                child: _buildIdentitySection(),
+              ),
+              const SizedBox(height: 28),
+              AnimatedAppear(
+                delay: const Duration(milliseconds: 200),
                 child: _SectionTitle(title: 'Tài khoản'),
               ),
-              ..._buildMenuSection(
-                loading: _loading,
-                items: const [
-                  _UserMenuItem(text: 'Chỉnh sửa tài khoản'),
-                  _UserMenuItem(text: 'Chỉnh sửa thông tin người dùng'),
-                ],
-              ),
+              if (_loading)
+                ..._buildMenuSection(
+                  loading: true,
+                  items: const [_UserMenuItem(text: 'Thông tin người dùng')],
+                )
+              else
+                _UserMenuItem(
+                  text: 'Thông tin người dùng',
+                  onTap: () async {
+                    if (_user == null) return;
+                    final changed = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserInfoScreen(user: _user!),
+                      ),
+                    );
+                    if (changed == true) {
+                      _fetchProfile();
+                    }
+                  },
+                ),
               const SizedBox(height: 16),
               AnimatedAppear(
                 delay: const Duration(milliseconds: 220),
@@ -178,6 +347,98 @@ class _UserScreenState extends State<UserScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildIdentitySection() {
+    if (_loading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            SkeletonBox(
+              width: 90,
+              height: 16,
+              borderRadius: BorderRadius.all(Radius.circular(6)),
+            ),
+            SizedBox(height: 8),
+            SkeletonBox(
+              width: 160,
+              height: 14,
+              borderRadius: BorderRadius.all(Radius.circular(6)),
+            ),
+            SizedBox(height: 12),
+            SkeletonBox(
+              width: double.infinity,
+              height: 46,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ],
+        ),
+      );
+    }
+    final role = _user?.role ?? 'GYMER';
+    final premium = _user?.premiumStatus == true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: premium
+                      ? const LinearGradient(
+                          colors: [Color(0xFF6A35C8), Color(0xFF8854FF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: premium ? null : Colors.white12,
+                  borderRadius: BorderRadius.circular(30),
+                  border: premium
+                      ? Border.all(color: Colors.white24, width: 1)
+                      : null,
+                ),
+                child: Text(
+                  premium ? 'Premium' : 'Miễn phí',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: .3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  role,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

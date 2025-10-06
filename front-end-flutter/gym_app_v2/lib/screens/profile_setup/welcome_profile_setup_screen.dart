@@ -53,15 +53,6 @@ class WelcomeProfileSetupScreen extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
-                AppButton.text(
-                  label: 'Tạm thời bỏ qua',
-                  onPressed: () {
-                    // TODO: Logic skip profile setup
-                  },
-                  fullWidth: false,
-                  size: AppButtonSize.small,
-                ),
                 const SizedBox(height: 32),
               ],
             ),

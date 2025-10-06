@@ -6,6 +6,8 @@ import '../../widgets/app_button.dart';
 import '../../widgets/exercise_card.dart'; // For ExerciseItem model
 import '../../services/exercise_logs_service.dart';
 import '../../core/auth/token_manager.dart';
+import '../../services/user_service.dart';
+import '../../utils/calorie_formula.dart';
 import 'widgets/exercise_list_sheet.dart';
 import 'widgets/workout_completion_dialog.dart';
 import '../../theme/design_tokens.dart';
@@ -44,6 +46,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   Timer? _preCountdownTimer; // 3-second pre-start countdown
 
   late final AudioPlayer _countdownPlayer = AudioPlayer();
+  late final AudioPlayer _uiPlayer = AudioPlayer(); // phát âm thanh click
 
   int currentExerciseIndex = 0;
   int currentSet = 1;
@@ -59,6 +62,14 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   String _uploadStatus = '';
   int _preCountdownRemaining = 0;
   bool _isPreCountdown = false;
+  bool _soundEnabled = true; // bật/tắt toàn bộ âm thanh
+  double? _userWeight; // kg
+  double?
+  _userOneRm; // global 1RM nếu user cung cấp (áp dụng tạm cho mọi bài có tạ)
+  double _totalCalories = 0; // tích luỹ UI (optional display later)
+
+  double get totalCalories =>
+      _totalCalories; // expose for future UI / prevents unused warning
   // Internal: show weight/reps quick edit later (reserved)
 
   // Lưu trữ thông tin tập luyện
@@ -72,6 +83,8 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     currentReps = widget.exercises[currentExerciseIndex].repsCount;
     currentWeight = widget.exercises[currentExerciseIndex].weight.round();
     _countdownPlayer.setReleaseMode(ReleaseMode.stop);
+    _uiPlayer.setReleaseMode(ReleaseMode.stop);
+    _fetchUserStats();
   }
 
   @override
@@ -418,6 +431,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   /// Bật / tắt chế độ tự động: khi nghỉ sẽ đếm ngược và tự chuyển hiệp.
   void _toggleAutoMode() {
+    _playClick();
     setState(() {
       isAutoMode = !isAutoMode;
       if (!isAutoMode && isResting) {
@@ -440,6 +454,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   /// Điều khiển play/pause tùy theo trạng thái hiện tại (nghỉ / tập / chưa bắt đầu)
   void _togglePlayPause() {
+    _playClick();
     setState(() {
       if (_isPreCountdown) {
         // Huỷ countdown và bắt đầu ngay
@@ -483,10 +498,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       isPlaying = false;
     });
     _preCountdownTimer?.cancel();
-    // Play combined 3-2-1-start audio; filename with spaces may cause issues => suggest rename.
-    _countdownPlayer.stop();
-    // Try original name, fallback suggestion rename.
-    _countdownPlayer.play(AssetSource('sounds/beep 3-2-1-start.wav'));
+    if (_soundEnabled) {
+      _countdownPlayer.stop();
+      _countdownPlayer.play(AssetSource('sounds/beep 3-2-1-start.wav'));
+    }
     _preCountdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       if (_preCountdownRemaining > 1) {
@@ -549,12 +564,16 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                       onBack: () => Navigator.pop(context),
                     ),
                     _ExerciseMedia(
-                      imageUrl: _currentExercise.image,
+                      imageUrl: _currentExercise.gifUrl.isNotEmpty
+                          ? _currentExercise.gifUrl
+                          : _currentExercise.image,
                       forcedHeight: mediaHeight,
                       onShowList: _isPreCountdown
                           ? null
                           : _showExerciseListSheet,
                       disabled: _isPreCountdown,
+                      soundEnabled: _soundEnabled,
+                      onToggleSound: _toggleSound,
                     ),
                     const SizedBox(height: 4),
                     _TimerPanel(
@@ -645,27 +664,51 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   }
 
   double _computeAdaptiveMediaHeight(double totalHeight) {
-    // Estimate heights of fixed sections below header (heuristic)
-    const headerH = 60.0;
-    const timerH = 110.0; // timer + info + spacing
-    const quickAdjustH = 66.0;
-    const statsH = 56.0;
-    const controlsH = 110.0;
-    const logH = 90.0;
-    const spacing = 60.0; // sum of SizedBoxes
+    // Ước lượng chiều cao đã dùng của các phần còn lại (header, timer, nút, stats, controls, log button, spacing).
+    // Các giá trị này mang tính heuristic, giúp co bớt media khi màn hình thấp để tránh overflow.
+    const headerH = 56.0; // gồm padding
+    const timerPanelH = 140.0; // số lớn + text + spacing
+    const quickAdjustH = 70.0;
+    const statsBarH = 60.0;
+    const controlsH = 120.0; // control bar + spacing quanh
+    const logButtonAreaH = 110.0; // nút log + hint + spacing cuối
+    const spacingSum = 70.0; // tổng các SizedBox lẻ tẻ
     final reserved =
-        headerH + timerH + quickAdjustH + statsH + controlsH + logH + spacing;
-    final remaining = totalHeight - reserved;
-    // Desired range 40–50% of screen but must not cause overflow
-    final target = totalHeight * 0.45;
-    double h = remaining.clamp(140.0, target);
-    // Additional clamp for very tall screens
-    h = h.clamp(140.0, 420.0);
-    return h;
+        headerH +
+        timerPanelH +
+        quickAdjustH +
+        statsBarH +
+        controlsH +
+        logButtonAreaH +
+        spacingSum;
+
+    double maxAvailable = totalHeight - reserved;
+    if (maxAvailable < 120) {
+      // Màn hình quá thấp, buộc giảm các estimate: cho phép media nhỏ tối thiểu.
+      maxAvailable = 120;
+    }
+
+    // Tính candidate theo % (tăng trở lại để hiển thị GIF nhiều hơn).
+    // Cơ sở: 45% chiều cao, điều chỉnh nhẹ theo màn rất cao.
+    double candidate = totalHeight * 0.45;
+    if (totalHeight > 820) {
+      candidate *= 1.05; // thêm chút không gian trên màn to
+    }
+    if (candidate > maxAvailable) candidate = maxAvailable;
+
+    // Clamp mềm theo % tổng (34% - 55%) để vẫn cân bằng layout.
+    final minPct = totalHeight * 0.34;
+    final maxPct = totalHeight * 0.55;
+    candidate = candidate.clamp(minPct, maxPct);
+
+    // Clamp tuyệt đối thêm lần nữa (tăng trần lên 520).
+    candidate = candidate.clamp(160.0, 520.0);
+    return candidate;
   }
 
   void _previousExercise() {
     if (currentExerciseIndex == 0) return;
+    _playClick();
     setState(() {
       currentExerciseIndex--;
       currentSet = 1;
@@ -684,6 +727,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       _showWorkoutCompletedDialog();
       return;
     }
+    _playClick();
     setState(() {
       currentExerciseIndex++;
       currentSet = 1;
@@ -699,18 +743,34 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   void _logSet() {
     if (!hasStarted || isResting || _isPreCountdown) return;
+    _playClick();
     final idx = currentExerciseIndex;
     // Safety clamps to ensure reps/weight adhere to >=1 (except bodyweight weight)
     if (currentReps < 1) currentReps = 1;
     if (!_isBodyweight && currentWeight < 1) currentWeight = 1;
     workoutData[idx] ??= [];
+    // --- Calorie computation ---
+    final ex = _currentExercise;
+    final metBase = ex.met; // đã thêm vào ExerciseItem
+    final loadUsed = _isBodyweight ? 0.0 : currentWeight.toDouble();
+    final kcal = CalorieFormula.caloriesForSet(
+      metBase: metBase,
+      loadUsed: loadUsed,
+      oneRm:
+          _userOneRm, // nếu null hoặc <=0 công thức fallback bodyweight ratio
+      bodyWeight: _userWeight,
+      reps: currentReps,
+      // repTime: có thể mở rộng nếu mỗi exercise có defaultTimePerSet; hiện giữ default 5s
+    );
     workoutData[idx]!.add({
       'set': currentSet,
       'reps': currentReps,
       'weight': currentWeight,
       'time': workoutTime,
       'ts': DateTime.now().millisecondsSinceEpoch,
+      'calories': double.parse(kcal.toStringAsFixed(2)),
     });
+    _totalCalories += kcal;
     final finished = currentSet >= _currentExercise.sets;
     if (finished) {
       _nextExercise();
@@ -728,6 +788,32 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     if (isAutoMode) {
       _startTimer();
     }
+  }
+
+  void _toggleSound() {
+    setState(() => _soundEnabled = !_soundEnabled);
+    _playClick();
+  }
+
+  Future<void> _playClick() async {
+    if (!_soundEnabled) return;
+    try {
+      await _uiPlayer.stop();
+      await _uiPlayer.play(AssetSource('sounds/click.mp3'));
+    } catch (_) {}
+  }
+
+  Future<void> _fetchUserStats() async {
+    try {
+      final user = await UserService.fetchProfile(context);
+      if (!mounted) return;
+      if (user != null) {
+        setState(() {
+          _userWeight = user.weight;
+          _userOneRm = user.oneRM; // optional
+        });
+      }
+    } catch (_) {}
   }
 }
 
@@ -791,13 +877,17 @@ class _Header extends StatelessWidget {
 class _ExerciseMedia extends StatelessWidget {
   final String imageUrl;
   final double? forcedHeight;
-  final VoidCallback? onShowList; // new callback for list button
+  final VoidCallback? onShowList; // callback danh sách
   final bool disabled; // disable interactions (countdown)
+  final bool soundEnabled;
+  final VoidCallback onToggleSound;
   const _ExerciseMedia({
     required this.imageUrl,
     this.forcedHeight,
     this.onShowList,
     this.disabled = false,
+    required this.soundEnabled,
+    required this.onToggleSound,
   });
   @override
   Widget build(BuildContext context) {
@@ -822,54 +912,14 @@ class _ExerciseMedia extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (imageUrl.isNotEmpty)
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, __, ___) => _fallback(),
-                  loadingBuilder: (c, child, progress) {
-                    if (progress == null) return child;
-                    return Center(
-                      child: SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: CircularProgressIndicator(
-                          value: progress.expectedTotalBytes != null
-                              ? progress.cumulativeBytesLoaded /
-                                    (progress.expectedTotalBytes ?? 1)
-                              : null,
-                          strokeWidth: 3,
-                          color: Colors.purpleAccent,
-                        ),
-                      ),
-                    );
-                  },
-                )
-              else
-                _fallback(),
-              // Fullscreen button
+              if (imageUrl.isNotEmpty) _buildMedia() else _fallback(),
+              // Nút bật/tắt âm thanh
               Positioned(
                 top: 8,
                 right: 8,
                 child: _PressableScale(
                   enabled: !disabled,
-                  onTap: () {
-                    if (imageUrl.isEmpty) return;
-                    showDialog(
-                      context: context,
-                      builder: (_) => Dialog(
-                        backgroundColor: Colors.black,
-                        insetPadding: const EdgeInsets.all(20),
-                        child: InteractiveViewer(
-                          child: AspectRatio(
-                            aspectRatio: 4 / 3,
-                            child: Image.network(imageUrl, fit: BoxFit.contain),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: onToggleSound,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
@@ -877,9 +927,11 @@ class _ExerciseMedia extends StatelessWidget {
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(color: Colors.white30, width: 0.8),
                     ),
-                    child: const Icon(
-                      Icons.fullscreen,
-                      color: Colors.white70,
+                    child: Icon(
+                      soundEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: soundEnabled
+                          ? Colors.orangeAccent
+                          : Colors.white54,
                       size: 20,
                     ),
                   ),
@@ -942,6 +994,43 @@ class _ExerciseMedia extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildMedia() {
+    // If url starts with http/https treat as network; else treat as asset path.
+    final isNetwork =
+        imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+    if (isNetwork) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => _fallback(),
+        loadingBuilder: (c, child, progress) {
+          if (progress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                          (progress.expectedTotalBytes ?? 1)
+                    : null,
+                strokeWidth: 3,
+                color: Colors.purpleAccent,
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      return Image.asset(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallback(),
+      );
+    }
   }
 
   Widget _fallback() => Center(
@@ -1272,19 +1361,23 @@ class _CurrentStatsBar extends StatelessWidget {
       ),
     );
 
+    final chips = <Widget>[
+      buildChip(setLabel, Icons.repeat),
+      buildChip(repsLabel, Icons.fitness_center),
+      buildChip(weightLabel, Icons.balance),
+    ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(child: Center(child: buildChip(setLabel, Icons.repeat))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Center(child: buildChip(repsLabel, Icons.fitness_center)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Center(child: buildChip(weightLabel, Icons.balance))),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(
+        builder: (ctx, c) {
+          // Use Wrap for automatic multiline when width is tight
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: chips,
+          );
+        },
       ),
     );
   }
