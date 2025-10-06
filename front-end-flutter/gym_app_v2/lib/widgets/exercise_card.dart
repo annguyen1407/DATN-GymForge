@@ -171,6 +171,7 @@ class ExerciseItem {
   final int weight; // Trọng lượng (kg)
   final int restTime; // Thời gian nghỉ (giây)
   final List<String> muscleGroupNames; // Nhóm cơ liên quan
+  final double met; // MET cơ bản của bài tập (M_base)
 
   const ExerciseItem({
     this.id,
@@ -184,5 +185,6 @@ class ExerciseItem {
     this.weight = 40,
     this.restTime = 120,
     this.muscleGroupNames = const [],
+    this.met = 0,
   });
 }

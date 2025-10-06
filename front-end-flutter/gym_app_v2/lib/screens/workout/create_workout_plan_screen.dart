@@ -3,6 +3,8 @@ import '../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import '../../services/storage_service.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/app_snack_bar.dart';
@@ -28,6 +30,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   String? _attachedImagePath; // future enhancement: pick image
   File? _attachedImageFile; // actual picked file
   double? _uploadProgress; // 0..1 while uploading
+  bool _uploadFailed = false; // track last upload attempt failure
 
   static const Map<String, String> _planTypeVN = {
     'STRENGTH': 'Sức mạnh',
@@ -77,6 +80,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
     try {
       // Upload image first if present
       if (_attachedImageFile != null) {
+        _uploadFailed = false;
         _uploadProgress = 0;
         setState(() {});
         pictureUrl = await StorageService.instance.uploadFile(
@@ -86,16 +90,17 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
             setState(() => _uploadProgress = p);
           },
         );
-        // If still null OR never progressed (>0) => treat as failure & stop
         if (pictureUrl == null) {
+          _uploadFailed = true;
+          // Thông báo nhưng KHÔNG chặn tạo kế hoạch (theo yêu cầu quick fix)
           if (_uploadProgress == 0) {
             _showSnack(
-              'Tải ảnh thất bại (progress = 0). Vui lòng kiểm tra quyền truy cập ảnh hoặc kết nối mạng.',
+              'Tải ảnh thất bại (unauthorized hoặc rules). Sẽ tạo kế hoạch không có ảnh.',
             );
           } else {
-            _showSnack('Tải ảnh thất bại. Vui lòng thử lại.');
+            _showSnack('Tải ảnh thất bại. Sẽ tạo kế hoạch không có ảnh.');
           }
-          return; // Don't call API without picture when user selected one
+          setState(() {});
         }
       }
       final plan = await _repo.createPlan(
@@ -126,14 +131,80 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       final picker = ImagePicker();
       final xfile = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 85,
+        // Let us read original bytes; we'll do custom downscale & compression.
+        // Using a high interim maxWidth so we can control final scaling ourselves.
+        maxWidth: 2000,
+        imageQuality: 100,
       );
       if (xfile == null) return; // user cancelled
-      setState(() {
-        _attachedImagePath = xfile.path;
-        _attachedImageFile = File(xfile.path);
-      });
+      // Resize / compress logic
+      final originalFile = File(xfile.path);
+      try {
+        final bytes = await originalFile.readAsBytes();
+        final decoded = img.decodeImage(bytes);
+        if (decoded != null) {
+          // We create a CARD-OPTIMIZED THUMBNAIL
+          // Target: max dimension 640px (both width & height) which is enough for high-density card display.
+          // Additionally we aim for file size <= ~180KB by adaptive quality.
+          const int targetMaxSide = 640; // previously 1080
+          const int targetMaxBytes = 180 * 1024; // soft size cap ~180KB
+          const int minQuality = 45; // don't go below (avoid visible artifacts)
+          const int initialQuality = 78; // starting point (was 82)
+          final lowerExt = xfile.name.toLowerCase();
+
+          // For animated GIF keep original to preserve animation
+          final isGif = lowerExt.endsWith('.gif');
+
+          // Downscale if needed preserving aspect ratio
+          img.Image processed = decoded;
+          if (!isGif &&
+              (decoded.width > targetMaxSide ||
+                  decoded.height > targetMaxSide)) {
+            processed = img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height ? targetMaxSide : null,
+              height: decoded.height > decoded.width ? targetMaxSide : null,
+              interpolation: img.Interpolation.cubic,
+            );
+          }
+
+          late List<int> outBytes;
+          if (isGif) {
+            outBytes = bytes; // keep gif untouched
+          } else {
+            int q = initialQuality;
+            outBytes = img.encodeJpg(processed, quality: q);
+            // Adaptive compression loop
+            // Reduce quality stepwise until under target size or minQuality reached
+            while (outBytes.length > targetMaxBytes && q > minQuality) {
+              q -= q > 65 ? 8 : 5; // bigger steps early, smaller later
+              if (q < minQuality) q = minQuality;
+              outBytes = img.encodeJpg(processed, quality: q);
+            }
+          }
+          final tmpDir = await getTemporaryDirectory();
+          final outPath =
+              '${tmpDir.path}/thumb_${DateTime.now().millisecondsSinceEpoch}${isGif ? '.gif' : '.jpg'}';
+          final f = await File(outPath).writeAsBytes(outBytes, flush: true);
+          setState(() {
+            _attachedImagePath = f.path;
+            _attachedImageFile = f;
+          });
+        } else {
+          // Fallback to original if decode failed
+          setState(() {
+            _attachedImagePath = originalFile.path;
+            _attachedImageFile = originalFile;
+          });
+        }
+      } catch (e) {
+        // On any processing error fallback to original file
+        setState(() {
+          _attachedImagePath = originalFile.path;
+          _attachedImageFile = originalFile;
+        });
+        _showSnack('Không xử lý được ảnh, dùng ảnh gốc.');
+      }
     } catch (e) {
       _showSnack('Không chọn được ảnh: $e');
     }
@@ -356,6 +427,15 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                                 attached: _attachedImagePath != null,
                                 imagePreviewPath: _attachedImagePath,
                                 uploadProgress: _uploadProgress,
+                                uploadFailed: _uploadFailed,
+                                onRemoveImage: () {
+                                  setState(() {
+                                    _attachedImageFile = null;
+                                    _attachedImagePath = null;
+                                    _uploadProgress = null;
+                                    _uploadFailed = false;
+                                  });
+                                },
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -624,12 +704,16 @@ class _DescriptionCard extends StatelessWidget {
   final bool attached;
   final String? imagePreviewPath;
   final double? uploadProgress;
+  final bool uploadFailed;
+  final VoidCallback? onRemoveImage;
   const _DescriptionCard({
     required this.controller,
     required this.onAttach,
     required this.attached,
     this.imagePreviewPath,
     this.uploadProgress,
+    this.uploadFailed = false,
+    this.onRemoveImage,
   });
 
   @override
@@ -692,6 +776,42 @@ class _DescriptionCard extends StatelessWidget {
               width: double.infinity,
               fit: BoxFit.cover,
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (onRemoveImage != null)
+                TextButton.icon(
+                  onPressed: onRemoveImage,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                  ),
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Gỡ ảnh'),
+                ),
+              if (uploadFailed)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orangeAccent,
+                    size: 18,
+                  ),
+                ),
+              if (uploadFailed) const SizedBox(width: 6),
+              if (uploadFailed)
+                const Expanded(
+                  child: Text(
+                    'Upload thất bại - sẽ tạo không có ảnh',
+                    style: TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 11.5,
+                      letterSpacing: .2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
           ),
           if (uploadProgress != null && uploadProgress! < 1.0) ...[
             const SizedBox(height: 10),

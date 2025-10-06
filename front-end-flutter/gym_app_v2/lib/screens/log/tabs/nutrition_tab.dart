@@ -216,7 +216,7 @@ class _MealCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '${f['calories']} kcal',
+                              '${f['calories']} Cal',
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 12,
@@ -312,7 +312,7 @@ class _EnergyOverview extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Năng lượng hôm nay',
+                'Năng lượng tập luyện',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -524,7 +524,7 @@ class _MealKcalBadge extends StatelessWidget {
                   ),
                 ),
                 const TextSpan(
-                  text: ' kcal',
+                  text: ' Cal',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,

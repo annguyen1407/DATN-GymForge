@@ -85,6 +85,7 @@ class _WorkoutExerciseDetailScreenState
             // image: giữ nguyên legacy (nếu sau này có thumbnail tĩnh) => hiện để rỗng
             image: '',
             gifUrl: ex?.gifUrl ?? '',
+            met: ex?.met ?? 0,
           );
         }),
       );

@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import '../../core/extensions/color_extensions.dart';
 import '../../widgets/workout_exercise_card.dart';
 import 'workout_exercise_detail_screen.dart';
@@ -9,6 +14,7 @@ import '../../widgets/plan_actions_menu.dart';
 import '../../widgets/destructive_confirm_sheet.dart';
 import '../../utils/date_utils.dart';
 import '../../widgets/plan_type_badge.dart';
+import '../../services/storage_service.dart';
 
 /// WorkoutDetailScreen: Màn hình chi tiết kế hoạch tập luyện khi click vào WorkoutCard
 /// Hiển thị danh sách các ngày tập của một kế hoạch tập luyện
@@ -43,6 +49,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
   late String _planName;
   String? _planDescription;
   String? _planType; // FLEXIBILITY, STRENGTH, CARDIO, COMBINED
+  String? _planImageUrl; // current remote picture url
   bool _loadingPlanMeta = false;
   // Description expansion state
   bool _descExpanded = false;
@@ -145,6 +152,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
         if (!mounted) return; // context safety
         setState(() {
           _planType = plan.planType != 'UNKNOWN' ? plan.planType : _planType;
+          _planImageUrl = plan.picture ?? _planImageUrl;
           // Only override name/description if they weren't provided (defensive)
           if (_planName.isEmpty) {
             _planName = plan.name;
@@ -192,11 +200,54 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
     }
   }
 
+  Future<File?> _processPickedImage(XFile xfile) async {
+    try {
+      final original = File(xfile.path);
+      final bytes = await original.readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      final isGif = xfile.name.toLowerCase().endsWith('.gif');
+      if (decoded == null || isGif) {
+        return original; // keep original for gif or failed decode
+      }
+      const targetMaxSide = 640;
+      const targetMaxBytes = 180 * 1024;
+      const minQuality = 45;
+      const initialQuality = 78;
+      img.Image processed = decoded;
+      if (decoded.width > targetMaxSide || decoded.height > targetMaxSide) {
+        processed = img.copyResize(
+          decoded,
+          width: decoded.width >= decoded.height ? targetMaxSide : null,
+          height: decoded.height > decoded.width ? targetMaxSide : null,
+          interpolation: img.Interpolation.cubic,
+        );
+      }
+      int q = initialQuality;
+      var outBytes = img.encodeJpg(processed, quality: q);
+      while (outBytes.length > targetMaxBytes && q > minQuality) {
+        q -= q > 65 ? 8 : 5;
+        if (q < minQuality) q = minQuality;
+        outBytes = img.encodeJpg(processed, quality: q);
+      }
+      final tmp = await getTemporaryDirectory();
+      final f = File(
+        '${tmp.path}/edit_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await f.writeAsBytes(outBytes, flush: true);
+      return f;
+    } catch (_) {
+      return File(xfile.path);
+    }
+  }
+
   Future<void> _openEditPlanDialog() async {
     // Pre-fill values
     final nameController = TextEditingController(text: _planName);
     final descController = TextEditingController(text: _planDescription ?? '');
     String? selectedType = _planType; // keep previous choice if set
+    String? workingImageUrl = _planImageUrl; // remote URL (may be removed)
+    File? newLocalImage; // picked & processed file (pending upload)
+    bool removingImage = false; // user chose to remove existing image
 
     final result = await showDialog<_EditPlanResult>(
       context: context,
@@ -213,187 +264,469 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
         };
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Material(
-                  color: Colors.transparent,
-                  elevation: 18,
-                  borderRadius: BorderRadius.circular(24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1F1F1F), Color(0xFF141414)],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacityRatio(0.07),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacityRatio(0.65),
-                          blurRadius: 28,
-                          offset: const Offset(0, 18),
-                        ),
-                        BoxShadow(
-                          color: Colors.pinkAccent.withOpacityRatio(0.1),
-                          blurRadius: 36,
-                          spreadRadius: -4,
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(26, 26, 26, 18),
-                      child: Form(
-                        key: formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Chỉnh sửa kế hoạch',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: .3,
+            InputDecoration editInput(String hint, {Widget? prefixIcon}) =>
+                InputDecoration(
+                  hintText: hint,
+                  filled: true,
+                  fillColor: const Color(0xFF1E1E1E),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  prefixIcon: prefixIcon,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintStyle: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w400,
+                  ),
+                );
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+                return AnimatedPadding(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(bottom: viewInsets * 0.6),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Material(
+                        color: Colors.transparent,
+                        elevation: 18,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF1F1F1F), Color(0xFF141414)],
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacityRatio(0.07),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacityRatio(0.65),
+                                blurRadius: 28,
+                                offset: const Offset(0, 18),
+                              ),
+                              BoxShadow(
+                                color: Colors.pinkAccent.withOpacityRatio(0.1),
+                                blurRadius: 36,
+                                spreadRadius: -4,
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(26, 26, 26, 18),
+                            child: Form(
+                              key: formKey,
+                              child: SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Expanded(
+                                          child: Text(
+                                            'Chỉnh sửa kế hoạch',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: .3,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            color: Colors.white54,
+                                          ),
+                                          splashRadius: 22,
+                                          onPressed: saving
+                                              ? null
+                                              : () => Navigator.pop(context),
+                                        ),
+                                      ],
                                     ),
-                                  ),
+                                    const SizedBox(height: 14),
+                                    TextFormField(
+                                      controller: nameController,
+                                      enabled: !saving,
+                                      decoration: editInput(
+                                        'Tên kế hoạch',
+                                        prefixIcon: const Icon(
+                                          Icons.dataset,
+                                          color: Colors.white70,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                      validator: (v) =>
+                                          (v == null || v.trim().isEmpty)
+                                          ? 'Không được để trống'
+                                          : null,
+                                      autovalidateMode:
+                                          AutovalidateMode.onUserInteraction,
+                                      textInputAction: TextInputAction.next,
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Text(
+                                      'Loại kế hoạch',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacityRatio(
+                                          .9,
+                                        ),
+                                        fontSize: 13,
+                                        letterSpacing: .2,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Compact selector that opens an overlay menu (no dialog height change)
+                                    _PlanTypeCompactSelector(
+                                      selectedType: selectedType,
+                                      typeColors: typeColors,
+                                      labelBuilder: _planTypeLabel,
+                                      enabled: !saving,
+                                      onPick: (t) => setStateDialog(
+                                        () => selectedType = t,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    TextFormField(
+                                      controller: descController,
+                                      enabled: !saving,
+                                      maxLines: 1,
+                                      textInputAction: TextInputAction.done,
+                                      keyboardType: TextInputType.text,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.deny(
+                                          RegExp(r'\n'),
+                                        ),
+                                      ],
+                                      onFieldSubmitted: (_) =>
+                                          FocusScope.of(context).unfocus(),
+                                      onEditingComplete: () =>
+                                          FocusScope.of(context).unfocus(),
+                                      decoration: editInput(
+                                        'Mô tả (tuỳ chọn)',
+                                        prefixIcon: const Icon(
+                                          Icons.notes,
+                                          color: Colors.white70,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    // Move image block here (bottom before actions)
+                                    Text(
+                                      'Ảnh minh hoạ',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacityRatio(
+                                          .9,
+                                        ),
+                                        fontSize: 13,
+                                        letterSpacing: .2,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.pinkAccent,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.photo_library,
+                                            size: 18,
+                                          ),
+                                          label: Text(
+                                            newLocalImage != null
+                                                ? 'Đổi ảnh'
+                                                : (workingImageUrl != null &&
+                                                      !removingImage)
+                                                ? 'Thay ảnh'
+                                                : 'Chọn ảnh',
+                                          ),
+                                          onPressed: saving
+                                              ? null
+                                              : () async {
+                                                  final picker = ImagePicker();
+                                                  final xfile = await picker
+                                                      .pickImage(
+                                                        source:
+                                                            ImageSource.gallery,
+                                                        maxWidth: 2000,
+                                                        imageQuality: 100,
+                                                      );
+                                                  if (xfile == null) return;
+                                                  final processed =
+                                                      await _processPickedImage(
+                                                        xfile,
+                                                      );
+                                                  setStateDialog(() {
+                                                    newLocalImage = processed;
+                                                    removingImage = false;
+                                                  });
+                                                },
+                                        ),
+                                        const SizedBox(width: 12),
+                                        if ((workingImageUrl != null ||
+                                                newLocalImage != null) &&
+                                            !removingImage)
+                                          TextButton.icon(
+                                            onPressed: saving
+                                                ? null
+                                                : () {
+                                                    setStateDialog(() {
+                                                      removingImage = true;
+                                                      newLocalImage = null;
+                                                      workingImageUrl = null;
+                                                    });
+                                                  },
+                                            icon: const Icon(
+                                              Icons.delete_forever,
+                                              size: 18,
+                                              color: Colors.redAccent,
+                                            ),
+                                            label: const Text(
+                                              'Gỡ ảnh',
+                                              style: TextStyle(
+                                                color: Colors.redAccent,
+                                              ),
+                                            ),
+                                          ),
+                                        if (removingImage)
+                                          const Text(
+                                            'Sẽ xoá ảnh',
+                                            style: TextStyle(
+                                              color: Colors.orangeAccent,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (!removingImage &&
+                                        (newLocalImage != null ||
+                                            workingImageUrl != null))
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.white
+                                                  .withOpacityRatio(.15),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: newLocalImage != null
+                                              ? Image.file(
+                                                  newLocalImage!,
+                                                  height: 140,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Image.network(
+                                                  workingImageUrl!,
+                                                  height: 140,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      Container(
+                                                        height: 140,
+                                                        alignment:
+                                                            Alignment.center,
+                                                        color: Colors.grey[800],
+                                                        child: const Icon(
+                                                          Icons.broken_image,
+                                                          color: Colors.white54,
+                                                        ),
+                                                      ),
+                                                ),
+                                        ),
+                                      ),
+                                    if (newLocalImage != null || removingImage)
+                                      const SizedBox(height: 6),
+                                    if (newLocalImage != null)
+                                      Text(
+                                        'Sẽ upload ảnh mới khi Lưu',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacityRatio(
+                                            .55,
+                                          ),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    if (removingImage &&
+                                        workingImageUrl == null)
+                                      Text(
+                                        'Ảnh sẽ bị xoá khi Lưu',
+                                        style: TextStyle(
+                                          color: Colors.orangeAccent
+                                              .withOpacity(.9),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 26),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: AppButton.outline(
+                                            label: 'Huỷ',
+                                            size: AppButtonSize.medium,
+                                            onPressed: saving
+                                                ? null
+                                                : () => Navigator.pop(context),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: AppButton.primary(
+                                            label: 'Lưu',
+                                            size: AppButtonSize.medium,
+                                            loading: saving,
+                                            onPressed: saving
+                                                ? null
+                                                : () async {
+                                                    final navigator =
+                                                        Navigator.of(context);
+                                                    final scaffoldMessenger =
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        );
+                                                    if (!formKey.currentState!
+                                                        .validate()) {
+                                                      return;
+                                                    }
+                                                    setStateDialog(
+                                                      () => saving = true,
+                                                    );
+                                                    String? finalPictureUrl =
+                                                        _planImageUrl; // start from current
+                                                    // Handle removal or replacement
+                                                    if (newLocalImage != null) {
+                                                      // Replace: delete old first if exists
+                                                      if (_planImageUrl !=
+                                                              null &&
+                                                          _planImageUrl!
+                                                              .startsWith(
+                                                                'http',
+                                                              )) {
+                                                        await StorageService
+                                                            .instance
+                                                            .deleteByUrl(
+                                                              _planImageUrl!,
+                                                            );
+                                                      }
+                                                      final uploaded =
+                                                          await StorageService
+                                                              .instance
+                                                              .uploadFile(
+                                                                file:
+                                                                    newLocalImage!,
+                                                                folder:
+                                                                    'workout-plans',
+                                                              );
+                                                      if (uploaded != null) {
+                                                        finalPictureUrl =
+                                                            uploaded;
+                                                      } else {
+                                                        // Upload failed -> keep old if any
+                                                      }
+                                                    } else if (removingImage &&
+                                                        _planImageUrl != null) {
+                                                      // Delete existing image
+                                                      if (_planImageUrl!
+                                                          .startsWith('http')) {
+                                                        await StorageService
+                                                            .instance
+                                                            .deleteByUrl(
+                                                              _planImageUrl!,
+                                                            );
+                                                      }
+                                                      finalPictureUrl = null;
+                                                    }
+                                                    final patched = await _repo
+                                                        .updatePlan(
+                                                          widget.planId,
+                                                          name: nameController
+                                                              .text
+                                                              .trim(),
+                                                          description:
+                                                              descController
+                                                                  .text
+                                                                  .trim(),
+                                                          planType:
+                                                              selectedType,
+                                                          picture:
+                                                              finalPictureUrl,
+                                                        );
+                                                    setStateDialog(
+                                                      () => saving = false,
+                                                    );
+                                                    if (!mounted) return;
+                                                    if (patched != null) {
+                                                      navigator.pop(
+                                                        _EditPlanResult(
+                                                          nameController.text
+                                                              .trim(),
+                                                          descController.text
+                                                                  .trim()
+                                                                  .isEmpty
+                                                              ? null
+                                                              : descController
+                                                                    .text
+                                                                    .trim(),
+                                                          selectedType,
+                                                          finalPictureUrl,
+                                                        ),
+                                                      );
+                                                    } else {
+                                                      AppSnackBar.showError(
+                                                        scaffoldMessenger
+                                                            .context,
+                                                        'Cập nhật thất bại',
+                                                      );
+                                                    }
+                                                  },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.close,
-                                    color: Colors.white54,
-                                  ),
-                                  splashRadius: 22,
-                                  onPressed: saving
-                                      ? null
-                                      : () => Navigator.pop(context),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: nameController,
-                              enabled: !saving,
-                              decoration: _fieldDecoration('Tên kế hoạch'),
-                              style: const TextStyle(color: Colors.white),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'Không được để trống'
-                                  : null,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              'Loại kế hoạch',
-                              style: TextStyle(
-                                color: Colors.white.withOpacityRatio(.9),
-                                fontSize: 13,
-                                letterSpacing: .2,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            // Compact selector that opens an overlay menu (no dialog height change)
-                            _PlanTypeCompactSelector(
-                              selectedType: selectedType,
-                              typeColors: typeColors,
-                              labelBuilder: _planTypeLabel,
-                              enabled: !saving,
-                              onPick: (t) =>
-                                  setStateDialog(() => selectedType = t),
-                            ),
-                            const SizedBox(height: 20),
-                            TextFormField(
-                              controller: descController,
-                              enabled: !saving,
-                              maxLines: 4,
-                              decoration: _fieldDecoration('Mô tả'),
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 30),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppButton.outline(
-                                    label: 'Huỷ',
-                                    size: AppButtonSize.medium,
-                                    onPressed: saving
-                                        ? null
-                                        : () => Navigator.pop(context),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: AppButton.primary(
-                                    label: 'Lưu',
-                                    size: AppButtonSize.medium,
-                                    loading: saving,
-                                    onPressed: saving
-                                        ? null
-                                        : () async {
-                                            final navigator = Navigator.of(
-                                              context,
-                                            );
-                                            final scaffoldMessenger =
-                                                ScaffoldMessenger.of(context);
-                                            if (!formKey.currentState!
-                                                .validate()) {
-                                              return;
-                                            }
-                                            setStateDialog(() => saving = true);
-                                            final patched = await _repo
-                                                .updatePlan(
-                                                  widget.planId,
-                                                  name: nameController.text
-                                                      .trim(),
-                                                  description: descController
-                                                      .text
-                                                      .trim(),
-                                                  planType: selectedType,
-                                                );
-                                            setStateDialog(
-                                              () => saving = false,
-                                            );
-                                            if (!mounted) return;
-                                            if (patched != null) {
-                                              navigator.pop(
-                                                _EditPlanResult(
-                                                  nameController.text.trim(),
-                                                  descController.text
-                                                          .trim()
-                                                          .isEmpty
-                                                      ? null
-                                                      : descController.text
-                                                            .trim(),
-                                                  selectedType,
-                                                ),
-                                              );
-                                            } else {
-                                              AppSnackBar.showError(
-                                                scaffoldMessenger.context,
-                                                'Cập nhật thất bại',
-                                              );
-                                            }
-                                          },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
@@ -407,36 +740,21 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
         _planName = success.name;
         _planDescription = success.description;
         _planType = success.planType;
+        _planImageUrl = success.picture;
       });
       AppSnackBar.showSuccess(context, 'Đã cập nhật kế hoạch');
+      // Refetch from server to ensure latest authoritative data and relationships
+      try {
+        await _loadPlanMeta();
+        // Days usually unaffected by meta edit, but safe to refresh silently
+        await _fetchDays();
+      } catch (_) {
+        // ignore refresh errors
+      }
     }
   }
 
-  InputDecoration _fieldDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      filled: true,
-      fillColor: const Color(0xFF1E1E1E),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacityRatio(0.12)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.pinkAccent, width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    );
-  }
+  // Old _fieldDecoration removed (merged into inline editInput style for unified UI)
 
   Future<void> _refetchAndPreserve({String? preserveId}) async {
     final prevId = preserveId;
@@ -529,14 +847,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: widget.image.isNotEmpty
-                            ? Image.asset(
-                                widget.image,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(color: Colors.deepPurple[300]),
-                              )
-                            : Container(color: Colors.deepPurple[300]),
+                        child: _buildHeaderImage(_planImageUrl ?? widget.image),
                       ),
                       Positioned.fill(
                         child: Container(
@@ -545,9 +856,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.transparent,
-                                Colors.black.compatOpacity(0.7),
+                                Colors.black.withOpacity(0.55), // darken top
+                                Colors.black.withOpacity(0.10), // mid fade
+                                Colors.black.withOpacity(0.75), // strong bottom
                               ],
+                              stops: const [0.0, 0.55, 1.0],
                             ),
                           ),
                         ),
@@ -593,6 +906,14 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
                                       );
                                       if (!mounted) return;
                                       if (deleted != null) {
+                                        // Delete remote image after successful plan deletion
+                                        if (deleted.picture != null &&
+                                            deleted.picture!.startsWith(
+                                              'http',
+                                            )) {
+                                          await StorageService.instance
+                                              .deleteByUrl(deleted.picture!);
+                                        }
                                         AppSnackBar.showSuccess(
                                           currentContext,
                                           'Đã xoá kế hoạch',
@@ -1016,11 +1337,52 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
   }
 }
 
+extension on _WorkoutDetailScreenState {
+  Widget _buildHeaderImage(String src) {
+    if (src.isEmpty) {
+      return Container(color: Colors.deepPurple[300]);
+    }
+    final isNetwork = src.startsWith('http://') || src.startsWith('https://');
+    if (isNetwork) {
+      return Image.network(
+        src,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(color: Colors.deepPurple[200]),
+              const Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            Container(color: Colors.deepPurple[300]),
+      );
+    }
+    // Assume asset path fallback
+    return Image.asset(
+      src,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          Container(color: Colors.deepPurple[300]),
+    );
+  }
+}
+
 class _EditPlanResult {
   final String name;
   final String? description;
   final String? planType;
-  _EditPlanResult(this.name, this.description, this.planType);
+  final String? picture;
+  _EditPlanResult(this.name, this.description, this.planType, this.picture);
 }
 
 class _PlanTypeCompactSelector extends StatefulWidget {
@@ -1113,14 +1475,27 @@ class _PlanTypeCompactSelectorState extends State<_PlanTypeCompactSelector> {
   }
 
   void _close() {
-    _entry?.remove();
-    _entry = null;
-    if (mounted) setState(() {});
+    if (_entry != null) {
+      try {
+        _entry?.remove();
+      } catch (_) {
+        // ignore removal errors
+      }
+      _entry = null;
+      // Only trigger rebuild if still mounted AND not in dispose phase
+      if (mounted) setState(() {});
+    }
   }
 
   @override
   void dispose() {
-    _close();
+    // Avoid calling setState during dispose; just remove overlay directly
+    if (_entry != null) {
+      try {
+        _entry?.remove();
+      } catch (_) {}
+      _entry = null;
+    }
     super.dispose();
   }
 

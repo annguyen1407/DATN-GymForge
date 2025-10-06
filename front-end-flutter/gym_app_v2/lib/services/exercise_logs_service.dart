@@ -275,6 +275,11 @@ class ExerciseLogsService {
                 if (w is double) return w.floor();
                 return 0;
               }(),
+              caloriesBurned: () {
+                final c = s['calories'];
+                if (c is num) return double.parse(c.toString());
+                return 0.0;
+              }(),
             ),
           )
           .toList();
@@ -288,7 +293,14 @@ class ExerciseLogsService {
           date: DateTime.now(),
           workoutDayDate: workoutDayDate,
           exerciseName: ex.name,
-          totalCaloriesBurned: 0,
+          totalCaloriesBurned: () {
+            double sum = 0;
+            for (final s in loggedSets) {
+              final c = s['calories'];
+              if (c is num) sum += c.toDouble();
+            }
+            return double.parse(sum.toStringAsFixed(2));
+          }(),
           progressPercent: double.parse(hybridPercent.toStringAsFixed(1)),
           sets: setsPayload,
           targetSets: ex.sets,

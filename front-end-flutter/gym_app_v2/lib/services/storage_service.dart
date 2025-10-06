@@ -31,21 +31,38 @@ class StorageService {
       final ts = DateTime.now().millisecondsSinceEpoch;
       final fileName = '${ts}_$safeBase$ext';
       final ref = _storage.ref().child('$folder/$fileName');
-
+      // Infer simple contentType for images to satisfy restrictive Storage rules.
+      final contentType = _inferContentType(ext);
+      final fileLength = await file.length();
+      AppLogger.info(
+        'Uploading -> path=$folder/$fileName size=${fileLength}B type=$contentType',
+        tag: 'Storage',
+      );
       final uploadTask = ref.putFile(
         file,
-        metadata == null ? null : SettableMetadata(customMetadata: metadata),
+        SettableMetadata(
+          contentType: contentType,
+          customMetadata: metadata,
+          cacheControl: 'public,max-age=604800',
+        ),
       );
 
       if (onProgress != null) {
-        uploadTask.snapshotEvents.listen((s) {
-          if (s.totalBytes > 0) {
-            onProgress(s.bytesTransferred / s.totalBytes);
-          }
-        });
+        uploadTask.snapshotEvents.listen(
+          (s) {
+            if (s.totalBytes > 0) {
+              onProgress(s.bytesTransferred / s.totalBytes);
+            }
+          },
+          onError: (err, st) {
+            AppLogger.warn('Upload stream error: $err', tag: 'Storage');
+          },
+          cancelOnError: true,
+        );
       }
 
-      final snapshot = await uploadTask.whenComplete(() {});
+      // Await the task directly so exceptions bubble to this try/catch.
+      final snapshot = await uploadTask;
       if (snapshot.state == TaskState.success) {
         final url = await ref.getDownloadURL();
         AppLogger.info('Upload success: $url', tag: 'Storage');
@@ -53,11 +70,40 @@ class StorageService {
       } else {
         AppLogger.warn('Upload failed state=${snapshot.state}', tag: 'Storage');
       }
+    } on FirebaseException catch (e, st) {
+      if (e.code == 'unauthorized') {
+        AppLogger.warn(
+          'Upload unauthorized: check Storage rules. ${e.message}',
+          tag: 'Storage',
+        );
+      } else {
+        AppLogger.warn(
+          'FirebaseException during upload: ${e.code} ${e.message}',
+          tag: 'Storage',
+        );
+      }
+      AppLogger.debug(st.toString(), tag: 'Storage');
     } catch (e, st) {
-      AppLogger.warn('Upload error: $e', tag: 'Storage');
+      AppLogger.warn('Upload error (generic): $e', tag: 'Storage');
       AppLogger.debug(st.toString(), tag: 'Storage');
     }
     return null;
+  }
+
+  String _inferContentType(String ext) {
+    switch (ext.toLowerCase()) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   /// Delete by full download [url]. Ignores errors silently.

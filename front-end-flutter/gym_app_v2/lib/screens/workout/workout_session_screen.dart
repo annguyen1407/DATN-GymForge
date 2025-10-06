@@ -6,6 +6,8 @@ import '../../widgets/app_button.dart';
 import '../../widgets/exercise_card.dart'; // For ExerciseItem model
 import '../../services/exercise_logs_service.dart';
 import '../../core/auth/token_manager.dart';
+import '../../services/user_service.dart';
+import '../../utils/calorie_formula.dart';
 import 'widgets/exercise_list_sheet.dart';
 import 'widgets/workout_completion_dialog.dart';
 import '../../theme/design_tokens.dart';
@@ -61,6 +63,13 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   int _preCountdownRemaining = 0;
   bool _isPreCountdown = false;
   bool _soundEnabled = true; // bật/tắt toàn bộ âm thanh
+  double? _userWeight; // kg
+  double?
+  _userOneRm; // global 1RM nếu user cung cấp (áp dụng tạm cho mọi bài có tạ)
+  double _totalCalories = 0; // tích luỹ UI (optional display later)
+
+  double get totalCalories =>
+      _totalCalories; // expose for future UI / prevents unused warning
   // Internal: show weight/reps quick edit later (reserved)
 
   // Lưu trữ thông tin tập luyện
@@ -75,6 +84,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     currentWeight = widget.exercises[currentExerciseIndex].weight.round();
     _countdownPlayer.setReleaseMode(ReleaseMode.stop);
     _uiPlayer.setReleaseMode(ReleaseMode.stop);
+    _fetchUserStats();
   }
 
   @override
@@ -739,13 +749,28 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     if (currentReps < 1) currentReps = 1;
     if (!_isBodyweight && currentWeight < 1) currentWeight = 1;
     workoutData[idx] ??= [];
+    // --- Calorie computation ---
+    final ex = _currentExercise;
+    final metBase = ex.met; // đã thêm vào ExerciseItem
+    final loadUsed = _isBodyweight ? 0.0 : currentWeight.toDouble();
+    final kcal = CalorieFormula.caloriesForSet(
+      metBase: metBase,
+      loadUsed: loadUsed,
+      oneRm:
+          _userOneRm, // nếu null hoặc <=0 công thức fallback bodyweight ratio
+      bodyWeight: _userWeight,
+      reps: currentReps,
+      // repTime: có thể mở rộng nếu mỗi exercise có defaultTimePerSet; hiện giữ default 5s
+    );
     workoutData[idx]!.add({
       'set': currentSet,
       'reps': currentReps,
       'weight': currentWeight,
       'time': workoutTime,
       'ts': DateTime.now().millisecondsSinceEpoch,
+      'calories': double.parse(kcal.toStringAsFixed(2)),
     });
+    _totalCalories += kcal;
     final finished = currentSet >= _currentExercise.sets;
     if (finished) {
       _nextExercise();
@@ -775,6 +800,19 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     try {
       await _uiPlayer.stop();
       await _uiPlayer.play(AssetSource('sounds/click.mp3'));
+    } catch (_) {}
+  }
+
+  Future<void> _fetchUserStats() async {
+    try {
+      final user = await UserService.fetchProfile(context);
+      if (!mounted) return;
+      if (user != null) {
+        setState(() {
+          _userWeight = user.weight;
+          _userOneRm = user.oneRM; // optional
+        });
+      }
     } catch (_) {}
   }
 }
@@ -1323,19 +1361,23 @@ class _CurrentStatsBar extends StatelessWidget {
       ),
     );
 
+    final chips = <Widget>[
+      buildChip(setLabel, Icons.repeat),
+      buildChip(repsLabel, Icons.fitness_center),
+      buildChip(weightLabel, Icons.balance),
+    ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(child: Center(child: buildChip(setLabel, Icons.repeat))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Center(child: buildChip(repsLabel, Icons.fitness_center)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Center(child: buildChip(weightLabel, Icons.balance))),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(
+        builder: (ctx, c) {
+          // Use Wrap for automatic multiline when width is tight
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: chips,
+          );
+        },
       ),
     );
   }

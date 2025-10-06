@@ -44,10 +44,71 @@ class WorkoutCard extends StatelessWidget {
       'assets/images/onboarding_3.png',
       'assets/images/welcome_bg.png',
     };
-    final effectiveImage = (image.isNotEmpty && knownAssets.contains(image))
-        ? image
-        : '';
     final imageHeight = compact ? 110.0 : 140.0;
+    // Determine if we treat the provided image as a network image or an allowed asset
+    final isNetwork =
+        image.startsWith('http://') || image.startsWith('https://');
+    final isAsset =
+        !isNetwork && image.isNotEmpty && knownAssets.contains(image);
+    // Build placeholder gradient container
+    Widget placeholder() => Container(
+      width: double.infinity,
+      height: imageHeight,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accent.withOpacityRatio(.55),
+            Colors.black.withOpacityRatio(.85),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Icon(
+        Icons.fitness_center,
+        color: Colors.white.withOpacityRatio(.4),
+        size: 48,
+      ),
+    );
+    // Choose image widget
+    Widget imageWidget;
+    if (isNetwork) {
+      imageWidget = Image.network(
+        image,
+        width: double.infinity,
+        height: imageHeight,
+        fit: BoxFit.cover,
+        // While loading show subtle fade placeholder
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Stack(
+            children: [
+              placeholder(),
+              const Positioned.fill(
+                child: Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => placeholder(),
+      );
+    } else if (isAsset) {
+      imageWidget = Image.asset(
+        image,
+        width: double.infinity,
+        height: imageHeight,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => placeholder(),
+      );
+    } else {
+      imageWidget = placeholder();
+    }
     final padTop = compact ? 12.0 : 14.0;
     final padBottom = compact ? 12.0 : 16.0;
     final titleSize = compact ? 16.0 : 17.0;
@@ -81,47 +142,7 @@ class WorkoutCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  if (effectiveImage.isNotEmpty)
-                    Image.asset(
-                      effectiveImage,
-                      width: double.infinity,
-                      height: imageHeight,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: double.infinity,
-                        height: imageHeight,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              accent.withOpacityRatio(.55),
-                              Colors.black.withOpacityRatio(.85),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      height: imageHeight,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            accent.withOpacityRatio(.55),
-                            Colors.black.withOpacityRatio(.85),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.fitness_center,
-                        color: Colors.white.withOpacityRatio(.4),
-                        size: 48,
-                      ),
-                    ),
+                  imageWidget,
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(

@@ -151,6 +151,14 @@ class _WorkoutCompletionDialogState extends State<WorkoutCompletionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Tính tổng calories toàn buổi tập (nếu đã được log trong workoutData)
+    double totalCalories = 0;
+    widget.workoutData.forEach((_, sets) {
+      for (final s in sets) {
+        final c = s['calories'];
+        if (c is num) totalCalories += c.toDouble();
+      }
+    });
     return AlertDialog(
       backgroundColor: Colors.grey[900],
       title: const Row(
@@ -245,6 +253,11 @@ class _WorkoutCompletionDialogState extends State<WorkoutCompletionDialog> {
                         'Sets hoàn thành',
                         '${completion.totalSetsDone}/${completion.totalSetsPlanned}',
                       ),
+                      if (totalCalories > 0)
+                        _buildStatLine(
+                          'Calories',
+                          '${totalCalories.toStringAsFixed(1)} kcal',
+                        ),
                     ],
                   ),
                 ],
