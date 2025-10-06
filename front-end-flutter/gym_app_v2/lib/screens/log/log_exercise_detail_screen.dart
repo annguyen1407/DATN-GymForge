@@ -190,7 +190,13 @@ class _ExerciseLogDetailScreenState extends State<ExerciseLogDetailScreen> {
     final model = widget.exerciseModel;
     final name = model?.name ?? widget.exerciseName ?? 'Bài tập';
     final groups = model?.muscleGroupNames ?? widget.muscleGroups;
-    final video = model?.videoUrl ?? widget.videoAsset;
+    // Determine media sources:
+    // videoUrl: YouTube link handled internally by ExerciseHeroHeader
+    // backgroundImage: only use provided asset if no video url
+    final videoUrl = model?.videoUrl;
+    final backgroundImage = (videoUrl == null || videoUrl.isEmpty)
+        ? widget.videoAsset
+        : null;
     return Scaffold(
       backgroundColor: Colors.black,
       body: CustomScrollView(
@@ -200,8 +206,8 @@ class _ExerciseLogDetailScreenState extends State<ExerciseLogDetailScreen> {
               title: name,
               muscleGroups: groups,
               onBack: () => Navigator.pop(context),
-              backgroundImage: video,
-              onPlay: () {},
+              videoUrl: videoUrl,
+              backgroundImage: backgroundImage,
               action: IconButton(
                 onPressed: _loadSets,
                 icon: const Icon(Icons.refresh, color: Colors.white),

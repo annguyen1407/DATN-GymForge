@@ -57,6 +57,10 @@ class _ExerciseInfoScreenState extends State<ExerciseInfoScreen> {
     // description = giới thiệu (intro), instruction = hướng dẫn chi tiết
     final description = _exercise?.description?.trim().normalizedMultiline();
     final instruction = _exercise?.instruction?.trim().normalizedMultiline();
+    final videoUrl = _exercise?.videoUrl;
+    final bgImage = (videoUrl == null || videoUrl.isEmpty)
+        ? widget.backgroundImage
+        : null;
     return Scaffold(
       backgroundColor: const Color(0xFF0B0C0E),
       body: RefreshIndicator(
@@ -72,7 +76,8 @@ class _ExerciseInfoScreenState extends State<ExerciseInfoScreen> {
                 title: _exercise?.name ?? 'Đang tải...',
                 loadingTitle: _exercise == null,
                 muscleGroups: _exercise?.muscleGroupNames ?? const [],
-                backgroundImage: widget.backgroundImage,
+                backgroundImage: bgImage,
+                videoUrl: videoUrl,
                 onBack: () => Navigator.pop(context),
               ),
               const SizedBox(height: 22),

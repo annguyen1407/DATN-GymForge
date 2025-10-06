@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/extensions/color_extensions.dart';
 import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import '../../services/storage_service.dart';
 import '../../repositories/workout_plans_repository.dart';
 import '../../widgets/app_snack_bar.dart';
 import '../../widgets/app_button.dart';
@@ -23,6 +26,8 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
   bool _submitting = false;
   final _repo = WorkoutPlansRepository();
   String? _attachedImagePath; // future enhancement: pick image
+  File? _attachedImageFile; // actual picked file
+  double? _uploadProgress; // 0..1 while uploading
 
   static const Map<String, String> _planTypeVN = {
     'STRENGTH': 'Sức mạnh',
@@ -68,7 +73,31 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
+    String? pictureUrl;
     try {
+      // Upload image first if present
+      if (_attachedImageFile != null) {
+        _uploadProgress = 0;
+        setState(() {});
+        pictureUrl = await StorageService.instance.uploadFile(
+          file: _attachedImageFile!,
+          folder: 'workout-plans',
+          onProgress: (p) {
+            setState(() => _uploadProgress = p);
+          },
+        );
+        // If still null OR never progressed (>0) => treat as failure & stop
+        if (pictureUrl == null) {
+          if (_uploadProgress == 0) {
+            _showSnack(
+              'Tải ảnh thất bại (progress = 0). Vui lòng kiểm tra quyền truy cập ảnh hoặc kết nối mạng.',
+            );
+          } else {
+            _showSnack('Tải ảnh thất bại. Vui lòng thử lại.');
+          }
+          return; // Don't call API without picture when user selected one
+        }
+      }
       final plan = await _repo.createPlan(
         userId: widget.userId,
         name: _nameCtrl.text.trim(),
@@ -77,6 +106,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
             : _descCtrl.text.trim(),
         planType: _selectedPlanType,
         days: 0,
+        picture: pictureUrl,
       );
       if (!mounted) return; // widget still active?
       if (plan != null) {
@@ -88,6 +118,24 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
       if (mounted) _showSnackSafe(messenger, 'Lỗi: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final xfile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (xfile == null) return; // user cancelled
+      setState(() {
+        _attachedImagePath = xfile.path;
+        _attachedImageFile = File(xfile.path);
+      });
+    } catch (e) {
+      _showSnack('Không chọn được ảnh: $e');
     }
   }
 
@@ -304,12 +352,10 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
                             _GlassCard(
                               child: _DescriptionCard(
                                 controller: _descCtrl,
-                                onAttach: () async {
-                                  _showSnack(
-                                    'Chức năng đính kèm đang phát triển',
-                                  );
-                                },
+                                onAttach: _pickImage,
                                 attached: _attachedImagePath != null,
+                                imagePreviewPath: _attachedImagePath,
+                                uploadProgress: _uploadProgress,
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -576,10 +622,14 @@ class _DescriptionCard extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onAttach;
   final bool attached;
+  final String? imagePreviewPath;
+  final double? uploadProgress;
   const _DescriptionCard({
     required this.controller,
     required this.onAttach,
     required this.attached,
+    this.imagePreviewPath,
+    this.uploadProgress,
   });
 
   @override
@@ -589,8 +639,17 @@ class _DescriptionCard extends StatelessWidget {
       children: [
         TextField(
           controller: controller,
-          maxLines: 6,
+          // Single line input: prevent newline entry
+          maxLines: 1,
+          textInputAction: TextInputAction.done,
+          keyboardType: TextInputType.text,
           style: const TextStyle(color: Colors.white),
+          inputFormatters: [
+            // Block any newline characters (including pasted ones)
+            FilteringTextInputFormatter.deny(RegExp(r'\n')),
+          ],
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          onEditingComplete: () => FocusScope.of(context).unfocus(),
           decoration: const InputDecoration(
             hintText: 'Nhập mô tả chi tiết (tuỳ chọn)',
             hintStyle: TextStyle(color: Colors.white54),
@@ -606,7 +665,7 @@ class _DescriptionCard extends StatelessWidget {
                 Icon(Icons.image_outlined, size: 18, color: Colors.white30),
                 const SizedBox(width: 6),
                 Text(
-                  attached ? '1 tệp đã chọn' : 'Đính kèm ảnh (sắp có)',
+                  attached ? '1 ảnh đã chọn' : 'Đính kèm ảnh',
                   style: const TextStyle(color: Colors.white38, fontSize: 13),
                 ),
               ],
@@ -623,6 +682,39 @@ class _DescriptionCard extends StatelessWidget {
             ),
           ],
         ),
+        if (imagePreviewPath != null) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              File(imagePreviewPath!),
+              height: 140,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          if (uploadProgress != null && uploadProgress! < 1.0) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: uploadProgress!.clamp(0, 1),
+                minHeight: 6,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation(Colors.pinkAccent.shade200),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Đang tải ảnh ${(uploadProgress! * 100).toStringAsFixed(0)}%',
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                letterSpacing: .2,
+              ),
+            ),
+          ],
+        ],
       ],
     );
   }

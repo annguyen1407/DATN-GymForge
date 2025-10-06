@@ -52,6 +52,9 @@ class _WorkoutExerciseDetailScreenState
   bool _loading = true;
   String? _error;
   List<ExerciseItem> _exercises = [];
+  bool _preloadingGifs =
+      false; // trạng thái preload media trước khi vào session
+  double _preloadProgress = 0; // 0..1
 
   @override
   void initState() {
@@ -79,6 +82,9 @@ class _WorkoutExerciseDetailScreenState
             weight: r.targetWeight?.toInt() ?? ex?.defaultWeight ?? 0,
             restTime: r.restTimeSec ?? ex?.restTime ?? 0,
             muscleGroupNames: ex?.muscleGroupNames ?? const [],
+            // image: giữ nguyên legacy (nếu sau này có thumbnail tĩnh) => hiện để rỗng
+            image: '',
+            gifUrl: ex?.gifUrl ?? '',
           );
         }),
       );
@@ -473,6 +479,7 @@ class _WorkoutExerciseDetailScreenState
                                   name: exercise.name,
                                   reps: '$reps',
                                   image: exercise.image,
+                                  gifUrl: exercise.gifUrl,
                                   sets: sets,
                                   repsCount: reps,
                                   weight: weight,
@@ -541,26 +548,70 @@ class _WorkoutExerciseDetailScreenState
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: AppButton.gradient(
-        label: 'Khởi động bài tập',
+        label: _preloadingGifs
+            ? 'Đang tải media ${((_preloadProgress * 100).clamp(0, 100)).toStringAsFixed(0)}%'
+            : 'Khởi động bài tập',
         leadingIcon: Icons.play_arrow_rounded,
-        onPressed: _exercises.isEmpty
+        onPressed: _exercises.isEmpty || _preloadingGifs
             ? null
-            : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => WorkoutSessionScreen(
-                      workoutTitle: widget.dayTitle,
-                      exercises: _exercises,
-                      currentExerciseIndex: 0,
-                      workoutPlanId: widget.workoutPlanId,
-                      dayNumber: widget.dayNumber,
-                      workoutDayDate: _parseWorkoutDayDate(widget.date),
-                      workoutDayId: widget.workoutDayId,
-                    ),
-                  ),
-                );
-              },
+            : () => _preloadGifsThenStart(),
+      ),
+    );
+  }
+
+  Future<void> _preloadGifsThenStart() async {
+    final gifUrls = _exercises
+        .map((e) => e.gifUrl)
+        .where(
+          (u) =>
+              u.isNotEmpty &&
+              (u.startsWith('http://') || u.startsWith('https://')),
+        )
+        .toList();
+    if (gifUrls.isEmpty) {
+      _navigateToSession();
+      return;
+    }
+    setState(() {
+      _preloadingGifs = true;
+      _preloadProgress = 0;
+    });
+    int loaded = 0;
+    for (final url in gifUrls) {
+      if (!mounted) return;
+      try {
+        await precacheImage(NetworkImage(url), context);
+      } catch (_) {
+        // ignore individual failures; still proceed
+      } finally {
+        loaded++;
+        if (mounted) {
+          setState(() {
+            _preloadProgress = loaded / gifUrls.length;
+          });
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _preloadingGifs = false;
+    });
+    _navigateToSession();
+  }
+
+  void _navigateToSession() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutSessionScreen(
+          workoutTitle: widget.dayTitle,
+          exercises: _exercises,
+          currentExerciseIndex: 0,
+          workoutPlanId: widget.workoutPlanId,
+          dayNumber: widget.dayNumber,
+          workoutDayDate: _parseWorkoutDayDate(widget.date),
+          workoutDayId: widget.workoutDayId,
+        ),
       ),
     );
   }

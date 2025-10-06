@@ -10,6 +10,7 @@ import '../../widgets/app_snack_bar.dart';
 import '../../widgets/exercise_hero_header.dart';
 import '../../core/utils/text_normalizer.dart';
 import '../../widgets/expandable_body_text.dart';
+// (youtube_player_flutter no longer directly used here; handled inside ExerciseHeroHeader)
 
 /// ExerciseDetailScreen: giao diện thống nhất với ConfigureExerciseScreen (hero + sections)
 class ExerciseDetailScreen extends StatefulWidget {
@@ -371,6 +372,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
   Widget build(BuildContext context) {
     final instruction = _exercise?.instruction?.trim().normalizedMultiline();
     final description = _exercise?.description?.trim().normalizedMultiline();
+    final videoUrl = _exercise?.videoUrl;
     return Scaffold(
       backgroundColor: const Color(0xFF0B0C0E),
       body: RefreshIndicator(
@@ -388,6 +390,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                 muscleGroups: _exercise?.muscleGroupNames ?? const [],
                 backgroundImage: widget.backgroundImage,
                 onBack: () => Navigator.pop(context),
+                videoUrl: videoUrl, // embed YouTube video directly in hero
                 action: ExerciseActionsMenu(
                   isDeleting: _deleting,
                   onAction: (a) async {
