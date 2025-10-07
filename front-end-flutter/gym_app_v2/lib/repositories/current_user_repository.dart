@@ -46,8 +46,9 @@ class CurrentUserRepository {
       _cachedProfile = p;
       return p;
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[CurrentUserRepository] profile parse error: $e');
+      }
       return null;
     }
   }

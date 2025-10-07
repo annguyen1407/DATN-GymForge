@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import '../../widgets/app_button.dart';
@@ -1506,11 +1505,10 @@ class _PressableScale extends StatefulWidget {
   final VoidCallback? onTap;
   final bool enabled;
   const _PressableScale({
-    Key? key,
     required this.child,
     this.onTap,
     this.enabled = true,
-  }) : super(key: key);
+  });
   @override
   State<_PressableScale> createState() => _PressableScaleState();
 }

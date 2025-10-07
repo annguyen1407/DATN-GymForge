@@ -7,11 +7,11 @@ class StatusChip extends StatelessWidget {
   final bool isSkipped;
 
   const StatusChip({
-    Key? key,
+    super.key,
     required this.isActive,
     required this.isDone,
     this.isSkipped = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -71,8 +71,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     if (s == 'PENDING') return const Color.fromARGB(255, 252, 204, 29);
     if (s == 'CONFIRMED') return const Color(0xFF8E7CFF);
     if (s == 'COMPLETED') return const Color.fromARGB(255, 56, 228, 47);
-    if (s == 'CANCELED' || s == 'CANCELLED')
+    if (s == 'CANCELED' || s == 'CANCELLED') {
       return const Color.fromARGB(255, 255, 30, 30);
+    }
     return Colors.white70;
   }
 
@@ -85,11 +86,13 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
+          // ignore: deprecated_member_use
           colors: [color.withOpacity(.22), color.withOpacity(.08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
+        // ignore: deprecated_member_use
         border: Border.all(color: color.withOpacity(.35), width: 1),
       ),
       child: Row(

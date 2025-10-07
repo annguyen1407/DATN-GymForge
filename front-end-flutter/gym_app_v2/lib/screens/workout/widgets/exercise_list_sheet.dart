@@ -10,11 +10,11 @@ class ExerciseListSheet extends StatelessWidget {
   final Map<int, List<Map<String, dynamic>>> workoutData;
 
   const ExerciseListSheet({
-    Key? key,
+    super.key,
     required this.exercises,
     required this.currentExerciseIndex,
     required this.workoutData,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -134,7 +134,7 @@ class BodyTab extends StatelessWidget {
               const SizedBox(width: 12),
               _metricTile(
                 'BMI',
-                bmi == null ? null : bmi!.toStringAsFixed(2),
+                bmi?.toStringAsFixed(2),
                 Icons.scale,
                 color: info?['color'],
               ),

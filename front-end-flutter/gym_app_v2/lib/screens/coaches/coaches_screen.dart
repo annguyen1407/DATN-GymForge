@@ -24,7 +24,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
   static const int _otherPageSize = 6; // rest cards per subsequent page
   int _totalPages = 1; // computed after data load
   List<CoachModel> _cachedFull = [];
-  CoachesQuery _query = const CoachesQuery(
+  final CoachesQuery _query = const CoachesQuery(
     sortBy: 'rating',
     sortOrder: 'desc',
     isOpenToTraining: true,

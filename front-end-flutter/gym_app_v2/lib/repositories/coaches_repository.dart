@@ -21,8 +21,9 @@ class CoachesQuery {
     final map = <String, String>{};
     if (sortBy != null) map['sortBy'] = sortBy!;
     if (sortOrder != null) map['sortOrder'] = sortOrder!;
-    if (isOpenToTraining != null)
+    if (isOpenToTraining != null) {
       map['isOpenToTraining'] = isOpenToTraining!.toString();
+    }
     if (minPrice != null) map['minPrice'] = minPrice!.toString();
     if (maxPrice != null) map['maxPrice'] = maxPrice!.toString();
     return map;
@@ -68,7 +69,7 @@ class CoachesRepository {
     try {
       final list = (res.raw as List)
           .whereType<Map>()
-          .map((e) => CoachModel.fromJson((e as Map).cast<String, dynamic>()))
+          .map((e) => CoachModel.fromJson((e).cast<String, dynamic>()))
           .toList();
       _cache[key] = list;
       return list;

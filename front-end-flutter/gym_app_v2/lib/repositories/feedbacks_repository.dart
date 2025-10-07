@@ -22,7 +22,7 @@ class FeedbacksRepository {
       final list = (res.raw as List)
           .whereType<Map>()
           .map(
-            (e) => FeedbackModel.fromJson((e as Map).cast<String, dynamic>()),
+            (e) => FeedbackModel.fromJson((e).cast<String, dynamic>()),
           )
           .toList();
       // sort newest first
