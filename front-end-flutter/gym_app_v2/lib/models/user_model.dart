@@ -12,7 +12,7 @@ class UserModel {
   final String? role; // e.g. GYMER / COACH / ADMIN
   final double? weight; // latest weight snapshot (kg)
   final int? height; // cm
-  final double? oneRM; // optional
+  final double? oneRm; // optional
 
   UserModel({
     required this.id,
@@ -28,7 +28,7 @@ class UserModel {
     this.role,
     this.weight,
     this.height,
-    this.oneRM,
+    this.oneRm,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -48,7 +48,11 @@ class UserModel {
           ? (json['weight'] as num).toDouble()
           : null,
       height: json['height'] is num ? (json['height'] as num).toInt() : null,
-      oneRM: (json['oneRM'] is num) ? (json['oneRM'] as num).toDouble() : null,
+      oneRm: (json['oneRm'] is num)
+          ? (json['oneRm'] as num).toDouble()
+          : (json['oneRM'] is num) // backward compatibility if older key used
+          ? (json['oneRM'] as num).toDouble()
+          : null,
     );
   }
 }

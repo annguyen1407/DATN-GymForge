@@ -16,10 +16,12 @@ class UserInfoScreen extends StatefulWidget {
 }
 
 class _UserInfoScreenState extends State<UserInfoScreen> {
+  late TextEditingController _nameCtrl;
   late TextEditingController _bioCtrl;
   late TextEditingController _weightCtrl;
   late TextEditingController _heightCtrl;
   late TextEditingController _addressCtrl;
+  late TextEditingController _oneRmCtrl;
   String? _sex; // MALE/FEMALE
   DateTime? _dob;
   bool _saving = false;
@@ -28,6 +30,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
   void initState() {
     super.initState();
     _bioCtrl = TextEditingController(text: widget.user.biography ?? '');
+    _nameCtrl = TextEditingController(text: widget.user.name);
     _weightCtrl = TextEditingController(
       text: widget.user.weight != null ? widget.user.weight!.toString() : '',
     );
@@ -35,6 +38,11 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
       text: widget.user.height != null ? widget.user.height!.toString() : '',
     );
     _addressCtrl = TextEditingController(text: widget.user.address ?? '');
+    _oneRmCtrl = TextEditingController(
+      text: widget.user.oneRm != null
+          ? widget.user.oneRm!.toStringAsFixed(1)
+          : '',
+    );
     _sex = widget.user.sex;
     if (widget.user.dateOfBirth != null &&
         widget.user.dateOfBirth!.isNotEmpty) {
@@ -47,9 +55,11 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
   @override
   void dispose() {
     _bioCtrl.dispose();
+    _nameCtrl.dispose();
     _weightCtrl.dispose();
     _heightCtrl.dispose();
     _addressCtrl.dispose();
+    _oneRmCtrl.dispose();
     super.dispose();
   }
 
@@ -74,6 +84,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
     setState(() => _saving = true);
     try {
       final body = <String, dynamic>{
+        'name': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
         'biography': _bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim(),
         'weight': double.tryParse(_weightCtrl.text.trim()),
         'height': int.tryParse(_heightCtrl.text.trim()),
@@ -85,6 +96,10 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
             ? _dob!.toIso8601String().split('T')[0]
             : null,
       };
+      final parsedOneRm = double.tryParse(_oneRmCtrl.text.trim());
+      if (parsedOneRm != null) {
+        body['oneRm'] = parsedOneRm;
+      }
       AppLogger.debug('PATCH user info: $body', tag: 'UserInfo');
       final ok = await UserService.updateProfile(context, body);
       if (!mounted) return;
@@ -124,6 +139,21 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _SectionLabel('Tên hiển thị'),
+                _CardContainer(
+                  child: TextField(
+                    controller: _nameCtrl,
+                    maxLines: 1,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'Nhập tên của bạn',
+                      hintStyle: TextStyle(color: Colors.white38),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 _SectionLabel('Tiểu sử'),
                 _CardContainer(
                   child: TextField(
@@ -193,6 +223,21 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 20),
+                      _FieldLabelWrapper(
+                        label: '1RM ước tính (kg)',
+                        child: TextField(
+                          controller: _oneRmCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: 'Ví dụ 120',
+                            hintStyle: TextStyle(color: Colors.white24),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
                       Row(

@@ -858,7 +858,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   "profilePicture": _uploadedAvatarUrl,
                 };
                 if (oneRm != null) {
-                  body['oneRM'] = oneRm;
+                  body['oneRm'] = oneRm; // updated key naming
                 }
                 AppLogger.debug(
                   'PATCH profile body: $body',

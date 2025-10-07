@@ -23,6 +23,7 @@ export class UserProfileService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
+        name: createUserProfileDto.name ?? user.name,
         phoneNumber: createUserProfileDto.phoneNumber,
         dateOfBirth: createUserProfileDto.dateOfBirth ? new Date(createUserProfileDto.dateOfBirth) : null,
         sex: createUserProfileDto.sex,
@@ -33,6 +34,7 @@ export class UserProfileService {
         expType: createUserProfileDto.expType,
         biography: createUserProfileDto.biography,
         profilePicture: createUserProfileDto.profilePicture,
+        oneRm: (createUserProfileDto as any).oneRm,
         // preferences
         preferredCoachGender: (createUserProfileDto as any).preferredCoachGender,
         trainingBudget: (createUserProfileDto as any).trainingBudget,
@@ -54,6 +56,7 @@ export class UserProfileService {
         expType: true,
         biography: true,
         profilePicture: true,
+        oneRm: true,
         premiumStatus: true,
         isEmailVerified: true,
         createdAt: true,
@@ -89,6 +92,7 @@ export class UserProfileService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
+        ...(updateUserProfileDto.name !== undefined && { name: updateUserProfileDto.name }),
         ...(updateUserProfileDto.phoneNumber !== undefined && { phoneNumber: updateUserProfileDto.phoneNumber }),
         ...(updateUserProfileDto.dateOfBirth !== undefined && {
           dateOfBirth: updateUserProfileDto.dateOfBirth ? new Date(updateUserProfileDto.dateOfBirth) : null
@@ -101,6 +105,7 @@ export class UserProfileService {
         ...(updateUserProfileDto.expType !== undefined && { expType: updateUserProfileDto.expType }),
         ...(updateUserProfileDto.biography !== undefined && { biography: updateUserProfileDto.biography }),
         ...(updateUserProfileDto.profilePicture !== undefined && { profilePicture: updateUserProfileDto.profilePicture }),
+        ...((updateUserProfileDto as any).oneRm !== undefined && { oneRm: (updateUserProfileDto as any).oneRm }),
         // preferences
         ...((updateUserProfileDto as any).preferredCoachGender !== undefined && { preferredCoachGender: (updateUserProfileDto as any).preferredCoachGender }),
         ...((updateUserProfileDto as any).trainingBudget !== undefined && { trainingBudget: (updateUserProfileDto as any).trainingBudget }),
@@ -122,6 +127,7 @@ export class UserProfileService {
         expType: true,
         biography: true,
         profilePicture: true,
+        oneRm: true,
         premiumStatus: true,
         isEmailVerified: true,
         createdAt: true,
@@ -156,6 +162,7 @@ export class UserProfileService {
         expType: true,
         biography: true,
         profilePicture: true,
+        oneRm: true,
         premiumStatus: true,
         isEmailVerified: true,
         createdAt: true,

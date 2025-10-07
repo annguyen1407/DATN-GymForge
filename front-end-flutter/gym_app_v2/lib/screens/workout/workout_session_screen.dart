@@ -810,7 +810,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       if (user != null) {
         setState(() {
           _userWeight = user.weight;
-          _userOneRm = user.oneRM; // optional
+          _userOneRm = user.oneRm; // optional
         });
       }
     } catch (_) {}
