@@ -66,4 +66,57 @@ class FeedbacksRepository {
       return null;
     }
   }
+
+  Future<FeedbackModel?> updateFeedback({
+    required String feedbackId,
+    required String coachId,
+    double? rating,
+    String? content,
+  }) async {
+    final body = <String, dynamic>{};
+    if (rating != null) body['rating'] = rating;
+    if (content != null) body['content'] = content;
+    if (kDebugMode) {
+      debugPrint('[API][REQ] PATCH /feedbacks/$feedbackId body=$body');
+    }
+    final res = await _api.requestJson(
+      'PATCH',
+      '/feedbacks/$feedbackId',
+      body: body,
+    );
+    if (!res.ok || res.raw is! Map) return null;
+    try {
+      final updated = FeedbackModel.fromJson(
+        (res.raw as Map).cast<String, dynamic>(),
+      );
+      final list = _cache[coachId];
+      if (list != null) {
+        final idx = list.indexWhere((f) => f.id == feedbackId);
+        if (idx != -1) {
+          list[idx] = updated;
+          // keep ordering by createdAt (assuming unchanged) else re-sort
+        }
+      }
+      return updated;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[API][ERR] parse feedback update: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteFeedback({
+    required String feedbackId,
+    required String coachId,
+  }) async {
+    if (kDebugMode) {
+      debugPrint('[API][REQ] DELETE /feedbacks/$feedbackId');
+    }
+    final res = await _api.requestJson('DELETE', '/feedbacks/$feedbackId');
+    if (!res.ok) return false;
+    final list = _cache[coachId];
+    if (list != null) {
+      list.removeWhere((f) => f.id == feedbackId);
+    }
+    return true;
+  }
 }

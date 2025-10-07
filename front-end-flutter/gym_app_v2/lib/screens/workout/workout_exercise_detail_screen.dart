@@ -15,6 +15,9 @@ import 'workout_session_screen.dart';
 import 'add_exercise/select_muscle_group_screen.dart';
 import '../../widgets/date/app_date_picker.dart';
 import '../../utils/date_utils.dart';
+import '../../repositories/current_user_repository.dart';
+import '../../utils/calorie_formula.dart';
+import '../../core/api/api_client.dart';
 
 /// Screen hiển thị chi tiết một ngày tập: danh sách bài tập, equipment cần thiết,
 /// cùng menu hành động (sửa / xoá) ở góc phải trên.
@@ -48,6 +51,7 @@ class _WorkoutExerciseDetailScreenState
   final _repo = WorkoutDayExercisesRepository();
   final _exerciseRepo = ExercisesRepository();
   final _plansRepo = WorkoutPlansRepository();
+  final _currentUserRepo = CurrentUserRepository();
 
   bool _loading = true;
   String? _error;
@@ -55,11 +59,76 @@ class _WorkoutExerciseDetailScreenState
   bool _preloadingGifs =
       false; // trạng thái preload media trước khi vào session
   double _preloadProgress = 0; // 0..1
+  String? _currentUserId;
+  String? _planOwnerUserId; // userId của chủ plan (lấy từ plan meta)
+  bool _loadingOwner = false;
+  double _estimatedCalories = 0; // kcal ước tính dựa trên danh sách bài tập
+  double? _ownerWeight; // kg của chủ sở hữu kế hoạch
+  double? _ownerOneRm; // 1RM tổng quát (nếu backend trả về)
 
   @override
   void initState() {
     super.initState();
     _fetch();
+    _loadOwnership();
+  }
+
+  Future<void> _loadOwnership() async {
+    if (_loadingOwner) return;
+    setState(() => _loadingOwner = true);
+    try {
+      final profile = await _currentUserRepo.fetchProfile();
+      _currentUserId = profile?.id;
+      // Lấy plan để biết owner userId
+      final plan = await _plansRepo.getPlan(widget.workoutPlanId);
+      _planOwnerUserId = plan?.userId;
+      if (_planOwnerUserId != null) {
+        await _fetchOwnerMetrics(_planOwnerUserId!);
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      if (mounted) setState(() => _loadingOwner = false);
+    }
+  }
+
+  Future<void> _fetchOwnerMetrics(String userId) async {
+    // Thử gọi endpoint gymer trước, sau đó coach nếu thất bại.
+    final api = ApiClient.instance;
+    Future<bool> tryEndpoint(String path) async {
+      final res = await api.requestJson('GET', path);
+      if (!res.ok || res.raw is! Map) return false;
+      final map = (res.raw as Map).cast<String, dynamic>();
+      // Một số thiết kế có thể trả weight / oneRm trực tiếp hoặc lồng trong profile/userProfile
+      double? w;
+      double? orm;
+      if (map['weight'] is num) w = (map['weight'] as num).toDouble();
+      if (map['oneRm'] is num) orm = (map['oneRm'] as num).toDouble();
+      // nested profile
+      final profile = map['profile'] ?? map['userProfile'];
+      if (profile is Map) {
+        if (w == null && profile['weight'] is num) {
+          w = (profile['weight'] as num).toDouble();
+        }
+        if (orm == null && profile['oneRm'] is num) {
+          orm = (profile['oneRm'] as num).toDouble();
+        }
+      }
+      if (w != null || orm != null) {
+        setState(() {
+          _ownerWeight = w;
+          _ownerOneRm = orm;
+        });
+        _recomputeCalories();
+      }
+      return true; // coi là thành công dù thiếu field để tránh thử endpoint khác không cần thiết
+    }
+
+    // /gymers/user/{userId}
+    final gymerOk = await tryEndpoint('/gymers/user/$userId');
+    if (!gymerOk) {
+      await tryEndpoint('/coaches/user/$userId');
+    }
   }
 
   Future<void> _fetch() async {
@@ -91,11 +160,33 @@ class _WorkoutExerciseDetailScreenState
       );
       if (!mounted) return;
       setState(() => _exercises = detailed);
+      _recomputeCalories();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _recomputeCalories() {
+    // Dùng công thức CalorieFormula với weight / oneRm của chủ sở hữu nếu có; fallback nội bộ khi null.
+    double total = 0;
+    for (final ex in _exercises) {
+      final sets = ex.sets > 0 ? ex.sets : 1;
+      final reps = ex.repsCount > 0 ? ex.repsCount : 8;
+      final met = ex.met.toDouble();
+      final load = ex.weight.toDouble();
+      for (int i = 0; i < sets; i++) {
+        total += CalorieFormula.caloriesForSet(
+          metBase: met,
+          loadUsed: load,
+          oneRm: _ownerOneRm,
+          bodyWeight: _ownerWeight,
+          reps: reps,
+        );
+      }
+    }
+    _estimatedCalories = total;
   }
 
   Future<void> _handleDayAction(DayAction action) async {
@@ -245,7 +336,7 @@ class _WorkoutExerciseDetailScreenState
           children: [
             _buildHeader(context),
             Expanded(child: _buildExercisesSection()),
-            _buildStartButton(),
+            if (_shouldShowStartButton()) _buildStartButton(),
           ],
         ),
         floatingActionButton: _buildFab(),
@@ -253,9 +344,17 @@ class _WorkoutExerciseDetailScreenState
     );
   }
 
+  bool _shouldShowStartButton() {
+    // Ẩn nếu chưa load owner hoàn tất (tránh nháy), hoặc nếu xác định current != owner
+    if (_loadingOwner) return false; // đợi xác định
+    if (_planOwnerUserId == null || _currentUserId == null)
+      return false; // thiếu dữ liệu => ẩn
+    return _planOwnerUserId == _currentUserId;
+  }
+
   Widget _buildHeader(BuildContext context) {
     return SizedBox(
-      height: 400,
+      height: 270,
       width: double.infinity,
       child: Stack(
         children: [
@@ -335,46 +434,18 @@ class _WorkoutExerciseDetailScreenState
                       size: 16,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      widget.calories,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'You\'ll Need',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, anim) =>
+                          FadeTransition(opacity: anim, child: child),
                       child: Text(
-                        '2 Items',
+                        '${_estimatedCalories.round()} kcal',
+                        key: ValueKey(_estimatedCalories.round()),
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _buildEquipmentItem('Barbell', Icons.fitness_center),
-                    const SizedBox(width: 16),
-                    _buildEquipmentItem(
-                      'Skipping Rope',
-                      Icons.sports_gymnastics,
                     ),
                   ],
                 ),
@@ -487,6 +558,7 @@ class _WorkoutExerciseDetailScreenState
                                   restTime: rest,
                                   muscleGroupNames: exercise.muscleGroupNames,
                                 );
+                                _recomputeCalories();
                               });
                             }
                           },
@@ -658,33 +730,7 @@ class _WorkoutExerciseDetailScreenState
     );
   }
 
-  Widget _buildEquipmentItem(String name, IconData icon) {
-    return Container(
-      width: 120,
-      height: 80,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[800]?.withOpacityRatio(0.6),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.white70, size: 28),
-          const SizedBox(height: 6),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+  // Equipment section removed as per requirement.
 
   Widget _gradientFallback() {
     return Container(

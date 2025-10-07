@@ -115,8 +115,10 @@ class _PlanTabState extends State<PlanTab> {
               );
             }
             final rawData = snapshot.data ?? [];
-            // Lọc bỏ các plan là template
-            final data = rawData.where((p) => !p.isTemplate).toList();
+            // Lọc: chỉ kế hoạch KHÔNG phải template và không gắn trainingRequest (trainingRequestId == null)
+            final data = rawData
+                .where((p) => !p.isTemplate && p.trainingRequestId == null)
+                .toList();
             if (data.isEmpty) {
               return _EmptyState(onRefresh: () => _initAndFetch(force: true));
             }

@@ -10,11 +10,11 @@ import '../../models/subscription_plan_model.dart';
 import '../../widgets/animations/animated_appear.dart';
 import '../../widgets/skeleton/skeleton_box.dart';
 import 'package:flutter/services.dart';
-// import 'package:health/health.dart';
 import '../../services/log_out_service.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
 import 'user_info_screen.dart';
+import '../../widgets/app_snack_bar.dart';
 
 /// UserScreen: Tab "User" hiển thị thông tin cá nhân, avatar, thống kê, menu tài khoản
 class UserScreen extends StatefulWidget {
@@ -652,6 +652,23 @@ class _PlanCard extends StatelessWidget {
     return '${buf.toString()} $currency';
   }
 
+  Future<void> _performPurchase(BuildContext context) async {
+    final repo = SubscriptionsRepository.instance;
+    AppSnackBar.showInfo(context, 'Đang xử lý thanh toán...');
+    final ok = await repo.purchase(
+      planId: plan.id,
+      method: 'MOMO',
+      providerToken: 'string',
+    );
+    if (!context.mounted) return;
+    if (ok) {
+      AppSnackBar.showSuccess(context, 'Mua gói thành công');
+      Navigator.pop(context, 'upgraded');
+    } else {
+      AppSnackBar.showError(context, 'Thanh toán thất bại');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -727,10 +744,7 @@ class _PlanCard extends StatelessWidget {
             label: 'Chọn gói này',
             size: AppButtonSize.small,
             fullWidth: false,
-            onPressed: () {
-              // Directly return selected plan (no simulated Apple sheet now)
-              Navigator.pop(context, plan);
-            },
+            onPressed: () => _performPurchase(context),
           ),
         ],
       ),

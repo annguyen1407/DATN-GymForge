@@ -5,6 +5,7 @@ import 'explore_tab.dart';
 import 'plan_tab.dart';
 import 'expert_tab.dart';
 import '../../widgets/animations/animated_appear.dart';
+import '../../repositories/current_user_repository.dart';
 
 /// WorkoutScreen: Tab "Workout" hiển thị các nhóm workout, tab, search, category icon
 class WorkoutScreen extends StatefulWidget {
@@ -18,6 +19,12 @@ class WorkoutScreen extends StatefulWidget {
 class _WorkoutScreenState extends State<WorkoutScreen>
     with SingleTickerProviderStateMixin {
   late TabController _controller;
+  final _currentUserRepo = CurrentUserRepository();
+  String? _role; // COACH | GYMER | ADMIN
+  bool _loadingRole = false;
+  int _lastAllowedIndex =
+      0; // lưu tab cuối cùng hợp lệ (không phải expert khi bị disable)
+  bool _reverting = false; // cờ tránh loop khi ép quay lại
 
   @override
   void initState() {
@@ -27,16 +34,38 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       vsync: this,
       initialIndex: widget.initialTabIndex.clamp(0, 2),
     );
-    _controller.addListener(() {
-      if (mounted) setState(() {}); // rebuild to update isActive flag
-    });
+    _controller.addListener(_handleTabChange);
+    _loadRole();
   }
 
   @override
   void dispose() {
-    _controller.removeListener(() {}); // safe cleanup (listener inline no-op)
+    _controller.removeListener(_handleTabChange);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!mounted) return;
+    final disabledExpert = _role != null && _role != 'GYMER';
+    final idx = _controller.index;
+    if (disabledExpert && idx == 2 && !_reverting) {
+      // Không cho vào tab chuyên gia -> revert
+      _reverting = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.animateTo(_lastAllowedIndex);
+        }
+      });
+    } else if (idx != 2) {
+      _lastAllowedIndex = idx;
+    }
+    if (_reverting) {
+      Future.delayed(const Duration(milliseconds: 240), () {
+        if (mounted) _reverting = false;
+      });
+    }
+    setState(() {}); // cập nhật isActive
   }
 
   @override
@@ -49,22 +78,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           backgroundColor: Colors.black,
           elevation: 0,
           toolbarHeight: 0, // no visible toolbar, only the tab bar
-          bottom: PillTabBar(
-            controller: _controller,
-            labels: const ['Khám phá', 'Kế hoạch', 'Chuyên gia'],
-            // Match previous look: slightly larger font
-            labelStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-            indicatorOpacity: 0.22,
-            height: kTextTabBarHeight + 20,
-            horizontalPadding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-          ),
+          bottom: _buildTabBar(),
         ),
         body: SafeArea(
           top: false,
@@ -92,7 +106,20 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                   _AnimatedTabWrapper(
                     index: 2,
                     controller: _controller,
-                    child: const ExpertTab(),
+                    child: IgnorePointer(
+                      ignoring: _role != null && _role != 'GYMER',
+                      child: Opacity(
+                        opacity: _role != null && _role != 'GYMER' ? 0.35 : 1,
+                        child: ExpertTab(
+                          key: ValueKey(
+                            'ExpertTab-${_controller.index}-${_role ?? 'unknown'}',
+                          ),
+                          isActive:
+                              _controller.index == 2 &&
+                              (_role == null || _role == 'GYMER'),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               );
@@ -101,6 +128,82 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         ),
       ),
     );
+  }
+
+  PreferredSizeWidget _buildTabBar() {
+    final disabled = _role != null && _role != 'GYMER';
+    // Sử dụng labels chuẩn của PillTabBar để giữ nguyên kích thước pill tím như cũ
+    // Sau đó overlay chặn tab Expert.
+    final tabBar = PillTabBar(
+      controller: _controller,
+      labels: const ['Khám phá', 'Kế hoạch', 'Chuyên gia'],
+      labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
+      indicatorOpacity: 0.22,
+      height: kTextTabBarHeight + 20,
+      horizontalPadding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+    );
+
+    if (!disabled) return tabBar;
+
+    // Khi disable: dùng LayoutBuilder để tính width mỗi tab và đặt Positioned trực tiếp (tránh ParentDataWidget lỗi)
+    return PreferredSize(
+      preferredSize: tabBar.preferredSize,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final each = w / 3;
+          return Stack(
+            children: [
+              tabBar,
+              Positioned(
+                left: each * 2,
+                top: 0,
+                width: each,
+                height: tabBar.preferredSize.height,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    final messenger = ScaffoldMessenger.maybeOf(context);
+                    messenger?.hideCurrentSnackBar();
+                    messenger?.showSnackBar(
+                      const SnackBar(
+                        content: Text('Tab Chuyên gia chỉ dành cho Gymer'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _loadRole() async {
+    if (_loadingRole) return;
+    setState(() => _loadingRole = true);
+    try {
+      final profile = await _currentUserRepo.fetchProfile();
+      if (!mounted) return;
+      setState(() => _role = profile?.role);
+    } catch (_) {
+      // ignore errors; keep role null (treated as gymer until known)
+    } finally {
+      if (mounted) setState(() => _loadingRole = false);
+    }
   }
 }
 

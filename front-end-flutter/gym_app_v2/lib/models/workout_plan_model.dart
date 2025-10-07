@@ -16,6 +16,8 @@ class WorkoutPlanModel {
   final int exercisesCount;
   final String? userName;
   final String? userEmail;
+  // Link to a coach-gymer training request (nullable if plan not tied to a contract)
+  final String? trainingRequestId;
 
   WorkoutPlanModel({
     required this.id,
@@ -31,6 +33,7 @@ class WorkoutPlanModel {
     required this.exercisesCount,
     this.userName,
     this.userEmail,
+    this.trainingRequestId,
   });
 
   factory WorkoutPlanModel.fromJson(JsonMap json) {
@@ -52,6 +55,7 @@ class WorkoutPlanModel {
           : 0,
       userName: user is Map ? user['name'] as String? : null,
       userEmail: user is Map ? user['email'] as String? : null,
+      trainingRequestId: json['trainingRequestId'] as String?,
     );
   }
 }

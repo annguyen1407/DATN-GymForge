@@ -160,6 +160,7 @@ class WorkoutPlansRepository {
     int? days,
     String? picture,
     bool isTemplate = false,
+    String? trainingRequestId,
   }) async {
     final body = {
       'userId': userId,
@@ -174,6 +175,8 @@ class WorkoutPlansRepository {
       'isTemplate': isTemplate, // always false per requirement now
       // picture currently null -> omit if empty
       if (picture != null && picture.isNotEmpty) 'picture': picture,
+      if (trainingRequestId != null && trainingRequestId.isNotEmpty)
+        'trainingRequestId': trainingRequestId,
     };
     const path = '/workout-plans';
     _logReq('POST', path, body: body);

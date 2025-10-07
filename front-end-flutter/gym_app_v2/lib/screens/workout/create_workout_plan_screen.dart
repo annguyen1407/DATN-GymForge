@@ -12,7 +12,12 @@ import '../../widgets/app_button.dart';
 
 class CreateWorkoutPlanScreen extends StatefulWidget {
   final String userId;
-  const CreateWorkoutPlanScreen({super.key, required this.userId});
+  final String? trainingRequestId; // optional link to coach-gymer contract
+  const CreateWorkoutPlanScreen({
+    super.key,
+    required this.userId,
+    this.trainingRequestId,
+  });
 
   @override
   State<CreateWorkoutPlanScreen> createState() =>
@@ -104,7 +109,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
         }
       }
       final plan = await _repo.createPlan(
-        userId: widget.userId,
+        userId: widget.userId, // gymer user id (not coach)
         name: _nameCtrl.text.trim(),
         description: _descCtrl.text.trim().isEmpty
             ? null
@@ -112,6 +117,7 @@ class _CreateWorkoutPlanScreenState extends State<CreateWorkoutPlanScreen> {
         planType: _selectedPlanType,
         days: 0,
         picture: pictureUrl,
+        trainingRequestId: widget.trainingRequestId,
       );
       if (!mounted) return; // widget still active?
       if (plan != null) {
