@@ -15,6 +15,7 @@ import '../../widgets/destructive_confirm_sheet.dart';
 import '../../utils/date_utils.dart';
 import '../../widgets/plan_type_badge.dart';
 import '../../services/storage_service.dart';
+import '../../repositories/current_user_repository.dart';
 
 /// WorkoutDetailScreen: Màn hình chi tiết kế hoạch tập luyện khi click vào WorkoutCard
 /// Hiển thị danh sách các ngày tập của một kế hoạch tập luyện
@@ -40,6 +41,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
     with TickerProviderStateMixin {
   int? selectedExerciseIndex;
   final _repo = WorkoutPlansRepository();
+  final _currentUserRepo = CurrentUserRepository();
   Future<List<WorkoutDayModel>>? _futureDays;
   List<WorkoutDayModel> _days = [];
   bool _creating = false;
@@ -50,6 +52,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
   String? _planDescription;
   String? _planType; // FLEXIBILITY, STRENGTH, CARDIO, COMBINED
   String? _planImageUrl; // current remote picture url
+  String? _planOwnerUserId; // owner userId of plan (for permission)
+  String? _currentUserId; // logged in user id
   bool _loadingPlanMeta = false;
   // Description expansion state
   bool _descExpanded = false;
@@ -140,6 +144,17 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
     _planDescription = widget.description;
     _futureDays = _fetchDays();
     _loadPlanMeta();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final profile = await _currentUserRepo.fetchProfile();
+      if (!mounted) return;
+      setState(() => _currentUserId = profile?.id);
+    } catch (_) {
+      // silent fail; treat as not owner
+    }
   }
 
   Future<void> _loadPlanMeta() async {
@@ -153,6 +168,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
         setState(() {
           _planType = plan.planType != 'UNKNOWN' ? plan.planType : _planType;
           _planImageUrl = plan.picture ?? _planImageUrl;
+          _planOwnerUserId = plan.userId; // capture owner for permission check
           // Only override name/description if they weren't provided (defensive)
           if (_planName.isEmpty) {
             _planName = plan.name;
@@ -879,67 +895,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
                               ),
                               onPressed: _handlePop,
                             ),
-                            PlanActionsMenu(
-                              onAction: (action) async {
-                                switch (action) {
-                                  case PlanAction.edit:
-                                    await _openEditPlanDialog();
-                                    break;
-                                  case PlanAction.delete:
-                                    final currentContext = context; // capture
-                                    final confirmed = await showModalBottomSheet<bool>(
-                                      context: currentContext,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (ctx) => DestructiveConfirmSheet(
-                                        title: 'Xoá kế hoạch',
-                                        message:
-                                            'Bạn chắc chắn muốn xoá kế hoạch này? Hành động không thể hoàn tác.',
-                                        confirmLabel: 'Xoá',
-                                        onConfirm: () =>
-                                            Navigator.pop(ctx, true),
-                                      ),
-                                    );
-                                    if (!mounted || confirmed != true) return;
-                                    try {
-                                      final deleted = await _repo.deletePlan(
-                                        widget.planId,
-                                      );
-                                      if (!mounted) return;
-                                      if (deleted != null) {
-                                        // Delete remote image after successful plan deletion
-                                        if (deleted.picture != null &&
-                                            deleted.picture!.startsWith(
-                                              'http',
-                                            )) {
-                                          await StorageService.instance
-                                              .deleteByUrl(deleted.picture!);
-                                        }
-                                        AppSnackBar.showSuccess(
-                                          currentContext,
-                                          'Đã xoá kế hoạch',
-                                        );
-                                        Navigator.of(currentContext).pop({
-                                          'deleted': true,
-                                          'id': deleted.id,
-                                          'name': deleted.name,
-                                        });
-                                      } else {
-                                        AppSnackBar.showError(
-                                          currentContext,
-                                          'Xoá thất bại',
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      AppSnackBar.showError(
-                                        currentContext,
-                                        'Lỗi xoá: $e',
-                                      );
-                                    }
-                                    break;
-                                }
-                              },
-                            ),
+                            _buildPlanActionsOrDisabled(),
                           ],
                         ),
                       ),
@@ -1333,6 +1289,77 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+extension _PlanActionsExt on _WorkoutDetailScreenState {
+  Widget _buildPlanActionsOrDisabled() {
+    final isOwner =
+        _currentUserId != null && _planOwnerUserId == _currentUserId;
+    if (!isOwner) {
+      // Show disabled (faded) 3-dots icon without interaction
+      return Opacity(
+        opacity: 0.30,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacityRatio(0.05),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withOpacityRatio(0.10),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.all(6),
+          child: const Icon(Icons.more_vert, color: Colors.white, size: 18),
+        ),
+      );
+    }
+    // Owner: interactive menu
+    return PlanActionsMenu(
+      onAction: (action) async {
+        switch (action) {
+          case PlanAction.edit:
+            await _openEditPlanDialog();
+            break;
+          case PlanAction.delete:
+            final currentContext = context; // capture
+            final confirmed = await showModalBottomSheet<bool>(
+              context: currentContext,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => DestructiveConfirmSheet(
+                title: 'Xoá kế hoạch',
+                message:
+                    'Bạn chắc chắn muốn xoá kế hoạch này? Hành động không thể hoàn tác.',
+                confirmLabel: 'Xoá',
+                onConfirm: () => Navigator.pop(ctx, true),
+              ),
+            );
+            if (!mounted || confirmed != true) return;
+            try {
+              final deleted = await _repo.deletePlan(widget.planId);
+              if (!mounted) return;
+              if (deleted != null) {
+                if (deleted.picture != null &&
+                    deleted.picture!.startsWith('http')) {
+                  await StorageService.instance.deleteByUrl(deleted.picture!);
+                }
+                AppSnackBar.showSuccess(currentContext, 'Đã xoá kế hoạch');
+                Navigator.of(currentContext).pop({
+                  'deleted': true,
+                  'id': deleted.id,
+                  'name': deleted.name,
+                });
+              } else {
+                AppSnackBar.showError(currentContext, 'Xoá thất bại');
+              }
+            } catch (e) {
+              if (!mounted) return;
+              AppSnackBar.showError(currentContext, 'Lỗi xoá: $e');
+            }
+            break;
+        }
+      },
     );
   }
 }

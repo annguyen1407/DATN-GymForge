@@ -1,5 +1,5 @@
 import { Controller, Post, Patch, Get, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { UserProfileService } from './user-profile.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
@@ -36,6 +36,29 @@ export class UserProfileController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 403, description: 'Forbidden - can only update own profile' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({
+    description: 'Any subset of profile fields to update',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'John Nguyen' },
+        phoneNumber: { type: 'string', example: '+1234567890' },
+        dateOfBirth: { type: 'string', format: 'date', example: '1990-01-01' },
+        sex: { type: 'string', example: 'MALE' },
+        address: { type: 'string', example: '123 Main St, City, Country' },
+        weight: { type: 'number', example: 70.5 },
+        height: { type: 'number', example: 175 },
+        oneRm: { type: 'number', example: 120.0, description: 'Estimated 1RM (kg)' },
+        goal: { type: 'string', example: 'LOSE_WEIGHT' },
+        expType: { type: 'string', example: 'Beginner' },
+        biography: { type: 'string', example: 'Fitness enthusiast with 5 years of experience' },
+        profilePicture: { type: 'string', format: 'uri', example: 'https://example.com/profile-picture.jpg' },
+        preferredCoachGender: { type: 'string', example: 'MALE' },
+        trainingBudget: { type: 'number', example: 200000 },
+        availableTime: { type: 'string', example: 'MORNING' },
+      },
+    },
+  })
   async updateProfile(
     @CurrentUser() user: User,
     @Body() updateUserProfileDto: UpdateUserProfileDto,

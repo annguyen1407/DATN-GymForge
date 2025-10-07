@@ -295,7 +295,8 @@ export class WorkoutPlansService {
         userId: createData.userId,
         name: createData.name || `${template.name} (Copy)`,
         description: createData.description || template.description,
-        picture: template.picture,
+        // Force picture to null instead of copying from template
+        picture: null,
         planType: template.planType,
         status: template.status,
         days: template.days,

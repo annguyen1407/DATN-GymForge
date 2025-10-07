@@ -17,8 +17,13 @@ class _CoachesScreenState extends State<CoachesScreen> {
   bool _loading = false;
   bool _error = false;
   String? _errorMessage;
-  bool _loadingMore = false; // currently not used (list fetched full)
-  // bool _endReached = false; // reserved for future pagination
+  // Removed old load-more state; numbered pagination in use
+  // Numbered pagination state (first page has different size)
+  int _currentPage = 1; // 1-based
+  static const int _firstPageSize = 4; // rest cards shown on first page
+  static const int _otherPageSize = 6; // rest cards per subsequent page
+  int _totalPages = 1; // computed after data load
+  List<CoachModel> _cachedFull = [];
   CoachesQuery _query = const CoachesQuery(
     sortBy: 'rating',
     sortOrder: 'desc',
@@ -32,7 +37,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
   }
 
   Future<void> _fetch({bool initial = false, bool refresh = false}) async {
-    if (_loading || _loadingMore) return;
+    if (_loading) return;
     if (initial) {
       setState(() {
         _loading = true;
@@ -44,12 +49,14 @@ class _CoachesScreenState extends State<CoachesScreen> {
         _error = false;
         _errorMessage = null;
       });
-    } else {
-      setState(() => _loadingMore = true);
     }
     try {
-      final list = await _repo.fetch(_query, forceRefresh: initial || refresh);
-      if (list.isEmpty && _all.isEmpty) {
+      // Fetch full list once (backend paging not yet used) and derive pages client-side.
+      final fullList = await _repo.fetch(
+        _query,
+        forceRefresh: initial || refresh,
+      );
+      if ((fullList.isEmpty) && _cachedFull.isEmpty) {
         setState(() {
           _error = true;
           _errorMessage = 'Không có dữ liệu';
@@ -57,12 +64,12 @@ class _CoachesScreenState extends State<CoachesScreen> {
       } else {
         setState(() {
           if (initial || refresh) {
-            _all
-              ..clear()
-              ..addAll(list);
-            // pagination inactive: ignoring end detection
+            _cachedFull = fullList;
+            _recomputeTotalPages();
+            _currentPage = 1;
+            _rebuildPagedList();
           } else {
-            // pagination inactive
+            // Not used: no incremental load-more in numbered mode
           }
         });
       }
@@ -74,9 +81,39 @@ class _CoachesScreenState extends State<CoachesScreen> {
     } finally {
       setState(() {
         _loading = false;
-        _loadingMore = false;
       });
     }
+  }
+
+  void _recomputeTotalPages() {
+    // Exclude top2 from pagination base if we have more than 2
+    final restCount = _cachedFull.length > 2 ? _cachedFull.length - 2 : 0;
+    if (restCount <= 0) {
+      _totalPages = 1;
+    } else if (restCount <= _firstPageSize) {
+      // All fit into first page
+      _totalPages = 1;
+    } else {
+      final remaining = restCount - _firstPageSize;
+      final additionalPages = (remaining / _otherPageSize).ceil();
+      _totalPages = 1 + additionalPages;
+    }
+    if (_totalPages < 1) _totalPages = 1;
+    if (_currentPage > _totalPages) _currentPage = _totalPages;
+  }
+
+  void _rebuildPagedList() {
+    _all
+      ..clear()
+      ..addAll(
+        _cachedFull,
+      ); // Keep full for top2 slicing; list view will slice per page
+    setState(() {});
+  }
+
+  void _goToPage(int page) {
+    if (page < 1 || page > _totalPages) return;
+    setState(() => _currentPage = page);
   }
 
   Future<void> _refresh() async {
@@ -88,7 +125,8 @@ class _CoachesScreenState extends State<CoachesScreen> {
   @override
   Widget build(BuildContext context) {
     final top2 = _all.take(2).toList();
-    final rest = _all.length > 2 ? _all.sublist(2) : <CoachModel>[];
+    final restAll = _all.length > 2 ? _all.sublist(2) : <CoachModel>[];
+    final pagedRest = _paginateRest(restAll);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -124,7 +162,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
         body: RefreshIndicator(
           onRefresh: _refresh,
           color: Colors.purpleAccent,
-          child: _buildBody(top2, rest),
+          child: _buildBody(top2, pagedRest),
         ),
       ),
     );
@@ -160,9 +198,10 @@ class _CoachesScreenState extends State<CoachesScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (top2.isNotEmpty) _sectionTitle('Huấn luyện viên nổi bật'),
-        if (top2.isNotEmpty) const SizedBox(height: 16),
-        if (top2.isNotEmpty)
+        if (_currentPage == 1 && top2.isNotEmpty)
+          _sectionTitle('Huấn luyện viên nổi bật'),
+        if (_currentPage == 1 && top2.isNotEmpty) const SizedBox(height: 16),
+        if (_currentPage == 1 && top2.isNotEmpty)
           Row(
             children: [
               for (int i = 0; i < top2.length; i++) ...[
@@ -171,7 +210,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
               ],
             ],
           ),
-        if (top2.isNotEmpty) const SizedBox(height: 32),
+        if (_currentPage == 1 && top2.isNotEmpty) const SizedBox(height: 32),
         _sectionTitle('Tất cả huấn luyện viên'),
         const SizedBox(height: 16),
         if (rest.isEmpty && top2.isEmpty && !_loading) _emptyState(),
@@ -179,16 +218,129 @@ class _CoachesScreenState extends State<CoachesScreen> {
           _buildCoachListItem(c),
           const SizedBox(height: 12),
         ],
-        if (_loadingMore)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-        // Pagination button hidden (not applicable currently)
+        if (!_loading && rest.isNotEmpty) _paginationBar(),
         const SizedBox(height: 40),
       ],
     );
   }
+
+  List<CoachModel> _paginateRest(List<CoachModel> restAll) {
+    // On page 1, show first slice; subsequent pages show appropriate segment
+    if (restAll.isEmpty) return restAll;
+    if (_currentPage == 1) {
+      final end = _firstPageSize < restAll.length
+          ? _firstPageSize
+          : restAll.length;
+      return restAll.sublist(0, end);
+    }
+    // Adjust for first page chunk
+    final afterFirst = restAll.skip(_firstPageSize).toList();
+    final idxPage = _currentPage - 2; // zero-based index among subsequent pages
+    final start = idxPage * _otherPageSize;
+    final end = start + _otherPageSize;
+    final safeStart = start < 0
+        ? 0
+        : (start > afterFirst.length ? afterFirst.length : start);
+    final safeEnd = end < 0
+        ? 0
+        : (end > afterFirst.length ? afterFirst.length : end);
+    return afterFirst.sublist(safeStart, safeEnd);
+  }
+
+  Widget _paginationBar() {
+    if (_totalPages <= 1) return const SizedBox.shrink();
+    final items = _buildPaginationItems();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 6,
+        runSpacing: 6,
+        children: items,
+      ),
+    );
+  }
+
+  List<Widget> _buildPaginationItems() {
+    final List<Widget> widgets = [];
+    // Helper to add button
+    void addBtn(int p) {
+      final isCurrent = p == _currentPage;
+      widgets.add(
+        GestureDetector(
+          onTap: isCurrent ? null : () => _goToPage(p),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: isCurrent
+                  ? const LinearGradient(
+                      colors: [Color(0xFF4E4376), Color(0xFF2B5876)],
+                    )
+                  : const LinearGradient(
+                      colors: [Color(0xFF26262A), Color(0xFF1E1E21)],
+                    ),
+              border: Border.all(
+                color: Colors.white.withOpacity(isCurrent ? .25 : .08),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              '$p',
+              style: TextStyle(
+                color: Colors.white.withOpacity(isCurrent ? .95 : .65),
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                letterSpacing: .2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Generate sequence with ellipses
+    final int total = _totalPages;
+    final int current = _currentPage;
+    List<int> corePages = [];
+    if (total <= 7) {
+      corePages = List.generate(total, (i) => i + 1);
+    } else {
+      corePages.add(1);
+      corePages.add(2);
+      final startWindow = (current - 1).clamp(3, total - 2);
+      final endWindow = (current + 1).clamp(3, total - 2);
+      for (int p = startWindow; p <= endWindow; p++) {
+        corePages.add(p);
+      }
+      corePages.add(total - 1);
+      corePages.add(total);
+      corePages = corePages.toSet().toList()..sort();
+    }
+
+    int? prev;
+    for (final p in corePages) {
+      if (prev != null && p - prev > 1) {
+        widgets.add(_ellipsis());
+      }
+      addBtn(p);
+      prev = p;
+    }
+    return widgets;
+  }
+
+  Widget _ellipsis() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    child: Text(
+      '…',
+      style: TextStyle(
+        color: Colors.white.withOpacity(.45),
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 
   Widget _sectionTitle(String text) => Text(
     text,
@@ -334,19 +486,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
         ),
         child: Column(
           children: [
-            Container(
-              width: 84,
-              height: 84,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 44),
-            ),
+            _CoachAvatar(url: coach.user?.profilePicture, size: 84),
             const SizedBox(height: 12),
             Text(
               coach.user?.name ?? '—',
@@ -411,17 +551,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                ),
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 30),
-            ),
+            _CoachAvatar(url: coach.user?.profilePicture, size: 56),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -442,7 +572,7 @@ class _CoachesScreenState extends State<CoachesScreen> {
                     children: [
                       if (coach.trainingPrice != null)
                         _tag(
-                          '${coach.trainingPrice!.toStringAsFixed(0)}\$/Gói tập',
+                          '${coach.trainingPrice!.toStringAsFixed(0)} VNĐ/Gói tập',
                         ),
                     ],
                   ),
@@ -556,6 +686,71 @@ class _CoachTopSkeleton extends StatelessWidget {
           const SizedBox(height: 12),
           _skBar(width: 90, height: 10, opacity: .3),
         ],
+      ),
+    );
+  }
+}
+
+class _CoachAvatar extends StatelessWidget {
+  final String? url;
+  final double size;
+  const _CoachAvatar({required this.url, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final borderGradient = const LinearGradient(
+      colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    if (url == null || url!.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: borderGradient,
+        ),
+        child: Icon(Icons.person, color: Colors.white, size: size * .52),
+      );
+    }
+    return ClipOval(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: borderGradient,
+        ),
+        child: Image.network(
+          url!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: Colors.white.withOpacity(.08),
+            child: Icon(Icons.person, color: Colors.white, size: size * .52),
+          ),
+          loadingBuilder: (c, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              alignment: Alignment.center,
+              color: Colors.white.withOpacity(.05),
+              child: SizedBox(
+                width: size * .4,
+                height: size * .4,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Colors.white70,
+                  ),
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                            (progress.expectedTotalBytes ?? 1)
+                      : null,
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -4,7 +4,9 @@ import '../../repositories/coaches_repository.dart';
 import '../../repositories/feedbacks_repository.dart';
 import '../../repositories/current_user_repository.dart';
 import '../../repositories/training_requests_repository.dart';
+import '../../repositories/appointments_repository.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/appointment_scheduler_bottom_sheet.dart';
 import '../../models/coach_model.dart';
 import '../../models/feedback_model.dart';
 import '../chat/chat_screen.dart';
@@ -23,6 +25,7 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
   final _feedbackRepo = FeedbacksRepository();
   final _currentUserRepo = CurrentUserRepository();
   final _trainingRepo = TrainingRequestsRepository();
+  final _appointmentsRepo = AppointmentsRepository();
   CoachModel? _coach;
   bool _loading = true;
   bool _error = false;
@@ -44,6 +47,7 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
   bool? _trainingAccepted; // null => not loaded or not gymer
   bool _hasAcceptedElsewhere =
       false; // already has an accepted contract with another coach
+  String? _acceptedTrainingRequestId; // track id to allow cancellation
 
   @override
   void initState() {
@@ -88,9 +92,11 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
     });
     final list = await _trainingRepo.fetch(gymerId: gymerId, coachId: coachId);
     if (!mounted) return;
-    final accepted = list.any((r) => r.status == 'ACCEPTED');
+    final acceptedItem = list.where((r) => r.status == 'ACCEPTED').toList();
+    final accepted = acceptedItem.isNotEmpty;
     setState(() {
       _trainingAccepted = accepted;
+      _acceptedTrainingRequestId = accepted ? acceptedItem.first.id : null;
       _trainingLoading = false;
     });
   }
@@ -179,103 +185,90 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
         ),
         // Header with reserved avatar space (transparent now)
         Container(
-          height: 400,
           padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 24,
+            top: MediaQuery.of(context).padding.top + 12,
             left: 20,
             right: 20,
-            bottom: 8,
+            bottom: 4,
           ),
-          child: Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Reserved space for future avatar (kept empty intentionally)
-              const Align(
-                alignment: Alignment(0, -0.15),
-                child: SizedBox(width: 150, height: 150),
-              ),
-              // Top bar & info overlay at bottom
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const Text(
-                        'Huấn luyện viên',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const Text(
+                    'Huấn luyện viên',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  _buildTopRightMenu(),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _CoachProfileAvatar(
+                imageUrl: coach.user?.profilePicture,
+                size: 120,
+                heroTag: 'coach_avatar_${coach.id}',
+              ),
+              const SizedBox(height: 16),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(child: _bioSection(bio)),
+                  if (_trainingAccepted == true) ...[
+                    const SizedBox(width: 12),
+                    _ScheduleAppointmentButton(
+                      onTap: () {
+                        _openScheduleAppointmentFlow();
+                      },
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  if (_currentUserRole != 'COACH') _trainingRequestIndicator(),
+                  const SizedBox(width: 12),
+                  _roundButton(
+                    icon: Icons.message,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            coachName: name,
+                            coachImage: coach.user?.profilePicture ?? '',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            height: 1.05,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          bio,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(.75),
-                            fontSize: 13,
-                            height: 1.35,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            if (_currentUserRole != 'COACH')
-                              _trainingRequestIndicator(),
-                            const SizedBox(width: 12),
-                            _roundButton(
-                              icon: Icons.message,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatScreen(
-                                      coachName: name,
-                                      coachImage:
-                                          coach.user?.profilePicture ?? '',
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _statItem('$trainings', 'Trainings'),
-                                  _statItem('$gymers', 'Gymers'),
-                                  _statItem(rating, 'Rate'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        _statItem('$trainings', 'Trainings'),
+                        _statItem('$gymers', 'Gymers'),
+                        _statItem(rating, 'Rate'),
                       ],
                     ),
                   ),
@@ -288,7 +281,7 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
         Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.55,
+            height: MediaQuery.of(context).size.height * 0.50,
             decoration: BoxDecoration(
               color: const Color(0xFF141416),
               borderRadius: const BorderRadius.vertical(
@@ -332,6 +325,145 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTopRightMenu() {
+    final canCancel =
+        _trainingAccepted == true &&
+        _acceptedTrainingRequestId != null &&
+        _currentUserRole == 'GYMER';
+    if (!canCancel) {
+      return const SizedBox(
+        width: 48,
+      ); // keep layout balance with back button width
+    }
+    return PopupMenuButton<String>(
+      onSelected: (v) {
+        if (v == 'cancel') {
+          _confirmCancelContract();
+        }
+      },
+      color: const Color(0xFF1E1E22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      offset: const Offset(
+        0,
+        12,
+      ), // push menu downward so it doesn't overlay title
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'cancel',
+          child: Text('Hủy hợp đồng', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+      child: const SizedBox(
+        width: 48,
+        height: 48,
+        child: Icon(Icons.more_vert, color: Colors.white),
+      ),
+    );
+  }
+
+  Future<void> _confirmCancelContract() async {
+    final id = _acceptedTrainingRequestId;
+    if (id == null) return;
+    bool submitting = false;
+    await showDialog(
+      context: context,
+      barrierDismissible: !submitting,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E1E22),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Hủy hợp đồng',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              content: Text(
+                'Bạn chắc chắn muốn hủy hợp đồng huấn luyện này?\n\nHành động này sẽ chấm dứt quyền truy cập vào các kế hoạch luyện tập liên quan (nếu có).',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(.75),
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting
+                      ? null
+                      : () => Navigator.pop(ctx, false),
+                  child: const Text(
+                    'Đóng',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                TextButton(
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          setSt(() => submitting = true);
+                          final ok = await _trainingRepo.remove(id: id);
+                          if (!mounted) return;
+                          Navigator.pop(ctx, ok);
+                        },
+                  child: submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Xác nhận',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((ok) async {
+      if (ok == true) {
+        // Refresh training status (will clear accepted id)
+        final roleEntity = await _currentUserRepo.fetchRoleEntity();
+        if (roleEntity is GymerByUserResult) {
+          await _fetchTrainingStatus(
+            gymerId: roleEntity.id,
+            coachId: widget.coachId,
+          );
+          await _checkTrainingEligibility(roleEntity.id);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy hợp đồng thành công'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  Widget _bioSection(String bio) {
+    return Text(
+      bio,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.start,
+      style: TextStyle(
+        color: Colors.white.withOpacity(.75),
+        fontSize: 13,
+        height: 1.35,
+      ),
     );
   }
 
@@ -456,7 +588,9 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
                         : 'Gymer',
                   ),
                   _contractInfoRow('Coach', coachName),
+                  // Start date row
                   _contractInfoRow('Bắt đầu', _formatDateTime(now)),
+                  // End date row
                   _contractInfoRow('Kết thúc', _formatDateTime(endDate)),
                   if (price != null)
                     _contractInfoRow('Giá', '${price.toStringAsFixed(0)} đ'),
@@ -600,7 +734,17 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
           f.gymer?.user?.id == _currentUserId ||
           f.coach?.user?.id == _currentUserId,
     );
-    return _currentUserId == coachUserId || already;
+    // Also disable if training not accepted (must have ACCEPTED training request)
+    final notAccepted = _trainingAccepted != true;
+    return _currentUserId == coachUserId || already || notAccepted;
+  }
+
+  bool _canModifyFeedback(FeedbackModel f) {
+    // User must be feedback author (gymer side) and have accepted training (already required to leave feedback)
+    final uid = _currentUserId;
+    if (uid == null) return false;
+    final isAuthor = f.gymer?.user?.id == uid;
+    return isAuthor;
   }
 
   Widget _commentButton({bool disabled = false}) {
@@ -649,6 +793,7 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
     required String comment,
     required int rating,
     required String date,
+    FeedbackModel? model,
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -677,23 +822,33 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            date,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(.45),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(.45),
-                        fontSize: 11,
-                      ),
-                    ),
+                    if (model != null && _canModifyFeedback(model))
+                      _feedbackMenu(model),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -955,9 +1110,253 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
           comment: comment,
           rating: f.rating,
           date: dateStr,
+          model: f,
         );
       },
     );
+  }
+
+  Widget _feedbackMenu(FeedbackModel f) {
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      color: const Color(0xFF1E1E22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (v) {
+        if (v == 'edit') {
+          _openEditFeedbackDialog(f);
+        } else if (v == 'delete') {
+          _confirmDeleteFeedback(f);
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Text('Chỉnh sửa', style: TextStyle(color: Colors.white)),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Xóa', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+      child: Icon(
+        Icons.more_vert,
+        color: Colors.white.withOpacity(.7),
+        size: 18,
+      ),
+    );
+  }
+
+  Future<void> _openEditFeedbackDialog(FeedbackModel f) async {
+    double tempRating = f.rating.toDouble();
+    final controller = TextEditingController(text: f.content ?? '');
+    bool submitting = false;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF101012),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Chỉnh sửa feedback',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final filled = i < tempRating.round();
+                      return GestureDetector(
+                        onTap: submitting
+                            ? null
+                            : () =>
+                                  setSt(() => tempRating = (i + 1).toDouble()),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            filled ? Icons.star : Icons.star_border,
+                            size: 28,
+                            color: const Color(0xFFFFB347),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.07),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(.08)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: TextField(
+                      controller: controller,
+                      enabled: !submitting,
+                      maxLines: 5,
+                      minLines: 4,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.35,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Nhập nội dung...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(.4),
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 46,
+                    child: AppButton.primary(
+                      label: 'Lưu',
+                      loading: submitting,
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              final text = controller.text.trim();
+                              if (text.isEmpty) return;
+                              setSt(() => submitting = true);
+                              final updated = await _feedbackRepo
+                                  .updateFeedback(
+                                    feedbackId: f.id,
+                                    coachId: _coach!.id,
+                                    rating: tempRating.clamp(1, 5),
+                                    content: text,
+                                  );
+                              if (!mounted) return;
+                              if (updated != null) {
+                                Navigator.pop(ctx, true);
+                              } else {
+                                setSt(() => submitting = false);
+                              }
+                            },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 44,
+                    child: AppButton.outline(
+                      label: 'Hủy',
+                      onPressed: submitting
+                          ? null
+                          : () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((success) async {
+      if (success == true) {
+        setState(() {}); // data already updated in cache; force rebuild
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteFeedback(FeedbackModel f) async {
+    bool deleting = false;
+    await showDialog(
+      context: context,
+      barrierDismissible: !deleting,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E1E22),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Xóa feedback',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              content: Text(
+                'Bạn chắc chắn muốn xóa feedback này?',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(.75),
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: deleting ? null : () => Navigator.pop(ctx, false),
+                  child: const Text(
+                    'Hủy',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                TextButton(
+                  onPressed: deleting
+                      ? null
+                      : () async {
+                          setSt(() => deleting = true);
+                          final ok = await _feedbackRepo.deleteFeedback(
+                            feedbackId: f.id,
+                            coachId: _coach!.id,
+                          );
+                          if (!mounted) return;
+                          Navigator.pop(ctx, ok);
+                        },
+                  child: deleting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Xóa',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((ok) async {
+      if (ok == true) {
+        // Rebuild list after deletion
+        await _fetchFeedbacks(force: true);
+        setState(() {});
+      }
+    });
   }
   // Removed old metric/expertise/section/action widgets (streamlined per Figma)
 
@@ -1003,6 +1402,155 @@ class _CoachDetailScreenState extends State<CoachDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openScheduleAppointmentFlow() async {
+    if (_trainingAccepted != true) return; // guard
+
+    // Fetch gymer id
+    final roleEntity = await _currentUserRepo.fetchRoleEntity();
+    if (roleEntity is! GymerByUserResult) return;
+    final gymerId = roleEntity.id;
+
+    // Load confirmed appointments for this coach to disable those days
+    final booked = await _appointmentsRepo.fetchConfirmedByCoach(
+      widget.coachId,
+    );
+
+    // Show the bottom sheet
+    AppointmentSchedulerBottomSheet.show(
+      context: context,
+      coachId: widget.coachId,
+      gymerId: gymerId,
+      bookedAppointments: booked,
+      onSuccess: () {
+        // Optional: refresh something when appointment is created successfully
+      },
+    );
+  }
+}
+
+class _CoachProfileAvatar extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+  final String? heroTag;
+  const _CoachProfileAvatar({
+    required this.imageUrl,
+    required this.size,
+    this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarCore = _buildCore();
+    return heroTag != null
+        ? Hero(tag: heroTag!, child: avatarCore)
+        : avatarCore;
+  }
+
+  Widget _buildCore() {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A00E0).withOpacity(.35),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Icon(Icons.person, color: Colors.white, size: size * .46),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4A00E0).withOpacity(.35),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: Colors.white.withOpacity(.1),
+            alignment: Alignment.center,
+            child: Icon(Icons.person, color: Colors.white, size: size * .42),
+          ),
+          loadingBuilder: (c, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: Colors.white.withOpacity(.05),
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: size * .3,
+                height: size * .3,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Colors.white70,
+                  ),
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                            (progress.expectedTotalBytes ?? 1)
+                      : null,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleAppointmentButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ScheduleAppointmentButton({required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A00E0).withOpacity(.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.event_available, color: Colors.white, size: 22),
       ),
     );
   }

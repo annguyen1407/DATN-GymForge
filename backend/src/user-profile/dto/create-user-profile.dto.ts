@@ -9,6 +9,11 @@ enum AvailableTimeDto {
 }
 
 export class CreateUserProfileDto {
+  @ApiProperty({ example: 'John Nguyen', required: false })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiProperty({ example: '+1234567890', required: false })
   @IsOptional()
   @IsString()
@@ -38,6 +43,11 @@ export class CreateUserProfileDto {
   @IsOptional()
   @IsNumber()
   height?: number;
+
+  @ApiProperty({ description: 'Estimated 1RM (kg)', example: 120.0, required: false })
+  @IsOptional()
+  @IsNumber()
+  oneRm?: number;
 
   @ApiProperty({ enum: FitnessGoal, required: false })
   @IsOptional()

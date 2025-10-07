@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'dart:math';
 import '../../services/exercise_logs_service.dart';
+import '../../services/user_service.dart';
+import '../../models/user_model.dart';
 import '../../repositories/current_user_repository.dart';
 import '../../repositories/training_requests_repository.dart';
 import '../coaches/coach_detail_screen.dart';
@@ -10,7 +12,8 @@ import '../../widgets/animations/animated_appear.dart';
 import '../../widgets/skeleton/today_stat_skeleton.dart'; // CircleAvatarSkeleton
 import '../../widgets/skeleton/skeleton_box.dart';
 import '../coaches/coaches_screen.dart';
-import '../achievements/achievements_screen.dart';
+import '../appointments/appointments_screen.dart';
+import '../coaches/coach_gymers_screen.dart';
 // import '../workout/workout_screen.dart'; // No longer pushing directly
 
 /// Data model for each discover square.
@@ -102,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<ExerciseStreak>? _streakFuture;
   bool _ptLoading = false;
   String? _resolvedRole; // added for dynamic role resolution
+  String? _profilePictureUrl; // current user's profile picture
+  UserModel? _fullUser; // cached full profile
 
   @override
   void initState() {
@@ -110,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _motivationIndex = r.nextInt(_motivations.length);
     _motivation = _motivations[_motivationIndex];
     _resolveRoleIfNeeded();
+    _loadFullProfile();
   }
 
   bool get isLoading => widget.isLoading;
@@ -118,12 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _resolveRoleIfNeeded() async {
     if (widget.userRole != null) {
-      _resolvedRole = widget.userRole;
+      setState(() => _resolvedRole = widget.userRole);
       return;
     }
     final profile = await CurrentUserRepository().fetchProfile();
     if (!mounted) return;
     setState(() => _resolvedRole = profile?.role);
+  }
+
+  Future<void> _loadFullProfile() async {
+    final user = await UserService.fetchProfile(context);
+    if (!mounted) return;
+    setState(() {
+      _fullUser = user;
+      _profilePictureUrl = user?.profilePicture;
+    });
   }
 
   Future<void> _handlePtCardTap(BuildContext ctx) async {
@@ -620,33 +635,16 @@ class _HomeScreenState extends State<HomeScreen> {
           if (isLoading)
             const CircleAvatarSkeleton(size: 48)
           else
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.orange.shade400, Colors.orange.shade600],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacityRatio(0.28),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.person, color: Colors.white),
-            ),
+            _buildProfileAvatar(),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isLoading ? 'Chào bạn' : 'Chào, $userName',
+                  isLoading
+                      ? 'Chào bạn'
+                      : 'Chào, ${(_fullUser != null && _fullUser!.name.isNotEmpty) ? _fullUser!.name : userName}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -688,6 +686,76 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    final url = _profilePictureUrl;
+    if (url != null && url.isNotEmpty) {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(.45),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (c, e, s) => _fallbackAvatar(),
+          loadingBuilder: (c, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: Colors.white.withOpacity(.05),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    value: progress.expectedTotalBytes != null
+                        ? progress.cumulativeBytesLoaded /
+                              (progress.expectedTotalBytes ?? 1)
+                        : null,
+                    color: Colors.orange.shade400,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return _fallbackAvatar();
+  }
+
+  Widget _fallbackAvatar() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade400, Colors.orange.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacityRatio(0.28),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.person, color: Colors.white),
     );
   }
 
@@ -734,9 +802,9 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           _DiscoverItem(
-            label: 'Thành tựu',
-            subtitle: 'Badges & cột mốc',
-            icon: Icons.emoji_events,
+            label: 'Cuộc hẹn',
+            subtitle: 'Lịch hẹn & theo dõi',
+            icon: Icons.event_available,
             gradient: const [
               Color(0xFF3A1C71),
               Color(0xFFD76D77),
@@ -744,7 +812,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
             onTap: () {
               Navigator.of(outerCtx).push(
-                MaterialPageRoute(builder: (_) => const AchievementsScreen()),
+                MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
               );
             },
           ),
@@ -762,7 +830,13 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: dynamicSubtitle,
             icon: userRole == 'COACH' ? Icons.group : Icons.person_pin_circle,
             gradient: const [Color(0xFF141E30), Color(0xFF243B55)],
-            onTap: () => _handlePtCardTap(outerCtx),
+            onTap: () => role == 'COACH'
+                ? Navigator.of(outerCtx).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CoachGymersScreen(),
+                    ),
+                  )
+                : _handlePtCardTap(outerCtx),
           ),
         ];
         final width = constraints.maxWidth;

@@ -86,6 +86,13 @@ export class UserProfileDto {
   })
   height: number | null;
 
+  @ApiProperty({
+    description: 'Estimated one-repetition max (1RM) in kg',
+    example: 120.0,
+    nullable: true,
+  })
+  oneRm: number | null;
+
   @ApiProperty({ 
     description: 'User fitness goal',
     enum: FitnessGoal,

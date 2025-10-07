@@ -78,6 +78,27 @@ class TrainingRequestsRepository {
     }
   }
 
+  /// Fetch all ACCEPTED training requests for a coach (across all gymers)
+  Future<List<Map<String, dynamic>>> fetchAcceptedByCoach({
+    required String coachId,
+  }) async {
+    final path = '/training-requests?coachId=$coachId&status=ACCEPTED';
+    if (kDebugMode) debugPrint('[API][REQ] GET $path');
+    final res = await _api.requestJson('GET', path);
+    if (!res.ok || res.raw is! List) return [];
+    try {
+      return (res.raw as List)
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[API][ERR] acceptedByCoach parse: $e');
+      }
+      return [];
+    }
+  }
+
   Future<TrainingRequestModel?> create({
     required String gymerId,
     required String coachId,
@@ -104,5 +125,13 @@ class TrainingRequestsRepository {
         debugPrint('[API][ERR] training-requests create parse: $e');
       return null;
     }
+  }
+
+  /// Cancel/remove a training request (used for ending a contract)
+  Future<bool> remove({required String id}) async {
+    final path = '/training-requests/$id';
+    if (kDebugMode) debugPrint('[API][REQ] DELETE $path');
+    final res = await _api.requestJson('DELETE', path);
+    return res.ok;
   }
 }

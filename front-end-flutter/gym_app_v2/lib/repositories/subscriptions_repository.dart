@@ -21,4 +21,29 @@ class SubscriptionsRepository {
     }
     return response.asModelList(SubscriptionPlanModel.fromJson);
   }
+
+  Future<bool> purchase({
+    required String planId,
+    required String method,
+    required String providerToken,
+  }) async {
+    final body = {
+      'planId': planId,
+      'method': method,
+      'providerToken': providerToken,
+    };
+    final response = await ApiClient.instance.requestJson(
+      'POST',
+      '/subscriptions/purchase',
+      body: body,
+    );
+    if (!response.ok) {
+      AppLogger.error(
+        'Purchase failed: status=${response.status} err=${response.error}',
+        tag: 'SubscriptionsRepo',
+      );
+      return false;
+    }
+    return true;
+  }
 }
