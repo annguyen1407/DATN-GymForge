@@ -478,7 +478,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen>
     final totalPlanned = _plannedTotalCache == 0
         ? _loggedDistinctCountCache
         : _plannedTotalCache;
-    final completedLabel = '${_loggedDistinctCountCache}/$totalPlanned';
+    final completedLabel = '$_loggedDistinctCountCache/$totalPlanned';
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1239,7 +1239,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen>
 
 /// Widget hiển thị trạng thái rỗng khi không có bài tập nào
 class _EmptyStateWidget extends StatelessWidget {
-  const _EmptyStateWidget({Key? key}) : super(key: key);
+  const _EmptyStateWidget();
 
   @override
   Widget build(BuildContext context) {

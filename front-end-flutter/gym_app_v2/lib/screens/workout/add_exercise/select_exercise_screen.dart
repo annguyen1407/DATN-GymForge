@@ -80,9 +80,10 @@ class _SelectExerciseScreenState extends State<SelectExerciseScreen> {
     _filtered = _all
         .where((e) => _query.isEmpty || e.name.toLowerCase().contains(_query))
         .toList();
-    if (resetPage)
+    if (resetPage) {
       _page = 1;
-    else if (_page > _totalPages)
+    } else if (_page > _totalPages)
+      // ignore: curly_braces_in_flow_control_structures
       _page = _totalPages;
     setState(() {});
   }

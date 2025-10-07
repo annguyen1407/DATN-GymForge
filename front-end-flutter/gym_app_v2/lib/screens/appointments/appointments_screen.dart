@@ -69,8 +69,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       _upcomingAppointments.sort((a, b) {
         final aConfirmed = a.status.toUpperCase() == 'CONFIRMED' ? 0 : 1;
         final bConfirmed = b.status.toUpperCase() == 'CONFIRMED' ? 0 : 1;
-        if (aConfirmed != bConfirmed)
+        if (aConfirmed != bConfirmed) {
           return aConfirmed - bConfirmed; // 0 trước 1
+        }
         final aDate = a.date;
         final bDate = b.date;
         if (aDate == null && bDate == null) return 0;

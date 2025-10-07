@@ -13,7 +13,7 @@ class WorkoutExerciseCard extends StatelessWidget {
   final int totalSets;
 
   const WorkoutExerciseCard({
-    Key? key,
+    super.key,
     required this.exercise,
     required this.index,
     required this.isActive,
@@ -21,7 +21,7 @@ class WorkoutExerciseCard extends StatelessWidget {
     required this.isSkipped,
     required this.setsDone,
     required this.totalSets,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -188,10 +188,9 @@ class WorkoutExerciseCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          '${exercise.repsCount} reps • ' +
-                              (exercise.weight == 0
+                          '${exercise.repsCount} reps • ${exercise.weight == 0
                                   ? 'Bodyweight'
-                                  : '${exercise.weight}kg'),
+                                  : '${exercise.weight}kg'}',
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 11.5,

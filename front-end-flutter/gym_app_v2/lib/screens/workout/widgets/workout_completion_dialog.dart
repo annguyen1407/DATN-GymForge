@@ -44,7 +44,7 @@ class WorkoutCompletionDialog extends StatefulWidget {
   final String? completeButtonLabel;
 
   const WorkoutCompletionDialog({
-    Key? key,
+    super.key,
     required this.exercises,
     required this.workoutData,
     this.params,
@@ -52,7 +52,7 @@ class WorkoutCompletionDialog extends StatefulWidget {
     this.isUploading = false,
     this.uploadStatus = '',
     this.completeButtonLabel,
-  }) : super(key: key);
+  });
 
   @override
   State<WorkoutCompletionDialog> createState() =>
@@ -121,7 +121,7 @@ class _WorkoutCompletionDialogState extends State<WorkoutCompletionDialog> {
   String _formatTime(int seconds) {
     final mins = seconds ~/ 60;
     final secs = seconds % 60;
-    return '${mins}:${secs.toString().padLeft(2, '0')}';
+    return '$mins:${secs.toString().padLeft(2, '0')}';
   }
 
   Widget _buildStatLine(String label, String value) {

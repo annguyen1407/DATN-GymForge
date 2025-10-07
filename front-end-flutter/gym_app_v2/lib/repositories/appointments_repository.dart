@@ -241,8 +241,9 @@ class AppointmentsRepository {
         (res.raw as Map).cast<String, dynamic>(),
       );
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[API][ERR] appointment status update parse: $e');
+      }
       return null;
     }
   }

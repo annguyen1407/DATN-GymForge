@@ -347,8 +347,9 @@ class _WorkoutExerciseDetailScreenState
   bool _shouldShowStartButton() {
     // Ẩn nếu chưa load owner hoàn tất (tránh nháy), hoặc nếu xác định current != owner
     if (_loadingOwner) return false; // đợi xác định
-    if (_planOwnerUserId == null || _currentUserId == null)
+    if (_planOwnerUserId == null || _currentUserId == null) {
       return false; // thiếu dữ liệu => ẩn
+    }
     return _planOwnerUserId == _currentUserId;
   }
 
