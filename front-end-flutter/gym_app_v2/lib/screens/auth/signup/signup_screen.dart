@@ -28,6 +28,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _loading = false;
   String? _error;
   bool _obscurePassword = true;
+  String _selectedRole = 'GYMER'; // Default to GYMER
 
   Future<void> _signup() async {
     setState(() {
@@ -74,7 +75,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       "password": password,
       "username": username,
       "name": name,
-      "role": "GYMER",
+      "role": _selectedRole,
     };
     final result = await ApiService.signup(body);
     if (!mounted) return; // context safety
@@ -193,8 +194,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        // Email
                         AnimatedAppear(
-                          delay: const Duration(milliseconds: 180),
+                          delay: const Duration(milliseconds: 160),
                           dy: 12,
                           child: TextField(
                             controller: _emailController,
@@ -216,8 +218,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
+                        // Password
                         AnimatedAppear(
-                          delay: const Duration(milliseconds: 220),
+                          delay: const Duration(milliseconds: 200),
                           dy: 12,
                           child: TextField(
                             controller: _passwordController,
@@ -252,6 +255,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        // Role picker moved here
+                        AnimatedAppear(
+                          delay: const Duration(milliseconds: 240),
+                          dy: 12,
+                          child: _RolePickerField(
+                            value: _selectedRole,
+                            onChanged: (v) => setState(() => _selectedRole = v),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         const SizedBox(height: 12),
                         const AnimatedAppear(
                           delay: Duration(milliseconds: 260),
@@ -328,6 +342,142 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RolePickerField extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _RolePickerField({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final roleLabel = value == 'COACH' ? 'Huấn luyện viên' : 'Gymer';
+    return GestureDetector(
+      onTap: () => _openSheet(context),
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.grey[850],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.person, color: Colors.white54),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                roleLabel,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+            const Icon(Icons.expand_more, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 46,
+                height: 5,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              _RoleOption(
+                label: 'Gymer',
+                role: 'GYMER',
+                selected: value == 'GYMER',
+                onTap: () {
+                  onChanged('GYMER');
+                  Navigator.pop(ctx);
+                },
+              ),
+              _RoleOption(
+                label: 'Huấn luyện viên',
+                role: 'COACH',
+                selected: value == 'COACH',
+                onTap: () {
+                  onChanged('COACH');
+                  Navigator.pop(ctx);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RoleOption extends StatelessWidget {
+  final String role;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _RoleOption({
+    required this.role,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF8854FF).withOpacity(.15) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.person,
+              color: selected ? const Color(0xFF8854FF) : Colors.white54,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (selected)
+              const Icon(Icons.check_circle, color: Color(0xFF8854FF), size: 20)
+            else
+              const Icon(
+                Icons.radio_button_unchecked,
+                color: Colors.white30,
+                size: 20,
+              ),
+          ],
         ),
       ),
     );
