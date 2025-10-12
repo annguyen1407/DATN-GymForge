@@ -6,6 +6,8 @@
 node_modules/
 backend/dist/
 backend/.env*
+frontend/.env*
+
 
 # Flutter / Dart basic (detailed patterns handled inside project .gitignore)
 front-end-flutter/gym_app_v2/build/
@@ -57,3 +59,8 @@ coverage/
 #   **/*.md
 #   !README.md
 # but that would also hide design system and coding standards docs.
+
+
+
+
+

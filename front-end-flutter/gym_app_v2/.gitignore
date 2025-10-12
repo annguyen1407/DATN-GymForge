@@ -86,4 +86,7 @@ BACKEND_SCHEMA_REFERENCE.md
 firebase.json
 google-services.json
 GoogleService-Info.plist
-/frontend/gym_app_v2/lib/firebase_options.dart
+
+# Firebase auto-generated config
+firebase_options.dart
+
