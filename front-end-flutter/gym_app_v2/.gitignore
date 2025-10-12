@@ -63,3 +63,7 @@ package-lock.json
 pubspec.lock
 pubspec.yaml
 
+
+.env
+.flutter-plugins-dependencies
+firebase.json
