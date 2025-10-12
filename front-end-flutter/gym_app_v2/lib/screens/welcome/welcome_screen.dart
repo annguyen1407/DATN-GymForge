@@ -61,15 +61,6 @@ class WelcomeScreen extends StatelessWidget {
                           onPressed: () =>
                               Navigator.pushNamed(context, '/signup'),
                         ),
-                        const SizedBox(height: 16),
-                        AppButton.secondary(
-                          label: 'Tiếp tục với Google',
-                          size: AppButtonSize.large,
-                          onPressed: () {
-                            // TODO: Xử lý đăng nhập Google
-                          },
-                          leadingIcon: Icons.g_mobiledata_rounded,
-                        ),
                         const SizedBox(height: 32),
                       ],
                     ),

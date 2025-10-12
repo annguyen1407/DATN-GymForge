@@ -157,132 +157,138 @@ class _ExploreTabState extends State<ExploreTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 18),
-        SearchBox(
-          controller: _searchCtrl,
-          hint: 'Tìm template...',
-          variant: SearchBoxVariant.elevated,
-          onChanged: (v) => setState(() {
-            _searchTerm = v;
-            _applyFilters();
-          }),
-          onClear: () => setState(() {
-            _searchTerm = '';
-            _applyFilters();
-          }),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-        ),
-        const SizedBox(height: 14),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: SizedBox(
-            height: 92,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // "All" icon
-                Expanded(
-                  child: Center(
-                    child: _AllCategoryIcon(
-                      active: _selectedPlanType == null,
-                      onTap: () => _onSelect(null),
-                    ),
-                  ),
-                ),
-                for (final c in _categories) ...[
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside search box
+        FocusScope.of(context).unfocus();
+      },
+      child: Column(
+        children: [
+          const SizedBox(height: 18),
+          SearchBox(
+            controller: _searchCtrl,
+            hint: 'Tìm template...',
+            variant: SearchBoxVariant.elevated,
+            onChanged: (v) => setState(() {
+              _searchTerm = v;
+              _applyFilters();
+            }),
+            onClear: () => setState(() {
+              _searchTerm = '';
+              _applyFilters();
+            }),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SizedBox(
+              height: 92,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // "All" icon
                   Expanded(
                     child: Center(
-                      child: _SelectableCategoryIcon(
-                        category: c,
-                        active: _selectedPlanType == c.planType,
-                        onTap: () => _onSelect(
-                          _selectedPlanType == c.planType ? null : c.planType,
-                        ),
+                      child: _AllCategoryIcon(
+                        active: _selectedPlanType == null,
+                        onTap: () => _onSelect(null),
                       ),
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: Builder(
-            builder: (context) {
-              if (_initialLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (_error) {
-                return _ExploreErrorState(onRetry: _loadInitial);
-              }
-              if (_freeTemplates.isEmpty && _premiumTemplates.isEmpty) {
-                return _ExploreEmptyState(onRefresh: _loadInitial);
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                color: Colors.redAccent,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
-                  children: [
-                    if (_freeTemplates.isNotEmpty) ...[
-                      _SectionHeader(title: 'Miễn phí'),
-                      SizedBox(
-                        height: 250,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                          scrollDirection: Axis.horizontal,
-                          itemBuilder: (context, index) {
-                            final plan = _freeTemplates[index];
-                            final subtitle =
-                                '${plan.days} ngày • ${plan.exercisesCount} bài tập';
-                            return SizedBox(
-                              width: 270,
-                              child: WorkoutCard(
-                                image: plan.picture ?? '',
-                                title: plan.name,
-                                subtitle: subtitle,
-                                description: plan.description,
-                                badge: plan.planType,
-                                planType: plan.planType,
-                                tags: const [],
-                                compact: true,
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          WorkoutTemplateScreen(plan: plan),
-                                    ),
-                                  );
-                                  if (result != null) {
-                                    _refresh();
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 16),
-                          itemCount: _freeTemplates.length,
+                  for (final c in _categories) ...[
+                    Expanded(
+                      child: Center(
+                        child: _SelectableCategoryIcon(
+                          category: c,
+                          active: _selectedPlanType == c.planType,
+                          onTap: () => _onSelect(
+                            _selectedPlanType == c.planType ? null : c.planType,
+                          ),
                         ),
                       ),
-                    ],
-                    if (_premiumTemplates.isNotEmpty) ...[
-                      _SectionHeader(title: 'Premium'),
-                      SizedBox(height: 250, child: _buildPremiumList()),
-                    ],
+                    ),
                   ],
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
-    );
+          const SizedBox(height: 8),
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (_initialLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (_error) {
+                  return _ExploreErrorState(onRetry: _loadInitial);
+                }
+                if (_freeTemplates.isEmpty && _premiumTemplates.isEmpty) {
+                  return _ExploreEmptyState(onRefresh: _loadInitial);
+                }
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: Colors.redAccent,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
+                    children: [
+                      if (_freeTemplates.isNotEmpty) ...[
+                        _SectionHeader(title: 'Miễn phí'),
+                        SizedBox(
+                          height: 250,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                            scrollDirection: Axis.horizontal,
+                            itemBuilder: (context, index) {
+                              final plan = _freeTemplates[index];
+                              final subtitle =
+                                  '${plan.days} ngày • ${plan.exercisesCount} bài tập';
+                              return SizedBox(
+                                width: 270,
+                                child: WorkoutCard(
+                                  image: plan.picture ?? '',
+                                  title: plan.name,
+                                  subtitle: subtitle,
+                                  description: plan.description,
+                                  badge: plan.planType,
+                                  planType: plan.planType,
+                                  tags: const [],
+                                  compact: true,
+                                  onTap: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            WorkoutTemplateScreen(plan: plan),
+                                      ),
+                                    );
+                                    if (result != null) {
+                                      _refresh();
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 16),
+                            itemCount: _freeTemplates.length,
+                          ),
+                        ),
+                      ],
+                      if (_premiumTemplates.isNotEmpty) ...[
+                        _SectionHeader(title: 'Premium'),
+                        SizedBox(height: 250, child: _buildPremiumList()),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ), // Close Column
+    ); // Close GestureDetector
   }
 }
 
