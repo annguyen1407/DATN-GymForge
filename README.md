@@ -4,6 +4,39 @@ GymForge là ứng dụng di động hỗ trợ người tập gym quản lý qu
 
 Ứng dụng tập trung vào việc cá nhân hóa kế hoạch tập luyện, hỗ trợ người dùng ghi log từng buổi tập, tính toán tiến độ, quản lý lịch hẹn với huấn luyện viên và cung cấp nền tảng backend đủ rõ ràng để mở rộng thêm các nghiệp vụ phòng gym.
 
+## Góc nhìn business
+
+GymForge được thiết kế không chỉ như một ứng dụng ghi chép tập luyện, mà là một nền tảng kết nối giữa người tập gym và huấn luyện viên cá nhân. Bài toán kinh doanh chính của dự án nằm ở việc giảm rào cản khi người mới bắt đầu tập gym muốn tiếp cận kiến thức, giáo án và PT phù hợp, đồng thời tạo thêm kênh vận hành số cho huấn luyện viên.
+
+### Vấn đề thị trường
+
+- Người mới tập thường khó chọn bài tập, thiết bị và giáo án phù hợp với thể trạng.
+- Việc theo dõi tiến độ thủ công dễ thiếu nhất quán, khó đánh giá hiệu quả dài hạn.
+- Chi phí thuê PT trực tiếp tại phòng tập có thể cao, thiếu linh hoạt về lịch và địa điểm.
+- Huấn luyện viên cá nhân khó quản lý nhiều học viên nếu chỉ dùng chat, giấy ghi chú hoặc bảng tính.
+- Các ứng dụng tập luyện phổ biến thường mạnh về thư viện bài tập nhưng chưa tập trung đủ vào kết nối Gymer - Coach trong một quy trình hoàn chỉnh.
+
+### Giá trị mang lại
+
+- Với Gymer: có thể tìm plan, tập theo hướng dẫn, ghi log, theo dõi tiến độ, quản lý dinh dưỡng và kết nối với Coach khi cần hỗ trợ chuyên sâu.
+- Với Coach: có kênh nhận học viên, quản lý yêu cầu huấn luyện, tạo plan riêng, đặt lịch và theo dõi tiến độ học viên.
+- Với Admin hoặc đơn vị vận hành: có thể quản lý dữ liệu người dùng, bài tập, plan mẫu, gói premium và các nghiệp vụ nền tảng.
+
+### Mô hình doanh thu tiềm năng
+
+- Gói Premium cho người tập để mở khóa plan nâng cao, thống kê chuyên sâu hoặc tính năng cá nhân hóa.
+- Phí kết nối hoặc hoa hồng từ các yêu cầu huấn luyện giữa Gymer và Coach.
+- Gói tài khoản Coach với các công cụ quản lý học viên nâng cao.
+- Bán hoặc phân phối workout plan mẫu theo mục tiêu: giảm mỡ, tăng cơ, sức mạnh, phục hồi, beginner.
+- Hợp tác với phòng gym để triển khai nội bộ cho hội viên và huấn luyện viên.
+
+### Lợi thế sản phẩm
+
+- Kết hợp tập luyện, log dữ liệu, dinh dưỡng, lịch hẹn và coach marketplace trong cùng một ứng dụng.
+- Dữ liệu tập luyện được cấu trúc hóa, giúp hệ thống có nền tảng để gợi ý plan và cá nhân hóa về sau.
+- Backend phân quyền rõ theo vai trò, phù hợp để mở rộng thành hệ thống vận hành thực tế.
+- Có thể phát triển tiếp các tính năng thương mại như subscription, thanh toán, coach ranking và báo cáo hiệu quả huấn luyện.
+
 ## Mục tiêu dự án
 
 - Hỗ trợ người tập lập và thực hiện kế hoạch tập luyện theo mục tiêu cá nhân.
