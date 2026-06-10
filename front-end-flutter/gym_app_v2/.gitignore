@@ -1,6 +1,4 @@
-# =====================================
-# 🧹 Miscellaneous / System Files
-# =====================================
+# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -13,80 +11,87 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-dump.rdb
 
-# =====================================
-# 💻 IDE / Editor Config
-# =====================================
+# IntelliJ related
 *.iml
 *.ipr
 *.iws
 .idea/
-.vscode/
-.metadata
-.firepit-log.txt
 
-# =====================================
-# 🐦 Flutter / Dart
-# =====================================
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-build/
-**/doc/api/
-**/ios/Flutter/.last_build_id
+/build/
 
-# =====================================
-# 📱 Android / iOS build artifacts
-# =====================================
-android/app/debug
-android/app/profile
-android/app/release
-ios/Flutter/
-ios/.symlinks/
-ios/Pods/
-ios/Runner.xcworkspace/
-ios/Runner.xcodeproj/project.xcworkspace/
-ios/DerivedData/
+# Symbolication related
+app.*.symbols
 
-# =====================================
-# 🔒 Environment / Secrets
-# =====================================
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment / secrets
 .env
-**/.env
 .env.*
-firebase.json
+!.env.example
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+*keystore*
+*credentials*
+*secret*
 google-services.json
 GoogleService-Info.plist
+key.properties
+local.properties
 
-# =====================================
-# 📦 Dependencies / Locks
-# =====================================
-package-lock.json
-pubspec.lock
+# Executables / binary build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.apk
+*.aab
+*.ipa
+*.app
+*.msix
+*.dmg
+*.pkg
 
-# =====================================
-# 🧱 Architecture / Docs
-# =====================================
+
+# ==============================
+# Documentation (Selective Ignore)
+# Mirror of root .gitignore so local commits inside this subfolder also skip
+# large or frequently regenerated architecture/schema docs.
+# Keep README, DESIGN_SYSTEM.md, CODING_STANDARDS.md tracked.
+# NOTE: If these files were already committed, run (from repo root):
+#   git rm --cached front-end-flutter/gym_app_v2/ARCHITECTURE.md \
+#     front-end-flutter/gym_app_v2/BACKEND_SCHEMA_REFERENCE.md
+# then commit.
+
 ARCHITECTURE.md
 BACKEND_SCHEMA_REFERENCE.md
 
-# =====================================
-# 🧰 Cache / Temp files
-# =====================================
-*.tmp
-*.bak
-*.old
-*.orig
-
-
-
-firebase.json
-google-services.json
-GoogleService-Info.plist
-
-# Firebase auto-generated config
-firebase_options.dart
-
+ios 
+package-lock.json
+pubspec.lock
+pubspec.yaml
