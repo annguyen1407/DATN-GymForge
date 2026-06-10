@@ -1,4 +1,6 @@
-# Miscellaneous
+# =====================================
+# 🧹 Miscellaneous / System Files
+# =====================================
 *.class
 *.log
 *.pyc
@@ -11,55 +13,80 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+dump.rdb
 
-# IntelliJ related
+# =====================================
+# 💻 IDE / Editor Config
+# =====================================
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
+.metadata
+.firepit-log.txt
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# =====================================
+# 🐦 Flutter / Dart
+# =====================================
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
 
-# Symbolication related
-app.*.symbols
+# =====================================
+# 📱 Android / iOS build artifacts
+# =====================================
+android/app/debug
+android/app/profile
+android/app/release
+ios/Flutter/
+ios/.symlinks/
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/project.xcworkspace/
+ios/DerivedData/
 
-# Obfuscation related
-app.*.map.json
+# =====================================
+# 🔒 Environment / Secrets
+# =====================================
+.env
+**/.env
+.env.*
+firebase.json
+google-services.json
+GoogleService-Info.plist
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# =====================================
+# 📦 Dependencies / Locks
+# =====================================
+package-lock.json
+pubspec.lock
 
-
-# ==============================
-# Documentation (Selective Ignore)
-# Mirror of root .gitignore so local commits inside this subfolder also skip
-# large or frequently regenerated architecture/schema docs.
-# Keep README, DESIGN_SYSTEM.md, CODING_STANDARDS.md tracked.
-# NOTE: If these files were already committed, run (from repo root):
-#   git rm --cached front-end-flutter/gym_app_v2/ARCHITECTURE.md \
-#     front-end-flutter/gym_app_v2/BACKEND_SCHEMA_REFERENCE.md
-# then commit.
-
+# =====================================
+# 🧱 Architecture / Docs
+# =====================================
 ARCHITECTURE.md
 BACKEND_SCHEMA_REFERENCE.md
 
-ios 
-package-lock.json
-pubspec.lock
-pubspec.yaml
+# =====================================
+# 🧰 Cache / Temp files
+# =====================================
+*.tmp
+*.bak
+*.old
+*.orig
+
+
+
+firebase.json
+google-services.json
+GoogleService-Info.plist
+
+# Firebase auto-generated config
+firebase_options.dart
 
