@@ -41,47 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAFruzl8gY2p8WHfVzC-fKK3pJGeDSJTzY',
-    appId: '1:296711123301:web:db7e3bd27d6349c4a8318c',
-    messagingSenderId: '296711123301',
-    projectId: 'gymapp-8dacc',
-    authDomain: 'gymapp-8dacc.firebaseapp.com',
-    storageBucket: 'gymapp-8dacc.firebasestorage.app',
+    apiKey: 'AIzaSyCm_wWHMCGGqJHEXLpqVNgYIjQaTVd1FNE',
+    appId: '1:214350663878:web:76783f8cc8f9394834c7c7',
+    messagingSenderId: '214350663878',
+    projectId: 'gymapp-a66c6',
+    authDomain: 'gymapp-a66c6.firebaseapp.com',
+    storageBucket: 'gymapp-a66c6.firebasestorage.app',
+    measurementId: 'G-451RXBH37D',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB5cqukkIAycVYbEYxkQ_-InTlQu6614h8',
-    appId: '1:296711123301:android:923ff8f51bb2610ea8318c',
-    messagingSenderId: '296711123301',
-    projectId: 'gymapp-8dacc',
-    storageBucket: 'gymapp-8dacc.firebasestorage.app',
+    apiKey: 'AIzaSyDnL0EU4vyyVNVur8MM-QrpURqbOLeyLBk',
+    appId: '1:214350663878:android:d386014353f97db534c7c7',
+    messagingSenderId: '214350663878',
+    projectId: 'gymapp-a66c6',
+    storageBucket: 'gymapp-a66c6.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyC0VfzPB2LadBIDW2XTygFlGZ_5FgTZLBc',
-    appId: '1:296711123301:ios:21ada060ee9a0072a8318c',
-    messagingSenderId: '296711123301',
-    projectId: 'gymapp-8dacc',
-    storageBucket: 'gymapp-8dacc.firebasestorage.app',
+    apiKey: 'AIzaSyBTz7Pr23qL_F7lxSHuaTggtMvLojDXOr4',
+    appId: '1:214350663878:ios:83549b18018f21cd34c7c7',
+    messagingSenderId: '214350663878',
+    projectId: 'gymapp-a66c6',
+    storageBucket: 'gymapp-a66c6.firebasestorage.app',
     iosBundleId: 'com.churiah.gymAppV2',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyC0VfzPB2LadBIDW2XTygFlGZ_5FgTZLBc',
-    appId: '1:296711123301:ios:de0ad88f9c7a612fa8318c',
-    messagingSenderId: '296711123301',
-    projectId: 'gymapp-8dacc',
-    storageBucket: 'gymapp-8dacc.firebasestorage.app',
+    apiKey: 'AIzaSyBTz7Pr23qL_F7lxSHuaTggtMvLojDXOr4',
+    appId: '1:214350663878:ios:25a818d67486511e34c7c7',
+    messagingSenderId: '214350663878',
+    projectId: 'gymapp-a66c6',
+    storageBucket: 'gymapp-a66c6.firebasestorage.app',
     iosBundleId: 'com.example.gymAppV2',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAFruzl8gY2p8WHfVzC-fKK3pJGeDSJTzY',
-    appId: '1:296711123301:web:437e1d66b524236ea8318c',
-    messagingSenderId: '296711123301',
-    projectId: 'gymapp-8dacc',
-    authDomain: 'gymapp-8dacc.firebaseapp.com',
-    storageBucket: 'gymapp-8dacc.firebasestorage.app',
+    apiKey: 'AIzaSyCm_wWHMCGGqJHEXLpqVNgYIjQaTVd1FNE',
+    appId: '1:214350663878:web:57e72b0a66b57f1d34c7c7',
+    messagingSenderId: '214350663878',
+    projectId: 'gymapp-a66c6',
+    authDomain: 'gymapp-a66c6.firebaseapp.com',
+    storageBucket: 'gymapp-a66c6.firebasestorage.app',
+    measurementId: 'G-NF9WLZQE2V',
   );
-
 }
