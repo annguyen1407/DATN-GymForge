@@ -365,7 +365,7 @@ Dự án này được phát triển cho mục đích học tập và nghiên c�
 ## 📞 Liên hệ và hỗ trợ
 
 - **Developer**: Nguyễn Thành An
-- **Email**: annguyen1407@gmail.com
+- **Email**: annguyen140701@gmail.com
 - **GitHub**: [@annguyen1407](https://github.com/annguyen1407)
 - **Project Repository**: [DATN-GymForge](https://github.com/annguyen1407/DATN-GymForge)
 
