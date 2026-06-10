@@ -44,6 +44,39 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
+*keystore*
+*credentials*
+*secret*
+google-services.json
+GoogleService-Info.plist
+key.properties
+local.properties
+
+# Executables / binary build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.apk
+*.aab
+*.ipa
+*.app
+*.msix
+*.dmg
+*.pkg
+
 
 # ==============================
 # Documentation (Selective Ignore)
@@ -62,4 +95,3 @@ ios
 package-lock.json
 pubspec.lock
 pubspec.yaml
-
