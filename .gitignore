@@ -6,10 +6,35 @@
 node_modules/
 backend/dist/
 backend/.env*
+backend/**/*.env*
+backend/**/serviceAccount*.json
+backend/**/*service-account*.json
+backend/**/*secret*.json
+backend/**/*private*.json
+backend/**/*key*.json
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # Flutter / Dart basic (detailed patterns handled inside project .gitignore)
 front-end-flutter/gym_app_v2/build/
 **/dart_tool/
+
+# Firebase / Google generated local config
+firebase.json
+**/firebase.json
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+firebase_options.dart
+**/firebase_options.dart
+!**/firebase_options.dart.example
 
 # OS / IDE
 .DS_Store

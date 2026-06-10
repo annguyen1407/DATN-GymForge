@@ -44,6 +44,25 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Environment / secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Firebase / Google generated local config
+firebase.json
+**/firebase.json
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+firebase_options.dart
+**/firebase_options.dart
+!**/firebase_options.dart.example
+
 
 # ==============================
 # Documentation (Selective Ignore)
@@ -62,4 +81,3 @@ ios
 package-lock.json
 pubspec.lock
 pubspec.yaml
-
