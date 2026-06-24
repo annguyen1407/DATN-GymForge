@@ -10,29 +10,55 @@ Một số màn hình demo được trích từ báo cáo đồ án tốt nghi�
 
 ### Luồng người dùng
 
-| Đăng nhập / đăng ký | Thiết lập hồ sơ | Trang chủ |
-| --- | --- | --- |
-| <img src="docs/demo/auth.jpg" alt="Giao diện đăng nhập và đăng ký" width="260"> | <img src="docs/demo/profile-setup.jpg" alt="Giao diện thiết lập hồ sơ" width="260"> | <img src="docs/demo/home.jpg" alt="Giao diện trang chủ" width="260"> |
+#### Đăng nhập, thiết lập hồ sơ và trang chủ
 
-| Tìm kiếm huấn luyện viên | Quản lý học viên | Lịch hẹn |
-| --- | --- | --- |
-| <img src="docs/demo/coach-discovery.jpg" alt="Giao diện tìm kiếm huấn luyện viên" width="260"> | <img src="docs/demo/coach-students.jpg" alt="Giao diện quản lý học viên" width="260"> | <img src="docs/demo/appointments.jpg" alt="Giao diện lịch hẹn" width="260"> |
+<p align="center">
+  <img src="docs/demo/auth.jpg" alt="Giao diện đăng nhập và đăng ký" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/demo/profile-setup.jpg" alt="Giao diện thiết lập hồ sơ" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/demo/home.jpg" alt="Giao diện trang chủ" width="760">
+</p>
+
+#### Kết nối huấn luyện viên và lịch hẹn
+
+<p align="center">
+  <img src="docs/demo/coach-discovery.jpg" alt="Giao diện tìm kiếm huấn luyện viên" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/demo/coach-students.jpg" alt="Giao diện quản lý học viên" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/demo/appointments.jpg" alt="Giao diện lịch hẹn" width="760">
+</p>
 
 ### Tập luyện và theo dõi tiến độ
 
-| Kế hoạch tập luyện | Buổi tập | Kết quả buổi tập |
-| --- | --- | --- |
-| <img src="docs/demo/workout-plans.jpg" alt="Giao diện kế hoạch tập luyện" width="260"> | <img src="docs/demo/workout-session.jpg" alt="Giao diện đang tập luyện" width="260"> | <img src="docs/demo/workout-result.jpg" alt="Giao diện kết quả buổi tập" width="260"> |
+<p align="center">
+  <img src="docs/demo/workout-plans.jpg" alt="Giao diện kế hoạch tập luyện" width="760">
+</p>
 
-| Nhật ký tập luyện | Trang cá nhân / Premium |
-| --- | --- |
-| <img src="docs/demo/training-log.jpg" alt="Giao diện nhật ký tập luyện" width="260"> | <img src="docs/demo/profile-and-premium.jpg" alt="Giao diện trang cá nhân và Premium" width="260"> |
+<p align="center">
+  <img src="docs/demo/workout-session.jpg" alt="Giao diện đang tập luyện" width="760">
+</p>
 
-### Quản trị hệ thống
+<p align="center">
+  <img src="docs/demo/workout-result.jpg" alt="Giao diện kết quả buổi tập" width="760">
+</p>
 
-| Quản lý bài tập | Quản lý người dùng | Quản lý plan |
-| --- | --- | --- |
-| <img src="docs/demo/admin-exercises.jpg" alt="Giao diện quản lý bài tập" width="260"> | <img src="docs/demo/admin-users.jpg" alt="Giao diện quản lý người dùng" width="260"> | <img src="docs/demo/admin-plans.jpg" alt="Giao diện quản lý plan" width="260"> |
+<p align="center">
+  <img src="docs/demo/training-log.jpg" alt="Giao diện nhật ký tập luyện" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/demo/profile-and-premium.jpg" alt="Giao diện trang cá nhân và Premium" width="760">
+</p>
 
 ## Góc nhìn business
 
